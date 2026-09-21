@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="320" viewBox="0 0 960 320" role="img" aria-labelledby="title">
+  <title id="title">Gateway logo — black and amber routing mark</title>
+  <rect width="960" height="320" rx="24" fill="#080809"/>
+  <g transform="translate(272 104) scale(1.75)"><rect width="64" height="64" rx="18" fill="#ffaf35"/>
+    <path d="M14 27h12l12-12h13v10h-8l-7 7 7 7h8v10H38L26 37H14Z" fill="#151516"/></g>
+  <g font-family="Inter,Segoe UI,Arial,sans-serif">
+    <text x="415" y="171" font-size="70" font-weight="750" letter-spacing="-3" fill="#f7f7f8">gateway<tspan fill="#ffaf35">.</tspan></text>
+    <text x="419" y="200" font-size="13" font-weight="500" letter-spacing="3.2" fill="#8e8e98">NGINX SCALE GATEWAY</text>
+  </g>
+</svg>

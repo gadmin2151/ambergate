@@ -483,10 +483,10 @@ dialog::backdrop { background: #161826ac; backdrop-filter: blur(5px); }
 body { background: #080809; }
 .workspace { background: #080809; min-height: 100vh; }
 .sidebar { background: #050506; color: #a5a5ad; border-right: 1px solid #303032; }
-.brand { color: #f8f8f9; }
-.brand img { width: 43px; height: 43px; border-radius: 13px; }
+.brand { color: #f8f8f9; font-weight: 750; letter-spacing: -1px; }
+.brand img { width: 44px; height: 44px; border-radius: 0; flex-shrink: 0; }
 .brand-period { color: #ffaf35; }
-.brand small { color: #77777f; letter-spacing: .85px; }
+.brand small { color: #8e8e98; letter-spacing: 1.05px; }
 .workspace-switch { background: #171719; border-color: #343437; }
 .workspace-symbol { background: #332b20; color: #ffaf35; }
 .workspace-switch strong { color: #eaeaed; }

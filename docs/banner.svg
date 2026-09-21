@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="420" viewBox="0 0 1280 420" role="img" aria-label="Nginx Scale Gateway — your traffic, your rules">
   <defs>
-    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#202022"/><stop offset="1" stop-color="#151516"/></linearGradient>
+    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#151516"/><stop offset="1" stop-color="#080809"/></linearGradient>
     <linearGradient id="accent"><stop stop-color="#ffcf7f"/><stop offset=".5" stop-color="#ffaf35"/><stop offset="1" stop-color="#ffaf35"/></linearGradient>
     <radialGradient id="glow"><stop stop-color="#c98320" stop-opacity=".35"/><stop offset="1" stop-color="#c98320" stop-opacity="0"/></radialGradient>
     <pattern id="grid" width="28" height="28" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".65" fill="#9e907c" opacity=".22"/></pattern>
@@ -8,12 +8,10 @@
   <rect width="1280" height="420" rx="20" fill="url(#bg)"/>
   <rect width="1280" height="420" rx="20" fill="url(#grid)"/>
   <ellipse cx="960" cy="200" rx="430" ry="330" fill="url(#glow)"/>
-  <g transform="translate(55 57)">
-    <rect width="60" height="60" rx="17" fill="#33291e" stroke="#a67937" stroke-opacity=".6"/>
-    <g transform="translate(-2 -2)"><path d="M37 15H24a9 9 0 0 0-9 9v16a9 9 0 0 0 9 9h13" fill="none" stroke="url(#accent)" stroke-width="6" stroke-linecap="round"/><path d="M29 32h22m-8-8 8 8-8 8" fill="none" stroke="url(#accent)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="15" cy="32" r="3" fill="#ffe2af"/></g>
-  </g>
+  <g transform="translate(55 57) scale(.9375)"><rect width="64" height="64" rx="18" fill="#ffaf35"/>
+    <path d="M14 27h12l12-12h13v10h-8l-7 7 7 7h8v10H38L26 37H14Z" fill="#151516"/></g>
   <g font-family="Inter,Segoe UI,Arial,sans-serif">
-    <text x="131" y="83" font-size="27" font-weight="650" fill="#fefaf4">gateway<tspan fill="#ffaf35">.</tspan></text>
+    <text x="131" y="83" font-size="29" font-weight="750" letter-spacing="-1" fill="#fefaf4">gateway<tspan fill="#ffaf35">.</tspan></text>
     <text x="132" y="105" font-size="10" letter-spacing="2.5" fill="#aea291">NGINX SCALE GATEWAY</text>
     <text x="55" y="185" font-size="46" font-weight="650" letter-spacing="-1.5" fill="#fef9f1">Your traffic.</text>
     <text x="55" y="242" font-size="46" font-weight="650" letter-spacing="-1.5" fill="url(#accent)">Your rules.</text>
