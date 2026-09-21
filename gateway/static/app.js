@@ -89,6 +89,16 @@ function setModal(title, subtitle, content, submit, button='Сохранить')
   });
   if (!modal.open) modal.showModal();
 }
+function confirmAction(title, description, detail, label='Подтвердить', danger=false) {
+  const dialog = $('#confirm-modal');
+  if (dialog.open) return Promise.resolve(false);
+  dialog.returnValue = 'cancel';
+  dialog.innerHTML = `<form method="dialog"><div class="confirm-content"><span class="confirm-symbol">${icon(danger ? 'trash' : 'info')}</span><h2 id="confirm-title">${esc(title)}</h2><p id="confirm-description">${esc(description)}</p>${detail ? `<div class="confirm-detail">${esc(detail)}</div>` : ''}<p class="confirm-hint">${danger ? 'После удаления сохраните черновик или примените изменения. ' : ''}Рабочая конфигурация обновится после «Применить».</p></div><div class="form-actions"><button type="submit" value="cancel" autofocus>Отмена</button><button type="submit" value="confirm" class="${danger ? 'confirm-delete' : 'primary'}">${icon(danger ? 'trash' : 'check')}${esc(label)}</button></div></form>`;
+  return new Promise(resolve => {
+    dialog.addEventListener('close', () => resolve(dialog.returnValue === 'confirm'), {once:true});
+    dialog.showModal();
+  });
+}
 function field(label, name, value, type='text', extra='', hint='') {
   return `<label>${label}<input name="${name}" type="${type}" value="${esc(value)}" ${extra}>${hint ? `<small>${hint}</small>` : ''}</label>`;
 }
@@ -100,6 +110,7 @@ function newRoute(path='/', name='Frontend', address='frontend', port=3000) {
 
 function showLogin() {
   config = null;
+  if ($('#confirm-modal').open) $('#confirm-modal').close('cancel');
   if ($('#modal').open) $('#modal').close();
   $('#app').innerHTML = `<div class="login-page"><section class="login-art"><div class="brand"><img src="/favicon.svg" alt=""><div>gateway<span class="brand-period">.</span><small>YOUR TRAFFIC, YOUR RULES</small></div></div><div><div class="eyebrow">Один вход. Все приложения.</div><h1>Все приложения.<br><span>Один gateway.</span></h1><div class="login-flow"><span>example.com</span><i></i><div><code>/</code><code>/api</code><code>/s3</code></div></div><p>Маршруты, балансировка и защита приложений — в одной панели управления Nginx.</p></div><div class="eyebrow">Self-hosted · Local configuration · HTTP gateway</div></section><section class="login-form-wrap"><form id="login" class="login-form"><div class="mobile-brand"><img src="/favicon.svg" alt="Gateway"></div><div class="eyebrow">Панель управления</div><br><h2>Добро пожаловать</h2><p>Войдите, чтобы настроить ваш gateway.</p>${field('Пароль администратора','password','','password','required autocomplete="current-password" autofocus')}<div class="error" id="login-error"></div><button type="submit" class="primary">Войти в Gateway ${icon('arrow')}</button><p class="hint">При первом запуске пароль задаётся через GATEWAY_ADMIN_PASSWORD или выводится в логах контейнера.</p></form></section></div>`;
   $('#login').addEventListener('submit', async event => {
@@ -190,8 +201,8 @@ function bindRouteSearch() {
 function hostCard(host) {
   return `<article class="host-card ${host.enabled ? '' : 'host-disabled'}">
     <div class="host-head"><div class="host-title"><div class="domain-icon">${icon('globe')}</div><div><div class="domain-heading"><h3>${esc(host.domain)}</h3>${badge(host.enabled ? 'Включён' : 'Выключен',host.enabled ? 'green' : 'gray')}</div><p>${host.routes.length} ${plural(host.routes.length,'маршрут','маршрута','маршрутов')}<span>·</span>HTTP</p></div></div><div class="actions">${btn('add-route','Добавить маршрут','plus','small',`data-host="${host.id}"`)}${btn('edit-host','','sliders','ghost icon',`data-host="${host.id}" aria-label="Настройки домена ${esc(host.domain)}" title="Настройки домена"`)}</div></div>
-    <div class="route-columns"><span>ВХОДЯЩИЙ МАРШРУТ</span><span></span><span>ЦЕЛЕВЫЕ СЕРВЕРЫ</span><span>ПРАВИЛА</span><span></span></div>
-    <div class="route-list">${host.routes.map(route => routeCard(host,route)).join('')}</div>
+    ${host.routes.length ? '<div class="route-columns"><span>ВХОДЯЩИЙ МАРШРУТ</span><span></span><span>ЦЕЛЕВЫЕ СЕРВЕРЫ</span><span>ПРАВИЛА</span><span></span></div>' : ''}
+    <div class="route-list">${host.routes.length ? host.routes.map(route => routeCard(host,route)).join('') : '<div class="host-empty"><strong>У домена пока нет маршрутов</strong><p>Добавьте маршрут, чтобы направлять запросы к приложению. Домен без маршрутов отвечает 404.</p></div>'}</div>
     <div class="host-foot"><span>${icon('shield')}${config.settings.block_dotfiles ? 'Защита скрытых файлов' : 'Скрытые файлы разрешены'}</span><span>${icon('server')}${host.routes.reduce((n,r)=>n+r.targets.length,0)} ${plural(host.routes.reduce((n,r)=>n+r.targets.length,0),'сервер','сервера','серверов')}</span></div>
   </article>`;
 }
@@ -274,7 +285,7 @@ function editRoute(hostId, routeId) {
       <div class="form-intro"><h3>Куда приходит запрос</h3><p>Путь определяет, какие запросы попадут в этот маршрут.</p></div>
       <div class="grid">${field('Название маршрута','name',route.name,'text','required maxlength="80" placeholder="Backend API"')}${field('Путь на домене','path',route.path,'text','required placeholder="/api"')}</div>
       <div class="option-list">${check('<span><strong>Убирать префикс пути</strong><small>Передавать приложению путь без /api или другого префикса.</small></span>','strip_prefix',route.strip_prefix)}${check('<span><strong>Поддержка WebSocket</strong><small>Разрешить постоянные соединения с приложением.</small></span>','websocket',route.websocket)}</div><div class="path-preview" id="path-preview"></div>
-      ${existing && host.routes.length>1 ? `<div class="danger-zone">${btn('delete-route','Удалить маршрут','trash','danger ghost small',`data-host="${hostId}" data-route="${routeId}"`)}</div>` : ''}
+      ${existing ? `<div class="danger-zone">${btn('delete-route','Удалить маршрут','trash','danger ghost small',`data-host="${hostId}" data-route="${routeId}"`)}</div>` : ''}
     </section>
     <section data-route-panel="servers" id="panel-servers" role="tabpanel" aria-labelledby="tab-servers" hidden>
       <div class="form-intro"><h3>Серверы приложения</h3><p>Добавьте несколько серверов, чтобы распределять нагрузку между ними.</p></div>
@@ -330,21 +341,35 @@ document.addEventListener('click', async event=>{
     if (action === 'example') example();
     if (action === 'add-target') $('#target-editor').insertAdjacentHTML('beforeend',targetFields({address:'',port:8000,weight:1,backup:false}));
     if (action === 'remove-target') {if(document.querySelectorAll('.target-fields').length > 1) button.closest('.target-fields').remove(); else notify('Нужен хотя бы один сервер',true);}
-    if (action === 'delete-host' && confirm('Удалить домен и все его маршруты из черновика?')) {config.hosts = config.hosts.filter(h=>h.id !== button.dataset.host); $('#modal').close(); changed();}
-    if (action === 'delete-route' && confirm('Удалить маршрут из черновика?')) {const h=config.hosts.find(h=>h.id === button.dataset.host); h.routes=h.routes.filter(r=>r.id !== button.dataset.route); $('#modal').close(); changed();}
+    if (action === 'delete-host') {
+      const host = config.hosts.find(h=>h.id === button.dataset.host);
+      if (host && await confirmAction('Удалить домен?', 'Будут удалены домен и все его маршруты.', host.domain, 'Удалить домен', true)) {
+        config.hosts = config.hosts.filter(h=>h.id !== host.id); $('#modal').close(); changed();
+        notify('Домен удалён из редактора. Сохраните черновик или примените изменения.');
+      }
+    }
+    if (action === 'delete-route') {
+      const host = config.hosts.find(h=>h.id === button.dataset.host);
+      const route = host?.routes.find(r=>r.id === button.dataset.route);
+      if (route && await confirmAction('Удалить маршрут?', `Маршрут «${route.name}» будет удалён.`, host.domain + route.path, 'Удалить маршрут', true)) {
+        host.routes = host.routes.filter(r=>r.id !== route.id); $('#modal').close(); changed();
+        notify('Маршрут удалён из редактора. Сохраните черновик или примените изменения.');
+      }
+    }
     if (action === 'save') await task(async()=>{await saveDraft(); notify('Черновик сохранён');});
     if (action === 'apply') await task(async()=>{await saveDraft(); accept(await api('apply',{revision:state.revision})); await pollStatus(); notify('Конфигурация проверена и применена');});
     if (action === 'test') await task(async()=>{await saveDraft(); const result=await api('test',{revision:state.revision}); notify(result.output);});
     if (action === 'active-config') {await loadPreview(true); notify('Показан действующий nginx.conf');}
     if (action === 'copy-config') {const text=$('#preview').textContent; if (navigator.clipboard && window.isSecureContext) {await navigator.clipboard.writeText(text); notify('Скопировано');} else download('nginx.conf',text,'text/plain');}
-    if (action === 'restore' && (!dirty || confirm('Заменить несохранённые изменения выбранной версией?'))) await task(async()=>{accept(await api('restore',{generation:button.dataset.generation,revision:state.revision})); notify('Версия загружена в черновик. Нажмите «Применить».');});
+    if (action === 'restore' && (!dirty || await confirmAction('Загрузить версию?', 'Несохранённые изменения будут заменены выбранной версией.', '', 'Загрузить версию'))) await task(async()=>{accept(await api('restore',{generation:button.dataset.generation,revision:state.revision})); notify('Версия загружена в черновик. Нажмите «Применить».');});
     if (action === 'export') {collectSettings(); download('gateway-config.json',JSON.stringify(config,null,2),'application/json');}
-    if (action === 'import') {const input=document.createElement('input'); input.type='file'; input.accept='.json,application/json'; input.addEventListener('change',()=>task(async()=>{const file=input.files[0]; if(!file)return; if(file.size>1048576)throw new Error('Файл больше 1 MiB'); const candidate=JSON.parse(await file.text()); await api('preview',{config:candidate}); if(config.hosts.length && !confirm('Заменить текущий черновик импортированной конфигурацией?'))return; config=candidate; dirty=true; notify('Импортировано в редактор. Проверьте настройки и примените.');}));input.click();}
+    if (action === 'import') {const input=document.createElement('input'); input.type='file'; input.accept='.json,application/json'; input.addEventListener('change',()=>task(async()=>{const file=input.files[0]; if(!file)return; if(file.size>1048576)throw new Error('Файл больше 1 MiB'); const candidate=JSON.parse(await file.text()); await api('preview',{config:candidate}); if(config.hosts.length && !await confirmAction('Импортировать конфигурацию?', 'Текущие настройки редактора будут заменены конфигурацией из файла.', file.name, 'Импортировать'))return; config=candidate; dirty=true; notify('Импортировано в редактор. Проверьте настройки и примените.');}));input.click();}
     if (action === 'cache-size') setModal('Размер кеша','Общий лимит дискового кеша для всех маршрутов.',field('Размер, MiB','cache_mb',config.settings.cache_mb,'number','required min="1" max="1048576"'),data=>{config.settings.cache_mb=Number(data.get('cache_mb'));changed();});
     if (action === 'password') setModal('Новый пароль','После изменения потребуется войти снова.',`<div class="stack">${field('Текущий пароль','current','','password','required autocomplete="current-password"')}${field('Новый пароль','password','','password','required minlength="12" maxlength="256" autocomplete="new-password"')}</div>`,async data=>{await api('password',{current:data.get('current'),password:data.get('password')});csrf='';showLogin();notify('Пароль изменён. Войдите снова.');},'Изменить пароль');
   } catch(error) {notify(error.message,true);}
 });
 document.addEventListener('keydown', event=>{
+  if ($('#confirm-modal').open) return;
   const editable=event.target.closest('input,textarea,select,[contenteditable=true]');
   if(event.target.matches('[data-action="route-tab"]') && ['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) {
     event.preventDefault(); const buttons=[...document.querySelectorAll('[data-action="route-tab"]')];

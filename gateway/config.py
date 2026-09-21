@@ -98,7 +98,7 @@ def validate(config):
             fail(hp, "домен уже существует")
         domains.add(host["domain"].lower())
         boolean(host["enabled"], hp + ".enabled")
-        sequence(host["routes"], 1, 50, hp + ".routes")
+        sequence(host["routes"], 0, 50, hp + ".routes")
         paths = set()
         for ri, route in enumerate(host["routes"]):
             rp = f"{hp}.routes[{ri}]"

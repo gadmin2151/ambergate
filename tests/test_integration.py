@@ -181,6 +181,29 @@ class GatewayIntegrationTests(unittest.TestCase):
         ru = request(self.port, "/vary", headers={"Accept-Language": "ru"})
         self.assertNotEqual(en[2], ru[2])
 
+    def test_deleting_routes_persists_and_last_route_returns_404(self):
+        host = self.config["hosts"][0]
+        host["routes"].append(route("/api", self.backends[1].server_port, "api"))
+        self.apply_config()
+        # Removing the root route must keep the remaining /api destination.
+        host["routes"] = [host["routes"][1]]
+        saved = self.store.save(self.config, self.store.snapshot()["revision"])
+        self.assertEqual(request(self.port)[0], 200)
+        self.store.apply(saved["revision"])
+        self.assertEqual(request(self.port)[0], 404)
+        self.assertEqual(json.loads(request(self.port, "/api")[2])["server"],
+                         self.backends[1].server_port)
+        host["routes"] = []
+        saved = self.store.save(self.config, self.store.snapshot()["revision"])
+        self.assertEqual(saved["config"]["hosts"][0]["routes"], [])
+        self.store.apply(saved["revision"])
+        self.store.stop()
+        self.store.start()
+        self.assertEqual(self.store.draft_config()["hosts"][0]["routes"], [])
+        self.assertEqual(self.store.active_config()["hosts"][0]["domain"], "gateway.test")
+        self.assertEqual(request(self.port)[0], 404)
+        self.assertEqual(request(self.port, "/api")[0], 404)
+
     def test_limits_trusted_ip_and_forwarded_headers(self):
         s = self.config["settings"]
         s.update(rate_rps=1, rate_burst=0, trusted_proxies=["127.0.0.1/32"])
