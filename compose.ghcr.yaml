@@ -1,0 +1,29 @@
+services:
+  gateway:
+    image: ghcr.io/gadmin2151/nginx-scale-gw:latest
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "127.0.0.1:8083:8083"
+    environment:
+      GATEWAY_ADMIN_PASSWORD: ${GATEWAY_ADMIN_PASSWORD:-}
+      GATEWAY_SECURE_COOKIE: ${GATEWAY_SECURE_COOKIE:-false}
+    volumes:
+      - gateway-data:/data
+      - gateway-cache:/cache
+    networks:
+      - gateway
+    stop_grace_period: 35s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  gateway-data:
+  gateway-cache:
+
+networks:
+  gateway:
+    name: nginx-gateway

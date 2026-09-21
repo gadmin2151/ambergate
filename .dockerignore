@@ -1,0 +1,13 @@
+.git
+.agents
+.codex
+__pycache__
+**/__pycache__
+data
+.env
+test-results
+docs
+tests
+.github
+README.md
+nginx.conf

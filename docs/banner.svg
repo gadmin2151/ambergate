@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="420" viewBox="0 0 1280 420" role="img" aria-label="Nginx Scale Gateway — your traffic, your rules">
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#202022"/><stop offset="1" stop-color="#151516"/></linearGradient>
+    <linearGradient id="accent"><stop stop-color="#ffcf7f"/><stop offset=".5" stop-color="#ffaf35"/><stop offset="1" stop-color="#ffaf35"/></linearGradient>
+    <radialGradient id="glow"><stop stop-color="#c98320" stop-opacity=".35"/><stop offset="1" stop-color="#c98320" stop-opacity="0"/></radialGradient>
+    <pattern id="grid" width="28" height="28" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".65" fill="#9e907c" opacity=".22"/></pattern>
+  </defs>
+  <rect width="1280" height="420" rx="20" fill="url(#bg)"/>
+  <rect width="1280" height="420" rx="20" fill="url(#grid)"/>
+  <ellipse cx="960" cy="200" rx="430" ry="330" fill="url(#glow)"/>
+  <g transform="translate(55 57)">
+    <rect width="60" height="60" rx="17" fill="#33291e" stroke="#a67937" stroke-opacity=".6"/>
+    <g transform="translate(-2 -2)"><path d="M37 15H24a9 9 0 0 0-9 9v16a9 9 0 0 0 9 9h13" fill="none" stroke="url(#accent)" stroke-width="6" stroke-linecap="round"/><path d="M29 32h22m-8-8 8 8-8 8" fill="none" stroke="url(#accent)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="15" cy="32" r="3" fill="#ffe2af"/></g>
+  </g>
+  <g font-family="Inter,Segoe UI,Arial,sans-serif">
+    <text x="131" y="83" font-size="27" font-weight="650" fill="#fefaf4">gateway<tspan fill="#ffaf35">.</tspan></text>
+    <text x="132" y="105" font-size="10" letter-spacing="2.5" fill="#aea291">NGINX SCALE GATEWAY</text>
+    <text x="55" y="185" font-size="46" font-weight="650" letter-spacing="-1.5" fill="#fef9f1">Your traffic.</text>
+    <text x="55" y="242" font-size="46" font-weight="650" letter-spacing="-1.5" fill="url(#accent)">Your rules.</text>
+    <text x="57" y="283" font-size="16" fill="#beb5a7">One container. Every domain. Full control.</text>
+    <g font-size="10" letter-spacing="1">
+      <rect x="56" y="326" width="100" height="29" rx="7" fill="#34322e" stroke="#925b09"/><text x="72" y="345" fill="#f2a42e">SELF-HOSTED</text>
+      <rect x="166" y="326" width="86" height="29" rx="7" fill="#3a3733" stroke="#756957"/><text x="184" y="345" fill="#f8d197">WEB UI</text>
+      <rect x="262" y="326" width="111" height="29" rx="7" fill="#393632" stroke="#726654"/><text x="277" y="345" fill="#f9d8a6">LOCAL CONFIG</text>
+    </g>
+    <g transform="translate(606 78)">
+      <rect width="611" height="268" rx="16" fill="#262421" stroke="#5f5546"/>
+      <path d="M0 53h611" stroke="#50483c"/>
+      <circle cx="22" cy="27" r="4" fill="#f5bb65"/><circle cx="39" cy="27" r="4" fill="#f3b04b"/><circle cx="56" cy="27" r="4" fill="#f09815"/>
+      <text x="83" y="32" font-size="12" fill="#fbe6c6">Route anything. From one place.</text>
+      <g font-family="Consolas,monospace" font-size="13">
+        <rect x="25" y="82" width="159" height="114" rx="11" fill="#373531" stroke="#f1a026"/>
+        <text x="43" y="115" fill="#f9d8a6">app.example.com</text><text x="43" y="141" fill="#a99d8b" font-size="10">HTTP GATEWAY</text><text x="43" y="174" fill="#f6c06e" font-size="11">Nginx · port 80</text>
+        <path d="M184 139h34V96h25 M218 139h25 M218 139v48h25" fill="none" stroke="#f3aa3c" stroke-width="1.5"/>
+        <rect x="243" y="78" width="75" height="34" rx="7" fill="#393733" stroke="#bb750c"/><text x="260" y="100" fill="#f1a128">/</text>
+        <rect x="243" y="124" width="75" height="34" rx="7" fill="#3b3834" stroke="#94856e"/><text x="257" y="146" fill="#f8d093">/api</text>
+        <rect x="243" y="170" width="75" height="34" rx="7" fill="#34322f" stroke="#81735f"/><text x="259" y="192" fill="#f6c478">/s3</text>
+        <path d="M318 95h35 M345 90l8 5-8 5 M318 141h35 M345 136l8 5-8 5 M318 187h35 M345 182l8 5-8 5" stroke="#8d7e68" fill="none"/>
+        <rect x="353" y="78" width="227" height="34" rx="7" fill="#2d2b28" stroke="#945c09"/><text x="369" y="100" fill="#f6c172">frontend-1 · frontend-2</text>
+        <rect x="353" y="124" width="227" height="34" rx="7" fill="#35332f" stroke="#736755"/><text x="369" y="146" fill="#f8d299">backend-1 · backend-2</text>
+        <rect x="353" y="170" width="227" height="34" rx="7" fill="#302e2b" stroke="#695e4e"/><text x="369" y="192" fill="#f8ce8f">object storage</text>
+      </g>
+      <circle cx="31" cy="239" r="3" fill="#f19c1d"/><text x="43" y="243" font-size="10" fill="#b8ae9f">MULTI-DOMAIN</text><text x="177" y="243" font-size="10" fill="#b8ae9f">LOAD BALANCING</text><text x="324" y="243" font-size="10" fill="#b8ae9f">CACHE</text><text x="408" y="243" font-size="10" fill="#b8ae9f">RATE LIMITS</text>
+    </g>
+  </g>
+</svg>

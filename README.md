@@ -1,0 +1,166 @@
+<p align="center">
+  <img src="docs/banner.svg" alt="Nginx Scale Gateway — Your traffic. Your rules." width="100%">
+</p>
+
+<p align="center">
+  <a href="https://github.com/gadmin2151/nginx-scale-gw/actions/workflows/docker.yml"><img src="https://github.com/gadmin2151/nginx-scale-gw/actions/workflows/docker.yml/badge.svg" alt="Build & publish"></a>
+  <img src="https://img.shields.io/badge/Nginx-1.28%2B-ffaf35?logo=nginx&logoColor=white" alt="Nginx 1.28+">
+  <img src="https://img.shields.io/badge/Python-no%20dependencies-ffaf35?logo=python&logoColor=white" alt="Python without external dependencies">
+  <img src="https://img.shields.io/badge/Docker-amd64%20%7C%20arm64-ffaf35?logo=docker&logoColor=white" alt="Docker amd64 and arm64">
+</p>
+
+<p align="center">
+  <b>Ваш Nginx. Несколько доменов. Одна удобная панель.</b><br>
+  Маршруты, балансировка, кеш и защита приложений — в одном Docker-контейнере.
+</p>
+
+<p align="center">
+  <a href="#быстрый-старт">Быстрый старт</a> ·
+  <a href="#несколько-доменов--один-gateway">Домены и маршруты</a> ·
+  <a href="docs/configuration.ru.md">Полная документация</a> ·
+  <a href="https://github.com/users/gadmin2151/packages/container/package/nginx-scale-gw">Docker image</a>
+</p>
+
+---
+
+**Nginx Scale Gateway** превращает настройку Nginx в простой процесс: добавьте домен, укажите приложения, проверьте конфигурацию и примените её из браузера. Nginx передаёт трафик напрямую; небольшой Python-сервис отвечает только за управление.
+
+Без внешней БД, frontend-сборки, CDN и облачных зависимостей во время работы. Все настройки и история хранятся локально. **SSL остаётся на вашем внешнем прокси.**
+
+## Что умеет
+
+| Возможность | Что вы получаете |
+|:--|:--|
+| **Несколько доменов** | Независимые маршруты и upstream для каждого домена; поиск и фильтры |
+| **Маршрутизация** | `/`, `/api`, `/s3`, вложенные пути, сохранение или удаление префикса |
+| **Балансировка** | Round robin, least connections, IP hash, веса и резервные серверы |
+| **Кеш** | TTL на маршрут, общий размер дискового кеша, обход приватных запросов |
+| **Защита** | Лимиты на IP, burst, соединения, размер запроса, скрытые файлы и security headers |
+| **Работа за SSL-прокси** | Доверенные CIDR, реальный IP клиента, корректная внешняя схема |
+| **Безопасное применение** | Проверка `nginx -t`, плавный reload, подтверждение версии и откат |
+| **История и перенос** | 20 версий, восстановление, импорт и экспорт JSON |
+| **Современная панель** | Чёрно-золотая тема, удобные вкладки, мобильная версия, постоянные кнопки сохранения |
+
+## Быстрый старт
+
+### Готовый образ из GitHub Container Registry
+
+```bash
+git clone git@github.com:gadmin2151/nginx-scale-gw.git
+cd nginx-scale-gw
+docker compose -f compose.ghcr.yaml up -d
+docker compose -f compose.ghcr.yaml logs gateway
+```
+
+Откройте **[http://127.0.0.1:8083](http://127.0.0.1:8083)**. Начальный случайный пароль появится один раз в логах: `Gateway admin — initial password`.
+
+| Назначение | Адрес / хранение |
+|:--|:--|
+| Трафик приложений | HTTP, порт **80** |
+| Панель управления | Порт **8083**, опубликован на loopback хоста |
+| Настройки и история | Volume `gateway-data` → `/data` |
+| Кеш | Volume `gateway-cache` → `/cache` |
+| Образ | `ghcr.io/gadmin2151/nginx-scale-gw:latest` |
+
+При желании скопируйте `.env.example` в `.env` и задайте `GATEWAY_ADMIN_PASSWORD` перед первым запуском. После создания аккаунта пароль меняется в панели.
+
+### Сборка самостоятельно
+
+```bash
+docker compose up -d --build
+docker compose logs gateway
+```
+
+> Если порт 80 уже занят вашим SSL-прокси, замените публикацию на `127.0.0.1:8080:80` и направьте прокси на порт 8080. Для доступа к панели удалённого сервера: `ssh -L 8083:127.0.0.1:8083 user@server`.
+
+## Несколько доменов — один gateway
+
+Каждый домен имеет собственный набор маршрутов. Например:
+
+| Домен | Путь | Приложение |
+|:--|:--|:--|
+| `cc1.idomus.cc` | `/` | `frontend-1:3000`, `frontend-2:3000` |
+| `cc1.idomus.cc` | `/api` | `backend-1:8000`, `backend-2:8000` |
+| `cc1.idomus.cc` | `/s3` | HTTP-хранилище, принимающее этот путь |
+| `cc2.idomus.cc` | `/` | `other-frontend:3000` |
+| `cc2.idomus.cc` | `/api` | `other-backend:8000` |
+| `s3.idomus.cc` | `/` | `minio:9000` — стандартный S3 API |
+
+1. Нажмите **«Добавить домен»** и укажите имя и первый upstream.
+2. Добавьте маршруты. Во вкладке **«Серверы»** настройте балансировку; в **«Кеш и лимиты»** — правила маршрута.
+3. Добавьте следующий домен тем же способом. Настройки доменов независимы.
+4. Нажмите **«Применить»**. Сервис проверит и загрузит конфигурацию.
+
+В пустой панели есть готовый пример для `cc1.idomus.cc`. Замените адреса примера своими. Приложения должны быть доступны из сети контейнера: Compose создаёт сеть `nginx-gateway`; подключите к ней контейнеры приложений или используйте доступные IP.
+
+**S3:** SigV4 зависит от исходного пути и Host. Стандартный MinIO/S3 API лучше вынести на отдельный домен с маршрутом `/`; удаление `/s3` может нарушить подпись. [Подробности →](docs/configuration.ru.md#s3-и-префикс-s3)
+
+## Как применяются изменения
+
+```mermaid
+flowchart LR
+    A[Правки в панели] --> B[Локальный черновик]
+    B --> C{nginx -t}
+    C -->|Ошибка| B
+    C -->|Успех| D[Плавный reload]
+    D --> E{Версия подтверждена?}
+    E -->|Да| F[Новая конфигурация]
+    E -->|Нет| G[Откат]
+```
+
+**Сохранить черновик** записывает настройки, не меняя текущий трафик. **Применить** сохраняет, проверяет и активирует их. Черновик и действующая конфигурация переживают перезапуск независимо друг от друга.
+
+В панели можно нажать **`/`**, чтобы перейти к поиску, и **`Ctrl/Cmd + S`**, чтобы сохранить черновик. Вкладки редактора поддерживают клавиатуру.
+
+## Сборка и публикация образа
+
+[GitHub Actions](.github/workflows/docker.yml) автоматически:
+
+1. Проверяет JavaScript и Compose, собирает Docker-образ.
+2. Запускает тесты с настоящим Nginx **внутри образа** и проверяет запуск контейнера.
+3. После успешных проверок публикует образ в **GHCR** для `linux/amd64` и `linux/arm64`, с OCI-метаданными, provenance и SBOM.
+
+| Событие | Результат |
+|:--|:--|
+| Push в `main` | Проверки, публикация `latest` и `sha-<полный commit SHA>` |
+| Тег `v1.2.3` | Проверки, публикация `1.2.3`, `1.2` и SHA-тега |
+| Pull request | Проверки без публикации |
+| Ручной запуск workflow | Проверки; публикация только из `main` или тега `v*` |
+
+Используется встроенный `GITHUB_TOKEN` с `packages: write`; отдельные Docker Hub credentials не нужны. Actions закреплены полными commit SHA. Новые GHCR packages могут изначально иметь видимость private — для анонимного `docker pull` установите public в настройках package.
+
+Обновление установленного сервиса:
+
+```bash
+docker compose -f compose.ghcr.yaml pull
+docker compose -f compose.ghcr.yaml up -d
+```
+
+## Разработка и проверки
+
+```bash
+python3 -m unittest tests.test_config -v
+node --check gateway/static/app.js
+docker compose config --quiet
+```
+
+Полный набор проверяет маршруты и их границы, несколько доменов, алгоритмы балансировки, резервные серверы, WebSocket upgrade, кеш и приватные ответы, IP-лимиты, auth/CSRF, историю и откат.
+
+```bash
+docker compose build
+docker run --rm --entrypoint python3 \
+  -v "$PWD/tests:/app/tests:ro" \
+  local/nginx-gateway:latest -m unittest discover -v
+```
+
+Интеграционные тесты требуют Nginx 1.28+; без него они помечаются как skipped. [Локальный запуск без Docker и полное описание настроек →](docs/configuration.ru.md#разработка-и-проверки)
+
+## Важно при настройке
+
+- За внешним SSL-прокси укажите его **доверенный IP/CIDR**: иначе пользователи разделят лимит IP прокси.
+- Кешируйте только публичные ответы. Authorization, cookies, Set-Cookie и типовые подписанные параметры исключены из кеша.
+- Это **HTTP gateway**, а не WAF, TCP-прокси или TLS-менеджер. Upstream HTTPS и gRPC пока не поддерживаются.
+- Произвольное редактирование директив не предусмотрено: `nginx.conf` генерируется из проверенных полей панели.
+- Сохраняйте volume `/data`; `docker compose down -v` удаляет настройки вместе с volumes.
+
+<p align="center"><br><img src="docs/logo.svg" width="38" alt="Gateway logo"><br><sub>Small by design. Yours by default.</sub></p>
