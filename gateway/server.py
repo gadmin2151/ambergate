@@ -9,6 +9,7 @@ import threading
 from urllib.parse import urlsplit
 
 from .storage import ApplyError, ConflictError
+from .docker import Docker
 
 STATIC = Path(__file__).parent / "static"
 
@@ -21,6 +22,7 @@ class Server(ThreadingHTTPServer):
     def __init__(self, address, store, auth):
         self.store = store
         self.auth = auth
+        self.docker = Docker(store.data)
         self.slots = threading.BoundedSemaphore(32)
         super().__init__(address, Handler)
 
@@ -92,6 +94,8 @@ class Handler(BaseHTTPRequestHandler):
                      "/app.js": ("app.js", "text/javascript; charset=utf-8"),
                      "/dashboard.js": ("dashboard.js", "text/javascript; charset=utf-8"),
                      "/dashboard.css": ("dashboard.css", "text/css; charset=utf-8"),
+                     "/docker.js": ("docker.js", "text/javascript; charset=utf-8"),
+                     "/docker.css": ("docker.css", "text/css; charset=utf-8"),
                      "/style.css": ("style.css", "text/css; charset=utf-8"),
                      "/favicon.svg": ("favicon.svg", "image/svg+xml")}
             if path in files:
@@ -108,6 +112,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(200, self.server.store.status())
             if path == "/api/dashboard":
                 return self.respond(200, self.server.store.dashboard())
+            if path == "/api/docker":
+                return self.respond(200, self.server.docker.snapshot(force=urlsplit(self.path).query == "refresh=1"))
             if path == "/api/export":
                 return self.respond(200, self.server.store.draft_config(), headers={"Content-Disposition": 'attachment; filename="gateway-config.json"'})
             if path == "/api/active.conf":
@@ -153,6 +159,8 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/password":
                 self.server.auth.change_password(body.get("current"), body.get("password"))
                 return self.respond(200, {"ok": True}, headers={"Set-Cookie": self.cookie("", 0)})
+            if path == "/api/docker":
+                return self.respond(200, self.server.docker.save(body["settings"], body["revision"]))
             if path == "/api/config":
                 return self.respond(200, self.server.store.save(body["config"], body["revision"]))
             if path == "/api/preview":

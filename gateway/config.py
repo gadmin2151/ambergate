@@ -63,6 +63,15 @@ def hostname(value, path):
         fail(path, "некорректное DNS-имя")
 
 
+def upstream_hostname(value, path):
+    # Docker container names may contain underscores. Domain names remain strict.
+    if not isinstance(value, str) or len(value) > 253 or not re.fullmatch(
+        r"[a-zA-Z0-9_](?:[a-zA-Z0-9_.-]*[a-zA-Z0-9_])?", value
+    ) or any(not re.fullmatch(r"[a-zA-Z0-9_](?:[a-zA-Z0-9_-]{0,61}[a-zA-Z0-9_])?", x)
+             for x in value.split(".")):
+        fail(path, "ожидается имя сервера или Docker-контейнера, без схемы и пути")
+
+
 def validate(config):
     obj(config, DEFAULT, "config")
     if type(config["version"]) is not int or config["version"] != 1:
@@ -135,7 +144,7 @@ def validate(config):
                     if "%" in address:
                         fail(rp, "IPv6 zone ID не поддерживается")
                 except ValueError:
-                    hostname(address, rp + ".address")
+                    upstream_hostname(address, rp + ".address")
                 integer(target["port"], 1, 65535, rp + ".port")
                 integer(target["weight"], 1, 1000, rp + ".weight")
                 boolean(target["backup"], rp + ".backup")

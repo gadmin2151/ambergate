@@ -28,7 +28,10 @@ jobs:
         run: |
           node --check gateway/static/app.js
           node --check gateway/static/dashboard.js
+          node --check gateway/static/docker.js
           docker compose config --quiet
+          docker compose -f compose.yaml -f compose.docker.yaml config --quiet
+          docker compose -f compose.ghcr.yaml -f compose.docker.yaml config --quiet
 
       - name: Build the image
         run: docker build --pull -t gateway:ci .
@@ -38,6 +41,9 @@ jobs:
           docker run --rm --entrypoint python3 \
             -v "$PWD/tests:/app/tests:ro" \
             gateway:ci -m unittest discover -v
+
+      - name: Discover and balance real Docker containers
+        run: python3 tests/docker_smoke.py
 
       - name: Smoke-test the actual container entrypoint
         shell: bash

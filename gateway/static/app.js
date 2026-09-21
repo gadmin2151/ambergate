@@ -5,6 +5,7 @@ const esc = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&
 const uid = () => 'id_' + (crypto.randomUUID ? crypto.randomUUID().replaceAll('-', '') : Array.from(crypto.getRandomValues(new Uint8Array(16)), n => n.toString(16).padStart(2, '0')).join(''));
 const paths = {
   dashboard:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',
+  docker:'M4 8h4v4H4z M9 8h4v4H9z M14 8h4v4h-4z M9 3h4v4H9z M2 13h17l3-3 M2 13c0 6 4 8 9 8s8-4 8-8',
   routes:'M4 4h6v6H4z M14 14h6v6h-6z M14 4h6v6h-6z M7 10v7h7 M10 7h4',
   shield:'M12 3 4 6v5c0 5 8 10 8 10s8-5 8-10V6z M8 12l3 3 5-6',
   cache:'M20 7c0 2-4 4-8 4S4 9 4 7s4-4 8-4 8 2 8 4z M4 7v10c0 2 4 4 8 4s8-2 8-4V7 M4 12c0 2 4 4 8 4s8-2 8-4',
@@ -31,7 +32,7 @@ const paths = {
   user:'M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0 M4 21v-2a8 8 0 0 1 16 0v2',
 };
 const icon = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[name] || paths.routes}"/></svg>`;
-const nav = [['dashboard','Обзор системы'],['routes','Маршруты'],['shield','Защита и лимиты'],['cache','Кеширование'],['code','nginx.conf'],['history','История версий']];
+const nav = [['dashboard','Обзор системы'],['routes','Маршруты'],['docker','Docker'],['shield','Защита и лимиты'],['cache','Кеширование'],['code','nginx.conf'],['history','История версий']];
 const balanceLabels = {round_robin:'Round robin', least_conn:'Least connections', ip_hash:'IP hash'};
 let state = null, config = null, csrf = '', page = 'dashboard', dirty = false, busy = false, health = null;
 let toastTimer = null;
@@ -66,7 +67,7 @@ function accept(snapshot) {state = snapshot; config = structuredClone(snapshot.c
 function changed() { dirty = JSON.stringify(config) !== JSON.stringify(state.config); render(); }
 function updateSaveState() {
   const dock = $('#save-dock');
-  if (dock) {dock.innerHTML = saveDockContent(); dock.hidden = page === 'dashboard' && !dirty && !state.pending;}
+  if (dock) {dock.innerHTML = saveDockContent(); dock.hidden = ['dashboard','docker'].includes(page) && !dirty && !state.pending;}
   document.querySelectorAll('[data-action="test"]').forEach(el => el.disabled = busy);
 }
 function routes() { return config.hosts.flatMap(h => h.routes); }
@@ -75,7 +76,8 @@ function badge(text, color='gray') { return `<span class="badge ${color}">${esc(
 function empty(title, body, action='') {return `<div class="empty">${icon('routes')}<h2>${title}</h2><p>${body}</p>${action}</div>`;}
 function setModal(title, subtitle, content, submit, button='Сохранить') {
   const modal = $('#modal');
-  modal.classList.toggle('route-modal', content.includes('route-tabs'));
+  modal.classList.toggle('route-modal', content.includes('route-tabs') || content.includes('target-editor'));
+  modal.dataset.replaceDockerTargets = 'false';
   modal.setAttribute('aria-labelledby', 'modal-title');
   modal.innerHTML = `<form id="modal-form"><div class="modal-header"><div><span class="eyebrow">НАСТРОЙКИ GATEWAY</span><h2 id="modal-title">${esc(title)}</h2><p class="modal-subtitle">${subtitle}</p></div>${btn('close','', 'close','ghost icon','aria-label="Закрыть"')}</div><div class="modal-body">${content}<div id="modal-error" class="error" role="alert"></div></div><div class="form-actions"><span class="hint">${button==='Изменить пароль' ? 'Потребуется повторный вход' : 'Изменения попадут в черновик'}</span>${btn('close','Отмена','','ghost')}<button type="submit" class="primary">${icon('check')}${esc(button)}</button></div></form>`;
   $('#modal-form').addEventListener('invalid', event => {
@@ -112,6 +114,8 @@ function newRoute(path='/', name='Frontend', address='frontend', port=3000) {
 function showLogin() {
   config = null;
   dashboardData = null; dashboardError = '';
+  dockerData = null; dockerDraft = null; dockerError = '';
+  if ($('#docker-picker').open) $('#docker-picker').close();
   if ($('#confirm-modal').open) $('#confirm-modal').close('cancel');
   if ($('#modal').open) $('#modal').close();
   $('#app').innerHTML = `<div class="login-page"><section class="login-art"><div class="brand"><img src="/favicon.svg?v=2" alt=""><div>gateway<span class="brand-period">.</span><small>NGINX SCALE GATEWAY</small></div></div><div><div class="eyebrow">Один вход. Все приложения.</div><h1>Все приложения.<br><span>Один gateway.</span></h1><div class="login-flow"><span>example.com</span><i></i><div><code>/</code><code>/api</code><code>/s3</code></div></div><p>Маршруты, балансировка и защита приложений — в одной панели управления Nginx.</p></div><div class="eyebrow">Self-hosted · Local configuration · HTTP gateway</div></section><section class="login-form-wrap"><form id="login" class="login-form"><div class="mobile-brand"><img src="/favicon.svg?v=2" alt="Gateway"></div><div class="eyebrow">Панель управления</div><br><h2>Добро пожаловать</h2><p>Войдите, чтобы настроить ваш gateway.</p>${field('Пароль администратора','password','','password','required autocomplete="current-password" autofocus')}<div class="error" id="login-error"></div><button type="submit" class="primary">Войти в Gateway ${icon('arrow')}</button><p class="hint">При первом запуске пароль задаётся через GATEWAY_ADMIN_PASSWORD или выводится в логах контейнера.</p></form></section></div>`;
@@ -138,6 +142,7 @@ function render() {
   const current = nav.find(n => n[0] === page);
   const descriptions = {
     dashboard:'Трафик, ответы и состояние вашего gateway — в реальном времени.',
+    docker:'Подключите Docker и выбирайте контейнеры для маршрутов и балансировки.',
     routes:'Управляйте трафиком всех ваших приложений в одном месте.',
     shield:'Настройте ограничения и правила доступа для ваших приложений.',
     cache:'Ускоряйте публичные ответы и снижайте нагрузку на серверы.',
@@ -160,17 +165,19 @@ function render() {
           <div id="page-content">${pageContent()}</div>
           <div class="page-note"><span>${icon('lock')}Локальное хранение конфигурации</span><span>Gateway <span class="footer-version">v1.0</span></span></div>
         </main>
-        <div class="save-dock" id="save-dock" aria-live="polite" ${page === 'dashboard' && !dirty && !state.pending ? 'hidden' : ''}>${saveDockContent()}</div>
+        <div class="save-dock" id="save-dock" aria-live="polite" ${['dashboard','docker'].includes(page) && !dirty && !state.pending ? 'hidden' : ''}>${saveDockContent()}</div>
       </div>
     </div>`;
   if (page === 'shield') bindSettings();
   if (page === 'code') loadPreview();
   if (page === 'routes') bindRouteSearch();
   if (page === 'dashboard') pollDashboard();
+  if (page === 'docker') loadDockerPage();
 }
 
 function pageContent() {
   if (page === 'dashboard') return `<div id="dashboard-live">${dashboardContent()}</div>`;
+  if (page === 'docker') return dockerPage();
   if (page === 'routes') return routesPage();
   if (page === 'shield') return settingsPage();
   if (page === 'cache') return cachePage();
@@ -259,13 +266,18 @@ async function saveDraft(){collectSettings(); accept(await api('config',{config,
 function editHost(id) {
   const existing = config.hosts.find(h=>h.id === id);
   setModal(existing ? 'Настройки домена' : 'Новый домен','Каждый домен получает свои маршруты и серверы. Укажите имя без http:// и пути.',
-    `<div class="stack">${field('Домен','domain',existing?.domain || '','text','required placeholder="example.com" maxlength="253"')}${check('Домен включён','enabled',existing?.enabled ?? true)}${existing ? `<div>${btn('delete-host','Удалить домен','trash','danger small',`data-host="${id}"`)}</div>` : `<div class="grid">${field('Frontend: адрес сервера','address','frontend','text','required')}${field('Порт','port',3000,'number','min="1" max="65535" required')}</div><p class="hint">Создадим первый маршрут /; остальные можно добавить после.</p>`}</div>`, async data=>{
+    `<div class="stack">${field('Домен','domain',existing?.domain || '','text','required placeholder="example.com" maxlength="253"')}${check('Домен включён','enabled',existing?.enabled ?? true)}${existing ? `<div>${btn('delete-host','Удалить домен','trash','danger small',`data-host="${id}"`)}</div>` : `<div class="docker-target-heading"><h3>Серверы первого маршрута /</h3>${btn('docker-picker','Выбрать из Docker','docker','small')}</div><div id="target-editor" class="target-editor">${targetFields({address:'frontend',port:3000,weight:1,backup:false})}</div>${btn('add-target','Добавить сервер','plus','add-target-button')}<p class="hint">Создадим маршрут / с балансировкой Round robin. Остальные маршруты и алгоритм можно настроить после.</p>`}</div>`, async data=>{
       const candidate = structuredClone(config);
       const host = existing ? candidate.hosts.find(h=>h.id === id) : {id:uid(),routes:[newRoute('/','Frontend',data.get('address').trim(),Number(data.get('port')))]};
+      if (!existing) host.routes[0].targets = collectTargets();
       host.domain = data.get('domain').trim().toLowerCase(); host.enabled = data.has('enabled');
       if (!existing) candidate.hosts.push(host);
       await api('preview',{config:candidate}); config = candidate; routeQuery=''; hostFilter='all'; changed();
     });
+  if (!existing) $('#modal').dataset.replaceDockerTargets = 'true';
+}
+function collectTargets() {
+  return [...document.querySelectorAll('#target-editor .target-fields')].map(row=>({address:$('[name=address]',row).value.trim(),port:Number($('[name=port]',row).value),weight:Number($('[name=weight]',row).value),backup:$('[name=backup]',row).checked}));
 }
 function targetFields(target) {
   return `<div class="target-fields"><span class="target-marker">${icon('server')}</span>${field('Сервер или IP','address',target.address,'text','required placeholder="backend-1"')}${field('Порт','port',target.port,'number','required min="1" max="65535"')}${field('Вес','weight',target.weight,'number','required min="1" max="1000"')}${check('Резерв','backup',target.backup)}${btn('remove-target','','trash','ghost icon','aria-label="Удалить сервер" title="Удалить сервер"')}</div>`;
@@ -293,7 +305,7 @@ function editRoute(hostId, routeId) {
       ${existing ? `<div class="danger-zone">${btn('delete-route','Удалить маршрут','trash','danger ghost small',`data-host="${hostId}" data-route="${routeId}"`)}</div>` : ''}
     </section>
     <section data-route-panel="servers" id="panel-servers" role="tabpanel" aria-labelledby="tab-servers" hidden>
-      <div class="form-intro"><h3>Серверы приложения</h3><p>Добавьте несколько серверов, чтобы распределять нагрузку между ними.</p></div>
+      <div class="form-intro docker-target-heading"><div><h3>Серверы приложения</h3><p>Добавьте несколько серверов, чтобы распределять нагрузку между ними.</p></div>${btn('docker-picker','Выбрать из Docker','docker','small')}</div>
       <div class="grid"><label>Алгоритм балансировки<select name="balance">${Object.entries(balanceLabels).map(([k,v])=>`<option value="${k}" ${route.balance===k ? 'selected' : ''}>${v}</option>`).join('')}</select><small>Round robin — по очереди; Least connections — по загрузке.</small></label>${field('Таймаут ответа, сек','timeout',route.timeout,'number','required min="1" max="3600"','Сколько ждать ответ приложения')}</div>
       <div class="form-section"><div class="target-editor" id="target-editor">${route.targets.map(targetFields).join('')}</div>${btn('add-target','Добавить сервер','plus','add-target-button')}</div>
       <div class="inline-info">${icon('info')}<span>Адрес без http:// и пути. Резервный сервер используется, когда основные недоступны; резерв несовместим с IP hash.</span></div>
@@ -307,11 +319,12 @@ function editRoute(hostId, routeId) {
       const result={...route,name:data.get('name').trim(),path:data.get('path').trim(),balance:data.get('balance')};
       for(const key of ['timeout','cache_ttl','rate_rps','rate_burst','body_mb']) result[key]=Number(data.get(key));
       for(const key of ['strip_prefix','websocket','cache']) result[key]=data.has(key);
-      result.targets=[...document.querySelectorAll('.target-fields')].map(row=>({address:$('[name=address]',row).value.trim(),port:Number($('[name=port]',row).value),weight:Number($('[name=weight]',row).value),backup:$('[name=backup]',row).checked}));
+      result.targets=collectTargets();
       const candidate=structuredClone(config), dest=candidate.hosts.find(h=>h.id===hostId);
       if(existing) dest.routes[dest.routes.findIndex(r=>r.id===routeId)]=result; else dest.routes.push(result);
       await api('preview',{config:candidate});config=candidate;changed();
     });
+  if (!existing) $('#modal').dataset.replaceDockerTargets = 'true';
   $('#modal-form').addEventListener('input',updatePathPreview);
   updatePathPreview();
 }
@@ -375,7 +388,7 @@ document.addEventListener('click', async event=>{
   } catch(error) {notify(error.message,true);}
 });
 document.addEventListener('keydown', event=>{
-  if ($('#confirm-modal').open) return;
+  if ($('#confirm-modal').open || $('#docker-picker').open) return;
   const editable=event.target.closest('input,textarea,select,[contenteditable=true]');
   if(event.target.matches('[data-action="route-tab"]') && ['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) {
     event.preventDefault(); const buttons=[...document.querySelectorAll('[data-action="route-tab"]')];

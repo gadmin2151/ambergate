@@ -348,6 +348,7 @@ class GatewayIntegrationTests(unittest.TestCase):
         port = self.admin.server_port
         self.assertEqual(request(port, "/api/config")[0], 401)
         self.assertEqual(request(port, "/api/dashboard")[0], 401)
+        self.assertEqual(request(port, "/api/docker")[0], 401)
         self.assertEqual(request(port, "/healthz")[0], 200)
         self.assertEqual(request(port, "/")[0], 200)
         headers = {"Content-Type": "application/json"}
@@ -363,9 +364,22 @@ class GatewayIntegrationTests(unittest.TestCase):
         status, _, dashboard = request(port, "/api/dashboard", headers=headers)
         self.assertEqual(status, 200)
         self.assertTrue(json.loads(dashboard)["available"])
+        status, _, docker = request(port, "/api/docker", headers=headers)
+        self.assertEqual(status, 200)
+        docker = json.loads(docker)
+        docker_settings = {**docker["settings"], "enabled": True,
+                           "socket_path": str(self.root / "missing-docker.sock")}
+        docker_body = json.dumps({"settings": docker_settings, "revision": docker["revision"]})
+        self.assertEqual(request(port, "/api/docker", "POST", headers, docker_body)[0], 403)
         body = json.dumps({"revision": self.store.snapshot()["revision"]})
         self.assertEqual(request(port, "/api/test", "POST", headers, body)[0], 403)
         headers["X-CSRF-Token"] = json.loads(data)["csrf"]
+        before = self.store.snapshot()
+        status, _, docker = request(port, "/api/docker", "POST", headers, docker_body)
+        self.assertEqual(status, 200)
+        self.assertFalse(json.loads(docker)["connected"])
+        self.assertEqual(self.store.snapshot(), before)
+        self.assertTrue(self.store.status()["healthy"])
         self.assertEqual(request(port, "/api/test", "POST", headers, body)[0], 200)
         body = json.dumps({"current": "test-password-12345", "password": "new-test-password-12345"})
         self.assertEqual(request(port, "/api/password", "POST", headers, body)[0], 200)

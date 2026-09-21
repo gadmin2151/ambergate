@@ -61,6 +61,14 @@ class ConfigurationTests(unittest.TestCase):
         c["hosts"][0]["routes"][0]["targets"][0]["address"] = "backend-1"
         self.assertIn("fail_timeout=10s resolve;", render(c, "test"))
 
+    def test_docker_names_support_underscores_only_for_upstream_addresses(self):
+        c = config()
+        c["hosts"][0]["routes"][0]["targets"][0]["address"] = "project_backend_1"
+        self.assertIn("server project_backend_1:9000", render(c, "test"))
+        c["hosts"][0]["domain"] = "bad_domain.test"
+        with self.assertRaises(ValidationError):
+            validate(c)
+
     def test_cache_namespace_changes_with_destination(self):
         c = config()
         c["hosts"][0]["routes"][0]["cache"] = True

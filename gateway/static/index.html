@@ -8,12 +8,15 @@
   <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml">
   <link rel="stylesheet" href="/style.css">
   <link rel="stylesheet" href="/dashboard.css">
+  <link rel="stylesheet" href="/docker.css">
   <script src="/dashboard.js" defer></script>
+  <script src="/docker.js" defer></script>
   <script src="/app.js" defer></script>
 </head>
 <body>
   <div id="app"><div class="boot">Подключение к Gateway…</div></div>
   <dialog id="modal"></dialog>
+  <dialog id="docker-picker" aria-labelledby="docker-picker-title"></dialog>
   <dialog id="confirm-modal" class="confirm-modal" aria-labelledby="confirm-title" aria-describedby="confirm-description"></dialog>
   <div id="toast" role="status" aria-live="polite" hidden></div>
 </body>

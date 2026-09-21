@@ -1,0 +1,14 @@
+# Optional overlay for either compose.yaml or compose.ghcr.yaml.
+# Docker discovery is enabled from the Docker page after mounting the socket.
+services:
+  gateway:
+    environment:
+      GATEWAY_DOCKER_SOCKET: /var/run/docker.sock
+      GATEWAY_DOCKER_CONTAINER: ${GATEWAY_DOCKER_CONTAINER:-}
+    volumes:
+      - type: bind
+        source: ${DOCKER_SOCKET_PATH:-/var/run/docker.sock}
+        target: /var/run/docker.sock
+        read_only: true
+        bind:
+          create_host_path: false
