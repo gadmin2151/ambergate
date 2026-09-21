@@ -479,10 +479,10 @@ dialog::backdrop { background: #161826ac; backdrop-filter: blur(5px); }
 }
 
 /* Signature palette: #151516 + #ffaf35. */
-:root { color-scheme: dark; color: #e9e9eb; background: #151516; --ink: #f7f7f8; --muted: #a1a1a8; --line: #343436; --green: #ffaf35; --green-light: #352b1e; --shadow: 0 8px 30px #00000012; }
-body { background: #151516; }
-.workspace { background: #1a1a1c; min-height: 100vh; }
-.sidebar { background: #151516; color: #a5a5ad; border-right: 1px solid #303032; }
+:root { color-scheme: dark; color: #e9e9eb; background: #111112; --ink: #f7f7f8; --muted: #a1a1a8; --line: #343436; --green: #ffaf35; --green-light: #352b1e; --shadow: 0 8px 30px #00000012; }
+body { background: #111112; }
+.workspace { background: #111112; min-height: 100vh; }
+.sidebar { background: #0d0d0e; color: #a5a5ad; border-right: 1px solid #303032; }
 .brand { color: #f8f8f9; }
 .brand img { width: 43px; height: 43px; border-radius: 13px; }
 .brand-period { color: #ffaf35; }
@@ -509,7 +509,7 @@ body { background: #151516; }
 .side-account small { color: #777780; }
 .side-account button { color: #9b9ba5; }
 .side-account button:hover { background: #323235; }
-.topbar { background: #171718; border-color: #303032; }
+.topbar { background: #101011; border-color: #303032; }
 .crumb { color: #7f7f89; }
 .crumb strong { color: #d2d2d8; }
 .crumb>svg:nth-of-type(2) { color: #55555e; }
@@ -646,8 +646,8 @@ dialog::backdrop { background: #080809cc; backdrop-filter: blur(7px); }
 pre { background: #131314; color: #c6b89f; font-size: 12px; }
 #toast { background: #31291f; border-color: #ad813d; color: #ffd292; box-shadow: 0 12px 45px #0009; font-size: 12px; }
 #toast.error-toast, .error { background: #432623; border-color: #a1624c; color: #f1b19a; }
-.login-page { background: #19191b; }
-.login-art { background: radial-gradient(ellipse at 70% 50%, #ffaf3529, transparent 65%), #151516; }
+.login-page { background: #111112; }
+.login-art { background: radial-gradient(ellipse at 70% 50%, #ffaf3529, transparent 65%), #0d0d0e; }
 .login-art h1>span { color: #ffaf35; }
 .login-art .eyebrow { color: #bb8739; }
 .login-art p { color: #b0a28b; }

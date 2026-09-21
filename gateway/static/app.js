@@ -176,7 +176,7 @@ function routesPage() {
     <div class="notice"><span class="notice-icon">${icon('bolt')}</span><div><strong>Обновляйте маршруты без остановки приложений</strong><p>Проверим конфигурацию перед применением. Если что-то пойдёт не так, автоматически вернём предыдущую версию.</p></div><span class="notice-tag">SAFE RELOAD</span></div>`;
 }
 function filteredHosts() {
-  if (!config.hosts.length) return empty('Первый домен — начало вашей сети','Добавьте один или несколько доменов. Для каждого настройте собственные frontend, API и хранилище.',`<div class="actions">${btn('add-host','Добавить домен','plus','primary')}${btn('example','Пример cc1.idomus.cc','routes')}</div>`);
+  if (!config.hosts.length) return empty('Первый домен — начало вашей сети','Добавьте один или несколько доменов. Для каждого настройте собственные frontend, API и хранилище.',`<div class="actions">${btn('add-host','Добавить домен','plus','primary')}${btn('example','Пример example.com','routes')}</div>`);
   const query = routeQuery.trim().toLocaleLowerCase();
   const filtered = config.hosts.filter(host=> {
     if (hostFilter === 'enabled' && !host.enabled || hostFilter === 'disabled' && host.enabled) return false;
@@ -243,7 +243,7 @@ async function saveDraft(){collectSettings(); accept(await api('config',{config,
 function editHost(id) {
   const existing = config.hosts.find(h=>h.id === id);
   setModal(existing ? 'Настройки домена' : 'Новый домен','Каждый домен получает свои маршруты и серверы. Укажите имя без http:// и пути.',
-    `<div class="stack">${field('Домен','domain',existing?.domain || '','text','required placeholder="cc1.idomus.cc" maxlength="253"')}${check('Домен включён','enabled',existing?.enabled ?? true)}${existing ? `<div>${btn('delete-host','Удалить домен','trash','danger small',`data-host="${id}"`)}</div>` : `<div class="grid">${field('Frontend: адрес сервера','address','frontend','text','required')}${field('Порт','port',3000,'number','min="1" max="65535" required')}</div><p class="hint">Создадим первый маршрут /; остальные можно добавить после.</p>`}</div>`, async data=>{
+    `<div class="stack">${field('Домен','domain',existing?.domain || '','text','required placeholder="example.com" maxlength="253"')}${check('Домен включён','enabled',existing?.enabled ?? true)}${existing ? `<div>${btn('delete-host','Удалить домен','trash','danger small',`data-host="${id}"`)}</div>` : `<div class="grid">${field('Frontend: адрес сервера','address','frontend','text','required')}${field('Порт','port',3000,'number','min="1" max="65535" required')}</div><p class="hint">Создадим первый маршрут /; остальные можно добавить после.</p>`}</div>`, async data=>{
       const candidate = structuredClone(config);
       const host = existing ? candidate.hosts.find(h=>h.id === id) : {id:uid(),routes:[newRoute('/','Frontend',data.get('address').trim(),Number(data.get('port')))]};
       host.domain = data.get('domain').trim().toLowerCase(); host.enabled = data.has('enabled');
@@ -305,7 +305,7 @@ function example() {
   const back = newRoute('/api','Backend API','backend-1',8000); back.balance = 'least_conn'; back.strip_prefix = true;
   back.targets.push({address:'backend-2',port:8000,weight:1,backup:false});
   const s3 = newRoute('/s3','S3 storage','minio',9000); s3.websocket = false; s3.body_mb = 1024; s3.timeout = 300;
-  config.hosts.push({id:uid(),domain:'cc1.idomus.cc',enabled:true,routes:[front,back,s3]}); changed();
+  config.hosts.push({id:uid(),domain:'example.com',enabled:true,routes:[front,back,s3]}); changed();
   notify('Пример добавлен. Укажите реальные адреса серверов перед применением.');
 }
 function download(name, content, type) {
