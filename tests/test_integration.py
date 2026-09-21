@@ -347,6 +347,7 @@ class GatewayIntegrationTests(unittest.TestCase):
     def test_admin_auth_csrf_export_health_and_password(self):
         port = self.admin.server_port
         self.assertEqual(request(port, "/api/config")[0], 401)
+        self.assertEqual(request(port, "/api/dashboard")[0], 401)
         self.assertEqual(request(port, "/healthz")[0], 200)
         self.assertEqual(request(port, "/")[0], 200)
         headers = {"Content-Type": "application/json"}
@@ -359,6 +360,9 @@ class GatewayIntegrationTests(unittest.TestCase):
         cookie = response_headers["Set-Cookie"].split(";")[0]
         headers["Cookie"] = cookie
         self.assertEqual(request(port, "/api/export", headers=headers)[0], 200)
+        status, _, dashboard = request(port, "/api/dashboard", headers=headers)
+        self.assertEqual(status, 200)
+        self.assertTrue(json.loads(dashboard)["available"])
         body = json.dumps({"revision": self.store.snapshot()["revision"]})
         self.assertEqual(request(port, "/api/test", "POST", headers, body)[0], 403)
         headers["X-CSRF-Token"] = json.loads(data)["csrf"]
@@ -368,6 +372,71 @@ class GatewayIntegrationTests(unittest.TestCase):
         self.assertEqual(request(port, "/api/config", headers=headers)[0], 401)
         # Restore fixture password for repeatability.
         self.auth.set_password("test-password-12345")
+
+    def test_dashboard_observes_traffic_cache_errors_and_excludes_admin_probes(self):
+        self.config["hosts"][0]["domain"] = "telemetry.test"
+        self.config["hosts"][0]["routes"][0]["cache"] = True
+        self.config["hosts"][0]["routes"].append(route("/broken", free_port(), "broken"))
+        self.config["hosts"][0]["routes"].append(route("/limited", self.backends[0].server_port, "limited"))
+        self.config["hosts"][0]["routes"][-1].update(rate_rps=1, rate_burst=0)
+        self.apply_config()
+        headers = {"Host": "telemetry.test"}
+        self.assertEqual(request(self.port, "/dashboard-metric?token=secret-query", headers=headers)[0], 200)
+        self.assertEqual(request(self.port, "/dashboard-metric?token=secret-query", headers=headers)[0], 200)
+        # Signed query bypasses cache; plain URL gives one MISS and one HIT.
+        self.assertEqual(request(self.port, "/public-metric", headers=headers)[0], 200)
+        self.assertEqual(request(self.port, "/public-metric", headers=headers)[0], 200)
+        self.assertEqual(request(self.port, "/broken", headers=headers)[0], 502)
+        self.assertEqual(request(self.port, "/limited", headers=headers)[0], 200)
+        self.assertEqual(request(self.port, "/limited", headers=headers)[0], 429)
+        self.assertEqual(request(self.port, "/unknown?password=secret-query", headers={"Host": "random-attacker.test"})[0], 404)
+        deadline = time.monotonic() + 3
+        while time.monotonic() < deadline:
+            data = self.store.dashboard()
+            if data["domains"].get("telemetry.test", {}).get("requests") == 7:
+                break
+            time.sleep(.02)
+        stats = data["domains"]["telemetry.test"]
+        self.assertTrue(data["available"])
+        self.assertEqual(stats["requests"], 7)
+        self.assertEqual(stats["statuses"], [0, 5, 0, 1, 1])
+        self.assertEqual(stats["limited"], 1)
+        self.assertEqual(stats["cache_hits"], 1)
+        self.assertEqual(stats["cache_lookups"], 2)
+        self.assertIsNotNone(data["connections"])
+        self.assertNotIn("secret-query", json.dumps(data))
+        self.assertNotIn("random-attacker.test", json.dumps(data))
+        self.assertTrue(any(e["route"] == "/broken" and e["status"] == 502 for e in data["events"]))
+        count = data["summary"]["requests"]
+        for _ in range(3):
+            self.store.dashboard()
+            request(self.admin.server_port, "/healthz")
+        self.assertEqual(self.store.dashboard()["summary"]["requests"], count)
+
+    def test_runtime_upgrade_instruments_active_settings_and_preserves_draft(self):
+        self.store.stop()
+        old_id = self.store.active_id()
+        active = self.store.active_config()
+        legacy = (self.store.active / "nginx.conf").read_text()
+        legacy = "\n".join(line for line in legacy.splitlines()
+                           if "access_log \"syslog:" not in line and "location = /status" not in line) + "\n"
+        atomic_write(self.store.active / "nginx.conf", legacy)
+        draft = copy.deepcopy(active)
+        draft["hosts"][0]["domain"] = "unapplied.test"
+        self.store.save(draft, self.store.snapshot()["revision"])
+        with patch.object(self.store, "check", side_effect=ApplyError("upgrade rejected")):
+            with self.assertRaises(ApplyError):
+                self.store.start()
+        self.assertEqual(self.store.active_id(), old_id)
+        self.assertEqual(self.store.draft_config(), draft)
+        self.store.start()
+        self.assertNotEqual(self.store.active_id(), old_id)
+        self.assertEqual(self.store.active_config(), active)
+        self.assertEqual(self.store.draft_config(), draft)
+        self.assertTrue(self.store.snapshot()["pending"])
+        self.assertIsNotNone(self.store.dashboard()["connections"])
+        self.assertEqual(request(self.port)[0], 200)
+        self.assertEqual(request(self.port, headers={"Host": "unapplied.test"})[0], 404)
 
 
 if __name__ == "__main__":

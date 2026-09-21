@@ -90,6 +90,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(200 if healthy else 503, {"healthy": healthy})
             files = {"/": ("index.html", "text/html; charset=utf-8"),
                      "/app.js": ("app.js", "text/javascript; charset=utf-8"),
+                     "/dashboard.js": ("dashboard.js", "text/javascript; charset=utf-8"),
+                     "/dashboard.css": ("dashboard.css", "text/css; charset=utf-8"),
                      "/style.css": ("style.css", "text/css; charset=utf-8"),
                      "/favicon.svg": ("favicon.svg", "image/svg+xml")}
             if path in files:
@@ -104,6 +106,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(200, self.server.store.snapshot())
             if path == "/api/status":
                 return self.respond(200, self.server.store.status())
+            if path == "/api/dashboard":
+                return self.respond(200, self.server.store.dashboard())
             if path == "/api/export":
                 return self.respond(200, self.server.store.draft_config(), headers={"Content-Disposition": 'attachment; filename="gateway-config.json"'})
             if path == "/api/active.conf":

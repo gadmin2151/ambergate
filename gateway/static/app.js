@@ -4,6 +4,7 @@ const $ = (selector, parent = document) => parent.querySelector(selector);
 const esc = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const uid = () => 'id_' + (crypto.randomUUID ? crypto.randomUUID().replaceAll('-', '') : Array.from(crypto.getRandomValues(new Uint8Array(16)), n => n.toString(16).padStart(2, '0')).join(''));
 const paths = {
+  dashboard:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',
   routes:'M4 4h6v6H4z M14 14h6v6h-6z M14 4h6v6h-6z M7 10v7h7 M10 7h4',
   shield:'M12 3 4 6v5c0 5 8 10 8 10s8-5 8-10V6z M8 12l3 3 5-6',
   cache:'M20 7c0 2-4 4-8 4S4 9 4 7s4-4 8-4 8 2 8 4z M4 7v10c0 2 4 4 8 4s8-2 8-4V7 M4 12c0 2 4 4 8 4s8-2 8-4',
@@ -30,16 +31,16 @@ const paths = {
   user:'M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0 M4 21v-2a8 8 0 0 1 16 0v2',
 };
 const icon = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[name] || paths.routes}"/></svg>`;
-const nav = [['routes','Маршруты'],['shield','Защита и лимиты'],['cache','Кеширование'],['code','nginx.conf'],['history','История версий']];
+const nav = [['dashboard','Обзор системы'],['routes','Маршруты'],['shield','Защита и лимиты'],['cache','Кеширование'],['code','nginx.conf'],['history','История версий']];
 const balanceLabels = {round_robin:'Round robin', least_conn:'Least connections', ip_hash:'IP hash'};
-let state = null, config = null, csrf = '', page = 'routes', dirty = false, busy = false, health = null;
+let state = null, config = null, csrf = '', page = 'dashboard', dirty = false, busy = false, health = null;
 let toastTimer = null;
 let routeQuery = '', hostFilter = 'all';
 
-async function api(path, body) {
+async function api(path, body, options = {}) {
   const response = await fetch('/api/' + path, {method:body === undefined ? 'GET' : 'POST', credentials:'same-origin',
     headers:body === undefined ? {} : {'Content-Type':'application/json','X-CSRF-Token':csrf},
-    body:body === undefined ? undefined : JSON.stringify(body)});
+    body:body === undefined ? undefined : JSON.stringify(body), signal:options.signal});
   const data = await response.json();
   if (!response.ok) {
     if (response.status === 401 && path !== 'login') { csrf = ''; showLogin(); }
@@ -65,7 +66,7 @@ function accept(snapshot) {state = snapshot; config = structuredClone(snapshot.c
 function changed() { dirty = JSON.stringify(config) !== JSON.stringify(state.config); render(); }
 function updateSaveState() {
   const dock = $('#save-dock');
-  if (dock) dock.innerHTML = saveDockContent();
+  if (dock) {dock.innerHTML = saveDockContent(); dock.hidden = page === 'dashboard' && !dirty && !state.pending;}
   document.querySelectorAll('[data-action="test"]').forEach(el => el.disabled = busy);
 }
 function routes() { return config.hosts.flatMap(h => h.routes); }
@@ -110,6 +111,7 @@ function newRoute(path='/', name='Frontend', address='frontend', port=3000) {
 
 function showLogin() {
   config = null;
+  dashboardData = null; dashboardError = '';
   if ($('#confirm-modal').open) $('#confirm-modal').close('cancel');
   if ($('#modal').open) $('#modal').close();
   $('#app').innerHTML = `<div class="login-page"><section class="login-art"><div class="brand"><img src="/favicon.svg?v=2" alt=""><div>gateway<span class="brand-period">.</span><small>NGINX SCALE GATEWAY</small></div></div><div><div class="eyebrow">Один вход. Все приложения.</div><h1>Все приложения.<br><span>Один gateway.</span></h1><div class="login-flow"><span>example.com</span><i></i><div><code>/</code><code>/api</code><code>/s3</code></div></div><p>Маршруты, балансировка и защита приложений — в одной панели управления Nginx.</p></div><div class="eyebrow">Self-hosted · Local configuration · HTTP gateway</div></section><section class="login-form-wrap"><form id="login" class="login-form"><div class="mobile-brand"><img src="/favicon.svg?v=2" alt="Gateway"></div><div class="eyebrow">Панель управления</div><br><h2>Добро пожаловать</h2><p>Войдите, чтобы настроить ваш gateway.</p>${field('Пароль администратора','password','','password','required autocomplete="current-password" autofocus')}<div class="error" id="login-error"></div><button type="submit" class="primary">Войти в Gateway ${icon('arrow')}</button><p class="hint">При первом запуске пароль задаётся через GATEWAY_ADMIN_PASSWORD или выводится в логах контейнера.</p></form></section></div>`;
@@ -135,6 +137,7 @@ function render() {
   if (!config || !csrf) return;
   const current = nav.find(n => n[0] === page);
   const descriptions = {
+    dashboard:'Трафик, ответы и состояние вашего gateway — в реальном времени.',
     routes:'Управляйте трафиком всех ваших приложений в одном месте.',
     shield:'Настройте ограничения и правила доступа для ваших приложений.',
     cache:'Ускоряйте публичные ответы и снижайте нагрузку на серверы.',
@@ -142,7 +145,7 @@ function render() {
     history:'Вернитесь к предыдущей конфигурации в несколько кликов.'
   };
   $('#app').innerHTML = `
-    <div class="shell">
+    <div class="shell ${page === 'dashboard' ? 'dashboard-shell' : ''}">
       <aside class="sidebar">
         <div class="brand"><img src="/favicon.svg?v=2" alt=""><div>gateway<span class="brand-period">.</span><small>NGINX SCALE GATEWAY</small></div></div>
         <div class="workspace-switch"><span class="workspace-symbol">${icon('server')}</span><div><strong>Мой gateway</strong><small>Self-hosted workspace</small></div><span class="workspace-dot"></span></div>
@@ -153,19 +156,21 @@ function render() {
       </aside>
       <div class="workspace">
         <header class="topbar"><div class="crumb">${icon('server')}<span>Мой gateway</span>${icon('chevron')}<strong>${current[1]}</strong></div><div class="top-right"><span class="status" id="nginx-status">${statusHTML()}</span><span class="topbar-divider"></span>${btn('logout','','exit','ghost icon','aria-label="Выйти" title="Выйти"')}</div></header>
-        <main><div class="page-head"><div><span class="eyebrow">${page === 'routes' ? 'TRAFFIC MANAGEMENT' : 'GATEWAY CONTROL'}</span><h1>${page === 'routes' ? 'Домены и маршруты' : current[1]}</h1><p>${descriptions[page]}</p></div>${page === 'routes' ? btn('add-host','Добавить домен','plus','primary') : `<span class="page-symbol">${icon(page)}</span>`}</div>
+        <main><div class="page-head"><div><span class="eyebrow">${page === 'dashboard' ? 'LIVE OVERVIEW' : page === 'routes' ? 'TRAFFIC MANAGEMENT' : 'GATEWAY CONTROL'}</span><h1>${page === 'routes' ? 'Домены и маршруты' : current[1]}</h1><p>${descriptions[page]}</p></div>${page === 'dashboard' ? `<div class="dash-controls"><span>${icon('clock')} Последние 15 минут</span>${btn('refresh-dashboard','Обновить','history','', 'id="refresh-dashboard"')}</div>` : page === 'routes' ? btn('add-host','Добавить домен','plus','primary') : `<span class="page-symbol">${icon(page)}</span>`}</div>
           <div id="page-content">${pageContent()}</div>
           <div class="page-note"><span>${icon('lock')}Локальное хранение конфигурации</span><span>Gateway <span class="footer-version">v1.0</span></span></div>
         </main>
-        <div class="save-dock" id="save-dock" aria-live="polite">${saveDockContent()}</div>
+        <div class="save-dock" id="save-dock" aria-live="polite" ${page === 'dashboard' && !dirty && !state.pending ? 'hidden' : ''}>${saveDockContent()}</div>
       </div>
     </div>`;
   if (page === 'shield') bindSettings();
   if (page === 'code') loadPreview();
   if (page === 'routes') bindRouteSearch();
+  if (page === 'dashboard') pollDashboard();
 }
 
 function pageContent() {
+  if (page === 'dashboard') return `<div id="dashboard-live">${dashboardContent()}</div>`;
   if (page === 'routes') return routesPage();
   if (page === 'shield') return settingsPage();
   if (page === 'cache') return cachePage();
@@ -332,6 +337,7 @@ document.addEventListener('click', async event=>{
   if (busy) return;
   try {
     if (action === 'navigate') {collectSettings(); page=button.dataset.page; render();}
+    if (action === 'refresh-dashboard') await pollDashboard(true);
     if (action === 'filter-hosts') {hostFilter=button.dataset.filter;render();}
     if (action === 'reset-search') {routeQuery='';hostFilter='all';render();}
     if (action === 'route-tab') selectRouteTab(button.dataset.tab);

@@ -14,6 +14,7 @@ import uuid
 
 from .config import default_config, validate
 from .nginx import digest, render
+from .metrics import Metrics
 
 
 class ConflictError(ValueError):
@@ -66,6 +67,7 @@ class Store:
         self.process = None
         self.started = time.time()
         self.last_error = None
+        self.metrics = Metrics(self.options["run_dir"])
         for path in (self.data, self.revisions, Path(cache_dir), Path(run_dir)):
             path.mkdir(parents=True, exist_ok=True)
         os.chmod(self.data, 0o700)
@@ -146,12 +148,29 @@ class Store:
 
     def start(self):
         with self.lock:
+            # Refresh generated runtime directives after upgrades, using only the
+            # ACTIVE settings. A saved draft must never be applied on restart.
+            active = self.active_config()
+            if (self.active / "nginx.conf").read_text() != render(active, self.active_id(), **self.options):
+                generation = self.prepare(active)
+                try:
+                    self.check(generation)
+                except Exception:
+                    shutil.rmtree(self.revisions / generation)
+                    raise
+                self.activate(generation)
             self.check(self.active_id())
-            self.process = subprocess.Popen([self.nginx_bin, "-c", str(self.active / "nginx.conf"), "-g", "daemon off;"])
-            if not self.wait_generation(self.active_id()):
+            self.metrics.start()
+            try:
+                self.process = subprocess.Popen([self.nginx_bin, "-c", str(self.active / "nginx.conf"), "-g", "daemon off;"])
+                if not self.wait_generation(self.active_id()):
+                    raise ApplyError("Nginx не запустился: проверьте логи и занятые порты")
+            except Exception:
                 self.stop()
-                raise ApplyError("Nginx не запустился: проверьте логи и занятые порты")
+                raise
+            self.started = time.time()
             self.mark_applied(self.active_id())
+            self.cleanup()
 
     def stop(self):
         if self.process is not None and self.process.poll() is None:
@@ -161,6 +180,7 @@ class Store:
             except subprocess.TimeoutExpired:
                 self.process.kill()
                 self.process.wait()
+        self.metrics.stop()
 
     def mark_applied(self, generation):
         path = self.revisions / generation / "meta.json"
@@ -257,3 +277,29 @@ class Store:
         running = self.process is not None and self.process.poll() is None
         return {"running": running, "healthy": running and self.running_generation() == self.active_id(),
                 "uptime": int(time.time() - self.started), "last_error": self.last_error}
+
+    def dashboard(self):
+        with self.lock:
+            active = self.active_config()
+            status = self.status()
+            meta = json.loads((self.active / "meta.json").read_text())
+            configuration = dict(generation=self.active_id(), applied_at=meta["applied_at"],
+                                 pending=self.draft_config() != active, hosts=active["hosts"],
+                                 settings=active["settings"])
+        connections = None
+        if status["running"]:
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+            try:
+                with opener.open(f"http://127.0.0.1:{self.options['control_port']}/status", timeout=.5) as response:
+                    text = response.read(1024).decode()
+                counts = re.search(r"Reading: (\d+) Writing: (\d+) Waiting: (\d+)", text)
+                if counts:
+                    reading, writing, waiting = map(int, counts.groups())
+                    # stub_status includes its own connection in Writing.
+                    writing = max(0, writing - 1)
+                    connections = dict(reading=reading, writing=writing, waiting=waiting,
+                                       active=reading + writing + waiting)
+            except (OSError, urllib.error.URLError, ValueError):
+                pass
+        return {**self.metrics.snapshot(), "nginx": status, "connections": connections,
+                "configuration": configuration}

@@ -27,6 +27,7 @@ jobs:
       - name: Validate JavaScript and Compose
         run: |
           node --check gateway/static/app.js
+          node --check gateway/static/dashboard.js
           docker compose config --quiet
 
       - name: Build the image

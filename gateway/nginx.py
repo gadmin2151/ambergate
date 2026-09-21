@@ -40,6 +40,11 @@ def render(config, generation, cache_dir="/cache", run_dir="/run/gateway", port=
         "                       '$body_bytes_sent rt=$request_time upstream=$upstream_addr '",
         "                       'cache=$upstream_cache_status';",
         "    access_log /dev/stdout gateway;",
+        "    log_format telemetry escape=json '{\"time\":\"$msec\",\"host\":\"$server_name\",'",
+        "        '\"route\":\"$gateway_route\",\"status\":$status,\"bytes\":$body_bytes_sent,'",
+        "        '\"seconds\":$request_time,\"cache\":\"$upstream_cache_status\",'",
+        "        '\"limit\":\"$limit_req_status/$limit_conn_status\"}';",
+        f'    access_log "syslog:server=unix:{run_dir}/metrics.sock,tag=gateway,nohostname" telemetry;',
         "    resolver " + " ".join(ip_literal(x) for x in s["resolvers"]) + " valid=10s ipv6=off;",
         "    resolver_timeout 3s;",
         '    map $http_upgrade $connection_upgrade { default upgrade; "" ""; }',
@@ -53,6 +58,12 @@ def render(config, generation, cache_dir="/cache", run_dir="/run/gateway", port=
     ]
     for network in s["trusted_proxies"]:
         lines.append(f"        {ipaddress.ip_network(network, strict=False)} 1;")
+    lines += ["    }", "    map $proxy_host $gateway_route {", '        default "-";']
+    for host in c["hosts"]:
+        if host["enabled"]:
+            for route in host["routes"]:
+                upstream = "up_" + digest([host["id"], route])
+                lines.append(f'        {upstream} "{route["path"]}";')
     lines += ["    }", '    map "$trusted_peer:$http_x_forwarded_proto" $external_scheme {',
               "        default $scheme;", '        "1:https" https;', '        "1:http" http;', "    }"]
     if s["trusted_proxies"]:
@@ -66,6 +77,7 @@ def render(config, generation, cache_dir="/cache", run_dir="/run/gateway", port=
               f"max_size={s['cache_mb']}m inactive=60m use_temp_path=off;",
               "    server {", f"        listen 127.0.0.1:{control_port};", "        access_log off;",
               f'        location = /generation {{ default_type text/plain; return 200 "{generation}"; }}',
+              "        location = /status { stub_status; }",
               "        location / { return 404; }", "    }",
               f"    server {{ listen {port} default_server; server_name _; return 404; }}"]
     for host in c["hosts"]:
