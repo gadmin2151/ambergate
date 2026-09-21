@@ -126,11 +126,21 @@ class Store:
 
     def wait_generation(self, generation, timeout=8):
         deadline = time.monotonic() + timeout
+        confirmed_since = None
         while time.monotonic() < deadline:
             if self.process is None or self.process.poll() is not None:
                 return False
             if self.running_generation() == generation:
-                return True
+                # Nginx starts new workers, waits 100 ms, then retires the old
+                # listeners. One successful probe can land in that overlap.
+                # Require a stable generation across the handoff; existing
+                # long requests and WebSockets may still drain normally.
+                if confirmed_since is None:
+                    confirmed_since = time.monotonic()
+                elif time.monotonic() - confirmed_since >= .2:
+                    return True
+            else:
+                confirmed_since = None
             time.sleep(.08)
         return False
 

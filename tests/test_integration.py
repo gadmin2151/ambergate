@@ -213,6 +213,24 @@ class GatewayIntegrationTests(unittest.TestCase):
         self.assertEqual(result[0], 101)
         self.assertEqual(result[1]["Upgrade"], "websocket")
 
+    def test_reload_switches_new_connections_before_returning(self):
+        # Exercise the brief overlap between new and retiring Nginx workers.
+        # Fresh connections after apply must see both the destination and
+        # trusted-proxy settings of the confirmed configuration.
+        for change in range(6):
+            backend = self.backends[change % 2]
+            trusted = bool(change % 2)
+            self.config["hosts"][0]["routes"][0]["targets"][0]["port"] = backend.server_port
+            self.config["settings"]["trusted_proxies"] = ["127.0.0.1/32"] if trusted else []
+            self.apply_config()
+            for _ in range(4):
+                status, _, body = request(self.port, headers={"X-Forwarded-For": "198.51.100.42"})
+                self.assertEqual(status, 200)
+                data = json.loads(body)
+                self.assertEqual(data["server"], backend.server_port)
+                self.assertEqual(data["headers"]["X-Real-IP"],
+                                 "198.51.100.42" if trusted else "127.0.0.1")
+
     def test_balance_methods_backup_failover_and_s3_path(self):
         r = self.config["hosts"][0]["routes"][0]
         r["targets"].append({"address": "127.0.0.1", "port": self.backends[1].server_port,
