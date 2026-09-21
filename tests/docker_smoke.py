@@ -74,6 +74,10 @@ def main():
         docker("network", "create", NETWORK)
         network_created = True
         subnet = ipaddress.ip_network(json.loads(docker("network", "inspect", NETWORK))[0]["IPAM"]["Config"][0]["Subnet"])
+        # Docker allows explicit endpoint IPs only on explicitly configured
+        # subnets. Reuse the free subnet just allocated by the daemon.
+        docker("network", "rm", NETWORK)
+        docker("network", "create", "--subnet", str(subnet), NETWORK)
         names = [PREFIX + "_backend_1", PREFIX + "_backend_2"]
         first = backend(names[0], str(subnet.network_address + 10), "backend-a")
         backend(names[1], str(subnet.network_address + 11), "backend-b")
