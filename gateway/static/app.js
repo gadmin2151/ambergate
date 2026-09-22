@@ -112,7 +112,8 @@ function newRoute(path='/', name='Frontend', address='frontend', port=3000) {
 }
 
 function showLogin() {
-  config = null;
+  stopDashboardStream();
+  config = null; health = null;
   dashboardData = null; dashboardError = '';
   dockerData = null; dockerDraft = null; dockerError = '';
   if ($('#docker-picker').open) $('#docker-picker').close();
@@ -126,13 +127,10 @@ function showLogin() {
     finally{button.disabled = false;}
   });
 }
-async function load(){accept(await api('config')); await pollStatus(); render();}
-async function pollStatus(){
-  if (!csrf) return;
-  try {health = await api('status');} catch {health = null;}
-  const status = $('#nginx-status'); if (status) status.innerHTML = statusHTML();
-}
-function statusHTML() {return `<span class="dot ${health?.healthy ? '' : 'bad'}"></span>${health?.healthy ? 'Nginx работает' : 'Nginx недоступен'}`;}
+async function load(){accept(await api('config')); render(); startDashboardStream();}
+function statusHTML() {
+  if (dashboardStreamState !== 'live') return `<span class="dot bad"></span>${dashboardError ? 'Нет live-связи' : 'Подключаемся…'}`;
+  return `<span class="dot ${health?.healthy ? '' : 'bad'}"></span>${health?.healthy ? 'Nginx работает' : 'Nginx недоступен'}`;}
 function saveDockContent() {
   const pending = dirty || state.pending;
   return `<div class="save-state ${pending ? 'is-pending' : ''}"><span class="save-state-icon">${icon(pending ? 'clock' : 'check')}</span><div><strong>${busy ? 'Проверяем конфигурацию…' : dirty ? 'Есть несохранённые изменения' : state.pending ? 'Черновик готов к применению' : 'Все изменения применены'}</strong><span>${pending ? 'Рабочие маршруты обновятся после применения' : 'Nginx использует последнюю сохранённую версию'}</span></div></div><div class="actions">${btn('save','Сохранить черновик','save','',!dirty || busy ? 'disabled' : '')}${btn('apply',busy ? 'Применяем…' : 'Применить',busy ? '' : 'arrow','primary',(!dirty && !state.pending) || busy ? 'disabled' : '')}</div>`;
@@ -171,7 +169,7 @@ function render() {
   if (page === 'shield') bindSettings();
   if (page === 'code') loadPreview();
   if (page === 'routes') bindRouteSearch();
-  if (page === 'dashboard') pollDashboard();
+  startDashboardStream();
   if (page === 'docker') loadDockerPage();
 }
 
@@ -350,7 +348,7 @@ document.addEventListener('click', async event=>{
   if (busy) return;
   try {
     if (action === 'navigate') {collectSettings(); page=button.dataset.page; render();}
-    if (action === 'refresh-dashboard') await pollDashboard(true);
+    if (action === 'refresh-dashboard') startDashboardStream(true);
     if (action === 'filter-hosts') {hostFilter=button.dataset.filter;render();}
     if (action === 'reset-search') {routeQuery='';hostFilter='all';render();}
     if (action === 'route-tab') selectRouteTab(button.dataset.tab);
@@ -376,7 +374,7 @@ document.addEventListener('click', async event=>{
       }
     }
     if (action === 'save') await task(async()=>{await saveDraft(); notify('Черновик сохранён');});
-    if (action === 'apply') await task(async()=>{await saveDraft(); accept(await api('apply',{revision:state.revision})); await pollStatus(); notify('Конфигурация проверена и применена');});
+    if (action === 'apply') await task(async()=>{await saveDraft(); accept(await api('apply',{revision:state.revision})); notify('Конфигурация проверена и применена');});
     if (action === 'test') await task(async()=>{await saveDraft(); const result=await api('test',{revision:state.revision}); notify(result.output);});
     if (action === 'active-config') {await loadPreview(true); notify('Показан действующий nginx.conf');}
     if (action === 'copy-config') {const text=$('#preview').textContent; if (navigator.clipboard && window.isSecureContext) {await navigator.clipboard.writeText(text); notify('Скопировано');} else download('nginx.conf',text,'text/plain');}
@@ -399,5 +397,4 @@ document.addEventListener('keydown', event=>{
   if((event.ctrlKey || event.metaKey) && event.key.toLowerCase()==='s' && config && !$('#modal').open) {event.preventDefault();if(dirty) task(async()=>{await saveDraft();notify('Черновик сохранён');});}
 });
 window.addEventListener('beforeunload',event=>{if(dirty){event.preventDefault();event.returnValue='';}});
-setInterval(pollStatus,15000);
 (async()=>{try{csrf=(await api('session')).csrf;await load();}catch{showLogin();}})();

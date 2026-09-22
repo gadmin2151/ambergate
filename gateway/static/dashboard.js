@@ -1,6 +1,7 @@
 'use strict';
 
-let dashboardData = null, dashboardError = '', dashboardFetching = false;
+let dashboardData = null, dashboardError = '', dashboardStreamState = 'connecting';
+let dashboardStream = null, dashboardRetry = null, dashboardWatchdog = null, dashboardRetryDelay = 1000;
 const dashNumber = value => value == null ? '—' : new Intl.NumberFormat('ru-RU', {maximumFractionDigits:1}).format(value);
 const dashTime = stamp => new Date(stamp * 1000).toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'});
 const dashDuration = seconds => seconds < 60 ? `${Math.floor(seconds)} сек` : seconds < 3600 ? `${Math.floor(seconds / 60)} мин` : seconds < 86400 ? `${Math.floor(seconds / 3600)} ч ${Math.floor(seconds % 3600 / 60)} мин` : `${Math.floor(seconds / 86400)} д ${Math.floor(seconds % 86400 / 3600)} ч`;
@@ -13,35 +14,80 @@ function dashBytes(bytes) {
 const dashHost = host => host === '_' ? 'Неизвестные домены' : host === '__other__' ? 'Другие домены' : host;
 const dashLink = (target, label, id) => btn('navigate', label, 'chevron', 'ghost small', `data-page="${target}" id="${id}"`);
 
-async function pollDashboard(force = false) {
-  if (!csrf || page !== 'dashboard' || dashboardFetching || document.hidden && !force) return;
-  if (!force && dashboardData && Date.now() / 1000 - dashboardData.updated_at < 3) return;
-  dashboardFetching = true;
-  const session = csrf;
-  const button = $('#refresh-dashboard');
-  if (button) button.disabled = true;
-  try {
-    const data = await api('dashboard', undefined, {signal:AbortSignal.timeout(8000)});
-    if (csrf !== session) return;
-    dashboardData = data; dashboardError = ''; health = data.nginx;
-    const status = $('#nginx-status'); if (status) status.innerHTML = statusHTML();
-  } catch (error) {
-    if (csrf === session) dashboardError = error.name === 'TimeoutError' ? 'Сервер не ответил вовремя' : error instanceof TypeError ? 'Не удалось связаться с Gateway' : error.message;
-  } finally {
-    dashboardFetching = false;
-    const currentButton = $('#refresh-dashboard'); if (currentButton) currentButton.disabled = false;
-    const content = $('#dashboard-live');
-    if (csrf === session && content && page === 'dashboard') {
-      const focus = content.contains(document.activeElement) ? document.activeElement.id : null;
-      const scrolls = [...content.querySelectorAll('[data-preserve-scroll]')].map(el => [el.id, el.scrollTop, el.scrollLeft]);
-      content.innerHTML = dashboardContent();
-      for (const [id, top, left] of scrolls) { const el = document.getElementById(id); if (el) {el.scrollTop = top; el.scrollLeft = left;} }
-      if (focus) document.getElementById(focus)?.focus({preventScroll:true});
-    }
-  }
+function renderDashboardSnapshot() {
+  const status = $('#nginx-status'); if (status) status.innerHTML = statusHTML();
+  const content = $('#dashboard-live');
+  if (!content || page !== 'dashboard' || !csrf) return;
+  const focus = content.contains(document.activeElement) ? document.activeElement.id : null;
+  const scrolls = [...content.querySelectorAll('[data-preserve-scroll]')].map(el => [el.id, el.scrollTop, el.scrollLeft]);
+  content.innerHTML = dashboardContent();
+  for (const [id, top, left] of scrolls) { const el = document.getElementById(id); if (el) {el.scrollTop = top; el.scrollLeft = left;} }
+  if (focus) document.getElementById(focus)?.focus({preventScroll:true});
 }
-setInterval(() => pollDashboard(), 5000);
-document.addEventListener('visibilitychange', () => { if (!document.hidden) pollDashboard(); });
+function stopDashboardStream() {
+  clearTimeout(dashboardRetry); clearTimeout(dashboardWatchdog);
+  dashboardRetry = null; dashboardWatchdog = null;
+  dashboardStream?.close(); dashboardStream = null;
+  dashboardStreamState = 'connecting';
+}
+function startDashboardStream(force = false) {
+  if (!csrf || document.hidden) return;
+  if (force) stopDashboardStream();
+  if (dashboardStream || dashboardRetry) return;
+  const session = csrf, source = new EventSource('/api/events');
+  dashboardStream = source;
+  dashboardStreamState = 'connecting';
+  renderDashboardSnapshot();
+  const current = () => csrf === session && dashboardStream === source;
+  const retry = async (message, checkSession = false) => {
+    if (!current()) return;
+    source.close(); clearTimeout(dashboardWatchdog);
+    dashboardStreamState = 'reconnecting'; dashboardError = message;
+    renderDashboardSnapshot();
+    // HTTP 401 closes EventSource without exposing the status to JavaScript.
+    if (checkSession) {
+      try { await api('session', undefined, {signal:AbortSignal.timeout(5000)}); } catch { /* api handles an expired login. */ }
+    }
+    if (!current()) return;
+    dashboardStream = null;
+    dashboardRetry = setTimeout(() => {
+      dashboardRetry = null; startDashboardStream();
+    }, dashboardRetryDelay);
+    dashboardRetryDelay = Math.min(dashboardRetryDelay * 2, 15000);
+  };
+  const watch = () => {
+    clearTimeout(dashboardWatchdog);
+    dashboardWatchdog = setTimeout(() => retry('Данные не поступают. Переподключаемся автоматически'), 15000);
+  };
+  source.addEventListener('dashboard', event => {
+    if (!current()) return;
+    try {
+      const data = JSON.parse(event.data);
+      if (!data.nginx || !data.summary || !data.configuration) throw new Error('Invalid snapshot');
+      dashboardData = data; health = data.nginx; dashboardError = '';
+      dashboardStreamState = 'live'; dashboardRetryDelay = 1000;
+      watch(); renderDashboardSnapshot();
+    } catch { retry('Не удалось прочитать обновление. Переподключаемся'); }
+  });
+  source.addEventListener('stream_error', () => {
+    if (!current()) return;
+    dashboardError = 'Сервер временно не может получить показатели';
+    dashboardStreamState = 'reconnecting';
+    renderDashboardSnapshot();
+  });
+  source.addEventListener('auth_required', () => {
+    if (!current()) return;
+    csrf = ''; showLogin();
+  });
+  source.onerror = () => retry('Связь с сервером потеряна. Переподключаемся автоматически', source.readyState === EventSource.CLOSED);
+  watch();
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) stopDashboardStream(); else startDashboardStream();
+});
+window.addEventListener('pagehide', stopDashboardStream);
+window.addEventListener('pageshow', () => startDashboardStream());
+window.addEventListener('online', () => startDashboardStream(true));
 
 function dashMetric(label, value, unit, note, symbol, tone = '') {
   return `<article class="dash-kpi ${tone}"><div class="dash-kpi-label">${label}${icon(symbol)}</div><div class="dash-kpi-value">${value}<small>${unit}</small></div><p>${note}</p></article>`;
@@ -56,7 +102,7 @@ function dashboardContent() {
   const statusNote = !d.nginx.healthy ? 'Процесс или действующая версия не подтверждены.' : s.errors ? `${dashNumber(s.errors)} ответов с ошибкой сервера за доступный период. Подробности — ниже.` : s.requests ? 'Nginx работает. За доступный период ответов 5xx не было.' : 'Nginx работает. Ожидаем первые запросы к приложениям.';
   return `${stale}
     ${!d.available ? `<div class="dash-alert danger" role="alert">${icon('info')}<div><strong>Сбор статистики остановлен</strong><p>Проверьте логи контейнера. Показатели трафика могут быть неполными.</p></div></div>` : ''}
-    <section class="dash-health ${statusTone}"><span class="dash-health-icon">${icon(d.nginx.healthy ? 'bolt' : 'info')}</span><div><h2>${statusTitle}</h2><p>${statusNote}</p></div><div class="dash-live"><span class="dot ${dashboardError || !d.available ? 'bad' : ''}"></span>${dashboardError ? 'Снимок' : 'LIVE'}<small>${dashTime(d.updated_at)} · каждые 5 с</small></div></section>
+    <section class="dash-health ${statusTone}"><span class="dash-health-icon">${icon(d.nginx.healthy ? 'bolt' : 'info')}</span><div><h2>${statusTitle}</h2><p>${statusNote}</p></div><div class="dash-live"><span class="dot ${dashboardStreamState !== 'live' || !d.available ? 'bad' : ''}"></span>${dashboardStreamState === 'live' ? 'LIVE' : 'Снимок'}<small>${new Date(d.updated_at * 1000).toLocaleTimeString('ru-RU')} · автоматически</small></div></section>
     ${(c.pending || dirty) ? `<div class="dash-draft">${icon('code')}<span>${dirty ? 'В редакторе есть несохранённые изменения.' : 'Есть неприменённый черновик.'} Здесь показана работа действующей конфигурации.</span>${dashLink('code', 'Смотреть конфиг', 'dash-config-link')}</div>` : ''}
     <div class="dash-kpis">
       ${dashMetric('Всего запросов', dashNumber(s.requests), '', `${d.rps == null ? 'Скорость появится после замера' : `<b>${dashNumber(d.rps)}</b> запр/с · последний полный интервал`}`, 'arrow', 'accent')}

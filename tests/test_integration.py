@@ -427,6 +427,33 @@ class GatewayIntegrationTests(unittest.TestCase):
             request(self.admin.server_port, "/healthz")
         self.assertEqual(self.store.dashboard()["summary"]["requests"], count)
 
+    def test_sse_pushes_real_traffic_and_applied_configuration(self):
+        from .test_events import read_event
+        token, _ = self.auth.login("test-password-12345", "sse-test")
+        client = http.client.HTTPConnection("127.0.0.1", self.admin.server_port, timeout=5)
+        response = None
+        try:
+            client.request("GET", "/api/events", headers={"Cookie": "gateway_session=" + token})
+            response = client.getresponse()
+            self.assertEqual(response.status, 200)
+            _, before, _ = read_event(response)
+            self.assertEqual(request(self.port, "/sse-live-traffic")[0], 200)
+            self.config["hosts"][0]["domain"] = "sse-updated.test"
+            self.apply_config()
+            for _ in range(5):
+                name, after, _ = read_event(response)
+                if (name == "dashboard" and after["summary"]["requests"] > before["summary"]["requests"]
+                        and after["configuration"]["generation"] == self.store.active_id()):
+                    break
+            self.assertGreater(after["summary"]["requests"], before["summary"]["requests"])
+            self.assertEqual(after["configuration"]["hosts"][0]["domain"], "sse-updated.test")
+            self.assertTrue(after["nginx"]["healthy"])
+        finally:
+            self.auth.logout(token)
+            if response:
+                response.close()
+            client.close()
+
     def test_runtime_upgrade_instruments_active_settings_and_preserves_draft(self):
         self.store.stop()
         old_id = self.store.active_id()

@@ -10,6 +10,7 @@ from urllib.parse import urlsplit
 
 from .storage import ApplyError, ConflictError
 from .docker import Docker
+from .events import DashboardEvents, event
 
 STATIC = Path(__file__).parent / "static"
 
@@ -23,8 +24,17 @@ class Server(ThreadingHTTPServer):
         self.store = store
         self.auth = auth
         self.docker = Docker(store.data)
+        self.events = DashboardEvents(store.dashboard)
         self.slots = threading.BoundedSemaphore(32)
         super().__init__(address, Handler)
+
+    def shutdown(self):
+        self.events.stop()
+        super().shutdown()
+
+    def server_close(self):
+        self.events.stop()
+        super().server_close()
 
     def process_request(self, request, client_address):
         if not self.slots.acquire(blocking=False):
@@ -84,6 +94,39 @@ class Handler(BaseHTTPRequestHandler):
         secure = "; Secure" if os.environ.get("GATEWAY_SECURE_COOKIE", "false").lower() == "true" else ""
         return f"gateway_session={token}; HttpOnly; SameSite=Strict; Path=/; Max-Age={age}{secure}"
 
+    def stream_dashboard(self):
+        # Reserve half the request slots for login, edits and health checks.
+        events = self.server.events
+        if not events.subscribe():
+            return self.respond(503, {"error": "Слишком много live-подключений"}, headers={"Retry-After": "3"})
+        self.close_connection = True
+        try:
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+            self.send_header("Cache-Control", "no-cache, no-store, no-transform")
+            self.send_header("X-Accel-Buffering", "no")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("Connection", "close")
+            self.end_headers()
+            self.wfile.write(b"retry: 3000\n: connected\n\n")
+            self.wfile.flush()
+            token, sequence = self.token(), -1
+            while not events.stopped:
+                sequence, frame = events.wait(sequence)
+                if events.stopped:
+                    break
+                # Revoked/expired sessions must not retain a live data stream.
+                if not self.server.auth.session(token):
+                    self.wfile.write(event("auth_required", {"error": "Сессия завершена"}))
+                    self.wfile.flush()
+                    break
+                self.wfile.write(frame or b": keepalive\n\n")
+                self.wfile.flush()
+        except (OSError, TimeoutError):
+            pass  # Disconnected/slow readers release their slot; no unbounded queues.
+        finally:
+            events.unsubscribe()
+
     def do_GET(self):
         try:
             path = urlsplit(self.path).path
@@ -112,6 +155,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(200, self.server.store.status())
             if path == "/api/dashboard":
                 return self.respond(200, self.server.store.dashboard())
+            if path == "/api/events":
+                return self.stream_dashboard()
             if path == "/api/docker":
                 return self.respond(200, self.server.docker.snapshot(force=urlsplit(self.path).query == "refresh=1"))
             if path == "/api/export":
