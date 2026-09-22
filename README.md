@@ -1,213 +1,230 @@
-<p align="center">
-  <img src="docs/banner.svg" alt="Nginx Scale Gateway — Your traffic. Your rules." width="100%">
-</p>
+<p align="center"><strong>English</strong> · <a href="README.ru.md">Русский</a></p>
+
+<p align="center"><img src="docs/banner.svg" alt="Nginx Scale Gateway — one entry point for all your applications" width="100%"></p>
 
 <p align="center">
-  <a href="https://github.com/gadmin2151/nginx-scale-gw/actions/workflows/docker.yml"><img src="https://github.com/gadmin2151/nginx-scale-gw/actions/workflows/docker.yml/badge.svg" alt="Build & publish"></a>
-  <img src="https://img.shields.io/badge/Nginx-1.28%2B-ffaf35?logo=nginx&logoColor=white" alt="Nginx 1.28+">
-  <img src="https://img.shields.io/badge/Python-no%20dependencies-ffaf35?logo=python&logoColor=white" alt="Python without external dependencies">
-  <img src="https://img.shields.io/badge/Docker-amd64%20%7C%20arm64-ffaf35?logo=docker&logoColor=white" alt="Docker amd64 and arm64">
+  <a href="https://github.com/gadmin2151/nginx-scale-gw/actions/workflows/docker.yml"><img src="https://github.com/gadmin2151/nginx-scale-gw/actions/workflows/docker.yml/badge.svg" alt="Build and publish"></a>
+  <a href="https://github.com/gadmin2151/nginx-scale-gw/pkgs/container/nginx-scale-gw"><img src="https://img.shields.io/badge/GHCR-amd64%20%7C%20arm64-ffaf35?style=flat-square&logo=docker&logoColor=ffaf35&labelColor=151516" alt="GHCR: amd64 and arm64"></a>
+  <img src="https://img.shields.io/badge/UI-RU%20%2F%20EN-ffaf35?style=flat-square&labelColor=151516" alt="Russian and English UI">
+  <img src="https://img.shields.io/badge/runtime-one%20container-ffaf35?style=flat-square&labelColor=151516" alt="One container">
 </p>
 
-<p align="center">
-  <b>Ваш Nginx. Несколько доменов. Одна удобная панель.</b><br>
-  Маршруты, балансировка, кеш и защита приложений — в одном Docker-контейнере.
-</p>
-
-<p align="center">
-  <a href="#быстрый-старт">Быстрый старт</a> ·
-  <a href="#несколько-доменов--один-gateway">Домены и маршруты</a> ·
-  <a href="docs/configuration.ru.md">Полная документация</a> ·
-  <a href="https://github.com/users/gadmin2151/packages/container/package/nginx-scale-gw">Docker image</a>
-</p>
+<h3 align="center">Your domains. Your applications. One gateway.</h3>
+<p align="center">Configure Nginx from a web interface. Route traffic, balance backends, control caching and follow live traffic — with everything stored on your own server.</p>
+<p align="center"><a href="#quick-start">Quick start</a> · <a href="#what-you-can-configure">Features</a> · <a href="#docker-container-discovery">Docker discovery</a> · <a href="README.ru.md">Russian guide</a> · <a href="CONTRIBUTING.md">Contributing</a></p>
 
 ---
 
-**Nginx Scale Gateway** превращает настройку Nginx в простой процесс: добавьте домен, укажите приложения, проверьте конфигурацию и примените её из браузера. Nginx передаёт трафик напрямую; небольшой Python-сервис отвечает только за управление.
+**Nginx Scale Gateway** is a small, self-hosted HTTP gateway built with Nginx, Python's standard library and vanilla JavaScript. One Docker container serves application traffic on **port 80** and the control panel on **port 8083**. Configuration lives on disk. No external database or metrics service is required.
 
-Без внешней БД, frontend-сборки, CDN и облачных зависимостей во время работы. Все настройки и история хранятся локально. **SSL остаётся на вашем внешнем прокси.**
+TLS stays with your existing reverse proxy. The panel generates and validates `nginx.conf` from structured settings, then reloads Nginx without stopping applications.
 
-## Что умеет
+## What you can configure
 
-| Возможность | Что вы получаете |
+| Capability | Included |
 |:--|:--|
-| **Живой dashboard** | График трафика, RPS, задержки, ошибки, кеш, соединения и статистика доменов |
-| **Docker discovery** | Подключение к docker.sock, выбор контейнеров и TCP-портов для маршрутов и балансировки |
-| **Несколько доменов** | Независимые маршруты и upstream для каждого домена; поиск и фильтры |
-| **Маршрутизация** | `/`, `/api`, `/s3`, вложенные пути, сохранение или удаление префикса |
-| **Балансировка** | Round robin, least connections, IP hash, веса и резервные серверы |
-| **Кеш** | TTL на маршрут, общий размер дискового кеша, обход приватных запросов |
-| **Защита** | Лимиты на IP, burst, соединения, размер запроса, скрытые файлы и security headers |
-| **Работа за SSL-прокси** | Доверенные CIDR, реальный IP клиента, корректная внешняя схема |
-| **Безопасное применение** | Проверка `nginx -t`, плавный reload, подтверждение версии и откат |
-| **История и перенос** | 20 версий, восстановление, импорт и экспорт JSON |
-| **Современная панель** | Чёрно-золотая тема, удобные вкладки, мобильная версия, постоянные кнопки сохранения |
+| **Multiple domains** | Independent routes and upstreams per domain; enable/disable domains; search and filters |
+| **Path routing** | `/`, `/api`, `/s3`, nested paths; preserve or strip the path prefix; correct path boundaries |
+| **Load balancing** | Round robin, least connections, IP hash; server weights and backup targets |
+| **Docker discovery** | Select containers and HTTP ports using `docker.sock`; shared-network DNS or published ports through the host IP |
+| **Response caching** | Per-route TTL, shared disk budget, public GET/HEAD responses; private requests bypass cache |
+| **Traffic limits** | Global per-source-IP request rate and burst, concurrent requests, additional per-route rate limits |
+| **HTTP protection** | Body size limits, timeouts, hidden-file protection, security headers and restricted methods |
+| **External TLS proxy** | Trusted proxy IP/CIDR, real client addresses and forwarded scheme |
+| **WebSocket** | Upgrade handling per route |
+| **Live dashboard** | SSE updates, traffic charts, response codes, errors, cache hits, connections and domain statistics |
+| **Safe changes** | Drafts, `nginx -t`, graceful reload, active-version verification and rollback on failed apply |
+| **Local history** | Last 20 applied versions, restore to draft, JSON import/export |
+| **RU / EN interface** | Instant language switch, remembered locally; localized help, dialogs, errors, dates and numbers |
+| **Deployment** | First-start installer; one container; GHCR images for amd64 and arm64; built-in health check |
 
-## Что происходит с gateway
+## Quick start
 
-После входа открывается **«Обзор системы»** — рабочий dashboard в чёрно-янтарной теме. Метрики и статус Nginx поступают через **SSE** раз в секунду по одному постоянному соединению, без периодических HTTP-запросов из браузера.
+### Install on a Linux server
 
-- **Трафик:** количество запросов, текущая скорость, график за последние 15 минут и объём отданных данных.
-- **Ответы:** ошибки 5xx, среднее время ответа, приблизительный p95 и распределение HTTP-кодов.
-- **Кеш и защита:** доля HIT и запросы, отклонённые лимитами самого gateway.
-- **Nginx:** состояние, время работы, открытые соединения и действующая версия конфигурации.
-- **Домены:** запросы, ошибки и задержки отдельно для каждого домена.
-- **Проблемные ответы:** последние 30 ответов 4xx/5xx с доменом, маршрутом и длительностью.
-
-Это реальные измерения завершённых HTTP-запросов. Пока трафика нет, dashboard показывает ожидание данных. Запросы админки и служебные проверки не попадают в статистику трафика. Черновик и действующие настройки обозначены отдельно.
-
-При обрыве связи панель обозначает последний снимок и автоматически переподключается. При возврате в скрытую вкладку открывается новый поток с актуальными данными; выход из аккаунта и истечение сессии закрывают соединение. Редактирование маршрутов и настроек не прерывается обновлениями dashboard.
-
-Метрики собираются локально в ограниченной памяти, без дополнительных контейнеров, файлов журналов или внешних сервисов. История сбрасывается при перезапуске; подробности расчёта и ограничения описаны в [документации dashboard](docs/configuration.ru.md#dashboard-и-метрики).
-
-## Быстрый старт
-
-### Готовый образ из GitHub Container Registry
+Supported by the installer: **Debian 12/13**, **Ubuntu 22.04/24.04/26.04**, **amd64 / arm64**.
 
 ```bash
-git clone git@github.com:gadmin2151/nginx-scale-gw.git
+git clone https://github.com/gadmin2151/nginx-scale-gw.git
+cd nginx-scale-gw
+sudo bash first-start.sh --with-docker
+```
+
+`first-start.sh` checks Docker Engine, the Compose plugin, curl, CA certificates and Python 3. It installs missing components, starts Docker if necessary, prepares **`/opt/nginx-scale-gw`** and waits for a healthy gateway. Docker packages come from its [official Debian](https://docs.docker.com/engine/install/debian/) or [Ubuntu](https://docs.docker.com/engine/install/ubuntu/) apt repository. Existing packages are not removed; conflicts stop the installer with an explanation.
+
+Read the initial administrator password privately in the container logs:
+
+```bash
+sudo docker compose -f /opt/nginx-scale-gw/compose.yaml logs gateway
+```
+
+Look for `Gateway admin — initial password`. It appears once when the account is created. Change it in the panel after signing in.
+
+The panel binds to **127.0.0.1:8083** by default. For a remote server, open an SSH tunnel:
+
+```bash
+ssh -L 8083:127.0.0.1:8083 user@server
+```
+
+Then open **[http://127.0.0.1:8083](http://127.0.0.1:8083)**. To bind a **new installation** to a trusted LAN address, use `--admin-bind 10.0.0.10`.
+
+<details>
+<summary><strong>Installer options and repeat runs</strong></summary>
+
+```bash
+bash first-start.sh --check
+sudo bash first-start.sh --dir /opt/nginx-scale-gw --http-port 8080 --with-docker
+sudo bash first-start.sh --admin-bind 10.0.0.10 --admin-port 8083 --no-start
+```
+
+| Option | Purpose |
+|:--|:--|
+| `--check` | Read-only dependency check; exit 1 if a component is missing or inaccessible |
+| `--dir PATH` | Installation directory; default `/opt/nginx-scale-gw` |
+| `--admin-bind IP` | Admin bind address for a new Compose file; default `127.0.0.1` |
+| `--admin-port PORT` | Admin port; default `8083` |
+| `--http-port PORT` | Application HTTP port; default `80` |
+| `--with-docker` | Mount the socket for optional discovery; enable it in the panel |
+| `--socket PATH` | Local Docker socket; default `/var/run/docker.sock` |
+| `--no-start` | Install dependencies and prepare files without starting gateway |
+
+Repeat runs keep the existing Compose file, password, routes and data. Port and socket-mount options only affect a newly created Compose file. The script pulls an image when needed for startup; use the explicit upgrade commands below to update an existing image. It never changes your external TLS proxy.
+
+The script can also be downloaded by itself and inspected before running; it does not need the cloned repository at runtime. Root/sudo is required for installation. Other operating systems can use the Compose files directly with Docker installed.
+
+</details>
+
+### Already have Docker?
+
+```bash
+git clone https://github.com/gadmin2151/nginx-scale-gw.git
 cd nginx-scale-gw
 docker compose -f compose.ghcr.yaml up -d
 docker compose -f compose.ghcr.yaml logs gateway
 ```
 
-Откройте **[http://127.0.0.1:8083](http://127.0.0.1:8083)**. Начальный случайный пароль появится один раз в логах: `Gateway admin — initial password`.
+To build locally, run `docker compose up -d --build` instead. Optionally copy `.env.example` to `.env` and set `GATEWAY_ADMIN_PASSWORD` before the first boot; later password changes are made in the panel.
 
-| Назначение | Адрес / хранение |
-|:--|:--|
-| Трафик приложений | HTTP, порт **80** |
-| Панель управления | Порт **8083**, опубликован на loopback хоста |
-| Настройки и история | Volume `gateway-data` → `/data` |
-| Кеш | Volume `gateway-cache` → `/cache` |
-| Образ | `ghcr.io/gadmin2151/nginx-scale-gw:latest` |
+If port 80 is occupied by your TLS proxy, change the mapping to `127.0.0.1:8080:80` and point that proxy to port 8080.
 
-При желании скопируйте `.env.example` в `.env` и задайте `GATEWAY_ADMIN_PASSWORD` перед первым запуском. После создания аккаунта пароль меняется в панели.
+## Multiple domains, one gateway
 
-### Сборка самостоятельно
+| Domain | Route | Upstreams |
+|:--|:--|:--|
+| `example.com` | `/` | `frontend-1:3000`, `frontend-2:3000` |
+| `example.com` | `/api` | `backend-1:8000`, `backend-2:8000` |
+| `example.com` | `/s3` | An HTTP storage application supporting that path |
+| `app2.example.com` | `/` | `other-frontend:3000` |
+| `app2.example.com` | `/api` | `other-backend:8000` |
+| `s3.example.com` | `/` | `minio:9000` for a standard S3 API |
 
-```bash
-docker compose up -d --build
-docker compose logs gateway
-```
+1. Choose **Add domain**, enter its DNS name and the first upstream server.
+2. Add routes. Set balancing in **Servers**, and response caching and limits in **Cache & limits**.
+3. Choose whether to preserve the incoming path or strip the route prefix. For example, `/back/api/` becomes `/api/` when the `/back` prefix is stripped.
+4. Click **Apply** to validate and activate the configuration.
 
-> Если порт 80 уже занят вашим SSL-прокси, замените публикацию на `127.0.0.1:8080:80` и направьте прокси на порт 8080. Для доступа к панели удалённого сервера: `ssh -L 8083:127.0.0.1:8083 user@server`.
+Each domain is independent. The panel can load an `example.com` starter configuration; replace example upstreams with reachable applications before applying. Deletion uses an in-panel confirmation dialog. A domain with no routes returns HTTP 404 after applying.
 
-## Маршруты прямо на Docker-контейнеры
+**S3 note:** SigV4 signatures depend on the original Host and path. Use a separate domain with route `/` for a standard S3 API; stripping `/s3` can invalidate signatures. Applications that use absolute URLs may also need their external base path configured.
 
-Подключение Docker необязательно. Чтобы выбирать контейнеры в панели, добавьте socket через готовый Compose overlay:
+## Docker container discovery
+
+For an installer deployment, use `--with-docker` on the first run. For repository Compose deployments:
 
 ```bash
 docker compose -f compose.ghcr.yaml -f compose.docker.yaml up -d
 ```
 
-Для сборки из исходников используйте `compose.yaml` вместо `compose.ghcr.yaml`. Если socket находится в другом месте, укажите `DOCKER_SOCKET_PATH` в `.env` — например `/run/user/1000/docker.sock` для rootless Docker.
+Use `compose.yaml` instead of `compose.ghcr.yaml` for a source build. `DOCKER_SOCKET_PATH` in `.env` selects a different host socket.
 
-1. Откройте **Docker → Подключить Docker**. Путь внутри контейнера по умолчанию — `/var/run/docker.sock`.
-2. Подключите приложения и gateway к общей пользовательской сети Docker, например `nginx-gateway`.
-3. При создании домена или в **Маршрут → Серверы → Выбрать из Docker** отметьте нужные контейнеры и порты.
-4. Настройте Round robin / Least connections, веса и резервные цели. Сохраните маршрут и нажмите **«Применить»**.
+Open **Docker → Connect Docker**, then **Domains & routes → your route → Servers → Select from Docker**.
 
-**Контейнеры из другой сети:** в окне выбора укажите **IP Docker-хоста**, нажмите **«Сохранить IP»** и выберите **«Через IP хоста»**. Для публикации `8001:80` в маршрут попадёт `IP-хоста:8001`. В режиме **«Автоматически»** сначала используется общая сеть, а при её отсутствии — опубликованный порт хоста. IP можно также сохранить в разделе Docker; он хранится локально. Порты, опубликованные только на `127.0.0.1` или `::1` хоста, недоступны gateway из отдельного контейнера.
+| Connection mode | How targets are selected |
+|:--|:--|
+| **Automatic** | Prefer a shared Docker network; fall back to a published host port |
+| **Via host IP** | Use published TCP ports, even when the container belongs to another network |
 
-В пользовательской сети сохраняются Docker-имена, а Nginx обновляет их IP через Docker DNS. Для пересоздания контейнера с тем же именем менять маршрут не требуется. Новые реплики добавляются в маршрут через выбор контейнеров; автоматического изменения числа целей нет. Локальная панель вне контейнера предлагает опубликованные TCP-порты хоста.
+For a container published as `8001:80`, save the **Docker host IP** in the picker, select **Via host IP**, and the route uses **`host-IP:8001`**. No shared network is required. Ports bound only to host `127.0.0.1` or `::1` cannot be reached from a separate gateway container.
 
-Панель показывает сеть, состояние, образ и порты, отмечает остановленные контейнеры и отсутствие общей сети. Если приложение не объявило порт, его можно ввести вручную. **Нужен HTTP-порт приложения; discovery не проверяет протокол.**
+For shared networks, attach applications to `nginx-gateway` and use Docker DNS names. Nginx re-resolves names so a container recreated with the same name can receive a new IP. Selecting multiple containers configures load balancing. Adding new replicas to routes is manual; discovery does not change application networks or continuously rewrite your routes.
 
-Docker socket даёт привилегированный доступ к Docker-хосту. Gateway использует только GET-запросы для обнаружения; монтирование `:ro` не делает сам Docker API доступным только для чтения. [Настройка сетей, ограничения и права доступа →](docs/configuration.ru.md#docker-socket-и-выбор-контейнеров)
+The picker shows state, image, networks and TCP ports. Stopped containers and the gateway itself cannot be selected. Ports can be entered manually when `EXPOSE` is absent. Select an **HTTP** application port; discovery does not detect the application protocol.
 
-## Несколько доменов — один gateway
+The Docker socket grants privileged host access. Gateway only makes read requests, but a `:ro` bind does not make the Docker API itself read-only. Keep the panel on a trusted network. [Detailed network and permission guide in Russian →](docs/configuration.ru.md#docker-socket-и-выбор-контейнеров)
 
-Каждый домен имеет собственный набор маршрутов. Например:
+## Know what is happening
 
-| Домен | Путь | Приложение |
-|:--|:--|:--|
-| `example.com` | `/` | `frontend-1:3000`, `frontend-2:3000` |
-| `example.com` | `/api` | `backend-1:8000`, `backend-2:8000` |
-| `example.com` | `/s3` | HTTP-хранилище, принимающее этот путь |
-| `app2.example.com` | `/` | `other-frontend:3000` |
-| `app2.example.com` | `/api` | `other-backend:8000` |
-| `s3.example.com` | `/` | `minio:9000` — стандартный S3 API |
+The **System overview** receives a dashboard snapshot every second over **one Server-Sent Events connection**. There is no periodic browser HTTP polling.
 
-1. Нажмите **«Добавить домен»** и укажите имя и первый upstream.
-2. Добавьте маршруты. Во вкладке **«Серверы»** настройте балансировку; в **«Кеш и лимиты»** — правила маршрута.
-3. Добавьте следующий домен тем же способом. Настройки доменов независимы.
-4. Нажмите **«Применить»**. Сервис проверит и загрузит конфигурацию.
+- **Traffic:** completed requests, current rate, 15-minute chart and bytes sent.
+- **Responses:** 5xx errors, average response duration, approximate p95 and HTTP code distribution.
+- **Cache and limits:** cache hit ratio and requests rejected by gateway limits.
+- **Nginx:** health, uptime, open connections and active configuration version.
+- **Domains:** request volume, errors and response times per domain.
+- **Recent errors:** up to 30 latest 4xx/5xx responses with domain, route and duration.
 
-Удаление маршрутов и доменов подтверждается в панели. После удаления нажмите **«Сохранить черновик»** или **«Применить»**. Последний маршрут тоже можно удалить: домен останется и после применения будет отвечать HTTP 404 до добавления нового маршрута.
+The dashboard distinguishes the active configuration from your draft. Connection loss shows a stale snapshot and triggers reconnection. Hidden tabs close the stream and reconnect when visible; signing out closes it too. Live updates do not interrupt route editing.
 
-В пустой панели есть готовый пример для `example.com`. Замените адреса примера своими. Приложения должны быть доступны из сети контейнера: Compose создаёт сеть `nginx-gateway`; подключите к ней контейнеры приложений или используйте доступные IP.
+Metrics use bounded local memory, with 10-second buckets for up to 15 minutes. Restarting clears this history. Panel requests and health checks are excluded. No traffic means no invented statistics; p95 is approximate and response duration includes transfer to the client.
 
-**S3:** SigV4 зависит от исходного пути и Host. Стандартный MinIO/S3 API лучше вынести на отдельный домен с маршрутом `/`; удаление `/s3` может нарушить подпись. [Подробности →](docs/configuration.ru.md#s3-и-префикс-s3)
-
-## Как применяются изменения
+## Draft, validate, apply
 
 ```mermaid
 flowchart LR
-    A[Правки в панели] --> B[Локальный черновик]
+    A[Edit in the panel] --> B[Local draft]
     B --> C{nginx -t}
-    C -->|Ошибка| B
-    C -->|Успех| D[Плавный reload]
-    D --> E{Версия подтверждена?}
-    E -->|Да| F[Новая конфигурация]
-    E -->|Нет| G[Откат]
+    C -->|Valid| D[Graceful reload]
+    C -->|Invalid| B
+    D --> E{Active version verified?}
+    E -->|Yes| F[New configuration]
+    E -->|No| G[Rollback]
 ```
 
-**Сохранить черновик** записывает настройки, не меняя текущий трафик. **Применить** сохраняет, проверяет и активирует их. Черновик и действующая конфигурация переживают перезапуск независимо друг от друга.
+**Save draft** persists your edits without changing traffic. **Apply** saves, validates and activates them. Draft and active configuration survive restarts independently. Restore any retained version into the draft and apply it when ready.
 
-В панели можно нажать **`/`**, чтобы перейти к поиску, и **`Ctrl/Cmd + S`**, чтобы сохранить черновик. Вкладки редактора поддерживают клавиатуру.
+Switch **RU / EN** on the login screen or top bar. The preference is stored in your browser; switching preserves unsaved fields. User-defined domain names, route names, addresses and Nginx configuration are not translated.
 
-## Сборка и публикация образа
+Keyboard shortcuts: **`/`** focuses route search, **`Ctrl/Cmd + S`** saves a draft. Route-editor tabs and confirmation dialogs support keyboard navigation.
 
-[GitHub Actions](.github/workflows/docker.yml) автоматически:
+## Storage, backup and upgrades
 
-1. Проверяет JavaScript и Compose, собирает Docker-образ.
-2. Запускает тесты с настоящим Nginx **внутри образа** и проверяет запуск контейнера.
-3. Проверяет discovery через настоящий Docker socket, балансировку двух контейнеров и обновление DNS после пересоздания контейнера с другим IP.
-4. После успешных проверок публикует образ в **GHCR** для `linux/amd64` и `linux/arm64`, с OCI-метаданными, provenance и SBOM.
+| Content | Container path | Installer directory |
+|:--|:--|:--|
+| Draft, active config, credentials, Docker settings, history | `/data` | `/opt/nginx-scale-gw/data` |
+| Response cache | `/cache` | `/opt/nginx-scale-gw/cache` |
+| Runtime files | `/run/gateway` | `/opt/nginx-scale-gw/run` |
 
-| Событие | Результат |
+Repository Compose files use named volumes `gateway-data` and `gateway-cache`. The installer uses bind directories under its installation path. Keep `/data` and your Compose file in backups. Treat backups as private because they include authentication data and internal addresses. For a consistent filesystem backup, briefly stop gateway or use a filesystem snapshot; JSON export transfers routing settings but not the administrator account or Docker connection settings.
+
+For an installer deployment:
+
+```bash
+cd /opt/nginx-scale-gw
+sudo docker compose pull
+sudo docker compose up -d --wait
+```
+
+For a repository deployment, include `-f compose.ghcr.yaml` and the Docker overlay if used. Never use `down -v` unless you intend to delete named volumes. Image upgrades are explicit; there is no background auto-updater.
+
+## Build and delivery
+
+[GitHub Actions](.github/workflows/docker.yml) validates JavaScript, translations, the installer and Compose, runs routing tests with real Nginx, and exercises Docker discovery and load balancing against real containers. Successful releases publish **`linux/amd64`** and **`linux/arm64`** images to [GitHub Container Registry](https://github.com/gadmin2151/nginx-scale-gw/pkgs/container/nginx-scale-gw) with OCI metadata, provenance and SBOM.
+
+| Trigger | Result |
 |:--|:--|
-| Push в `main` | Проверки, публикация `latest` и `sha-<полный commit SHA>` |
-| Тег `v1.2.3` | Проверки, публикация `1.2.3`, `1.2` и SHA-тега |
-| Pull request | Проверки без публикации |
-| Ручной запуск workflow | Проверки; публикация только из `main` или тега `v*` |
+| Push to `main` | Tests, `latest` and `sha-<full-commit-SHA>` |
+| Tag `v1.2.3` | Tests, `1.2.3`, `1.2` and SHA tag |
+| Pull request | Tests without publication |
+| Manual workflow | Tests; publication only from `main` or a `v*` tag |
 
-Используется встроенный `GITHUB_TOKEN` с `packages: write`; отдельные Docker Hub credentials не нужны. Actions закреплены полными commit SHA. Новые GHCR packages могут изначально иметь видимость private — для анонимного `docker pull` установите public в настройках package.
+The workflow uses `GITHUB_TOKEN` with `packages: write`; no Docker Hub credentials are needed. Actions are pinned to commit SHAs. [Development and contribution guide →](CONTRIBUTING.md)
 
-Обновление установленного сервиса:
+## Scope and defaults
 
-```bash
-docker compose -f compose.ghcr.yaml pull
-docker compose -f compose.ghcr.yaml up -d
-```
-
-## Разработка и проверки
-
-```bash
-python3 -m unittest tests.test_config -v
-node --check gateway/static/app.js
-node --check gateway/static/dashboard.js
-node --check gateway/static/docker.js
-docker compose config --quiet
-```
-
-Полный набор проверяет маршруты и их границы, несколько доменов, алгоритмы балансировки, резервные серверы, WebSocket upgrade, кеш и приватные ответы, IP-лимиты, auth/CSRF, историю и откат. Проверки dashboard включают реальный трафик, метрики кеша и ошибок, ограничение памяти, исключение служебных запросов и обновление старой конфигурации с сохранением черновика.
-
-```bash
-docker compose build
-docker run --rm --entrypoint python3 \
-  -v "$PWD/tests:/app/tests:ro" \
-  local/nginx-gateway:latest -m unittest discover -v
-```
-
-Интеграционные тесты требуют Nginx 1.28+; без него они помечаются как skipped. [Локальный запуск без Docker и полное описание настроек →](docs/configuration.ru.md#разработка-и-проверки)
-
-## Важно при настройке
-
-- За внешним SSL-прокси укажите его **доверенный IP/CIDR**: иначе пользователи разделят лимит IP прокси.
-- Кешируйте только публичные ответы. Authorization, cookies, Set-Cookie и типовые подписанные параметры исключены из кеша.
-- Это **HTTP gateway**, а не WAF, TCP-прокси или TLS-менеджер. Upstream HTTPS и gRPC пока не поддерживаются.
-- Произвольное редактирование директив не предусмотрено: `nginx.conf` генерируется из проверенных полей панели.
-- Сохраняйте volume `/data`; `docker compose down -v` удаляет настройки вместе с volumes.
+- **HTTP gateway:** external TLS termination; no certificate management, upstream HTTPS, gRPC, raw TCP proxy or full WAF.
+- **Trusted proxies:** configure only your actual proxy IP/CIDR so per-client limits use the correct address.
+- **Caching:** enable it for public responses. Authorization, cookies, Set-Cookie, common signed parameters and WebSocket bypass caching; upstream Cache-Control and Vary are respected.
+- **Structured configuration:** preview and copy generated `nginx.conf`; arbitrary directive editing is not available.
+- **Local administration:** password login, CSRF protection and expiring sessions. Expose the panel only through a trusted network or your secured external proxy.
 
 <p align="center"><br><img src="docs/logo.svg" width="38" alt="Gateway logo"><br><sub>Small by design. Yours by default.</sub></p>

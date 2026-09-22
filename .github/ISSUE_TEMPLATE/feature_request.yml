@@ -1,0 +1,16 @@
+name: Feature request / Предложение
+description: Suggest a useful gateway improvement.
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do? / Что хотите сделать?
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed behavior / Предлагаемое поведение
+      description: Describe the workflow and any alternatives you considered.
+    validations:
+      required: true

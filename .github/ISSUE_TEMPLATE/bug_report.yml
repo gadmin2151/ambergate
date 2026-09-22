@@ -1,0 +1,29 @@
+name: Bug report / Ошибка
+description: Report a reproducible problem with the gateway.
+body:
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and actual behavior / Ожидание и результат
+      description: English or Russian is welcome. Describe what failed.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce / Как повторить
+      placeholder: "1. Open…\n2. Configure…\n3. Click…"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Image tag or commit / Версия
+      placeholder: "sha-…; Debian 12; Docker …; Chrome …"
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Sanitized logs or screenshots / Логи или скриншоты
+      description: Remove passwords, cookies, tokens and private configuration before posting.

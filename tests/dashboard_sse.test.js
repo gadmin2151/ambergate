@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const test = require('node:test');
 const vm = require('node:vm');
-const code = fs.readFileSync('gateway/static/dashboard.js', 'utf8');
+const code = fs.readFileSync('gateway/static/i18n.js', 'utf8') + '\n' + fs.readFileSync('gateway/static/dashboard.js', 'utf8');
 function fixture() {
   const sources = [], timers = new Map(), listeners = {};
   let timerId = 0;
@@ -15,7 +15,7 @@ function fixture() {
     emit(name, data) { this.handlers[name]?.({data:JSON.stringify(data)}); }
   }
   const context = vm.createContext({EventSource, AbortSignal, Date, Intl,
-    document:{hidden:false, addEventListener:(name, fn) => listeners[name] = fn},
+    document:{documentElement:{}, hidden:false, addEventListener:(name, fn) => listeners[name] = fn},
     window:{addEventListener:(name, fn) => listeners[name] = fn},
     setTimeout:(fn, delay) => { timers.set(++timerId, {fn, delay}); return timerId; },
     clearTimeout:id => timers.delete(id),

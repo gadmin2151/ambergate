@@ -687,3 +687,11 @@ button.confirm-delete:hover { background: #ffbf5c; border-color: #ffcc7c; color:
   .notice strong { font-size: 11px; }
   .notice p { font-size: 10px; }
 }
+
+/* Compact, keyboard-accessible language control. */
+.language-switch{display:inline-flex;gap:3px;padding:3px;border:1px solid var(--border,#303033);border-radius:10px;background:#101011;flex-shrink:0}
+.language-switch button{min-height:30px;padding:5px 9px;border:0;border-radius:7px;background:transparent;color:#929298;font-size:11px;font-weight:750;letter-spacing:.05em}
+.language-switch button[aria-pressed="true"]{background:#ffaf35;color:#151516;box-shadow:0 1px 8px #ffaf3517}
+.language-switch button:hover{color:#fff}.language-switch button[aria-pressed="true"]:hover{color:#151516}
+.login-form-wrap{position:relative}.login-form-wrap>.language-switch{position:absolute;right:28px;top:26px}
+@media(max-width:600px){.top-right{gap:8px}.language-switch button{padding:4px 7px}.top-right .topbar-divider{display:none}}

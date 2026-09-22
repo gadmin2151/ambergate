@@ -26,13 +26,23 @@ jobs:
 
       - name: Validate JavaScript and Compose
         run: |
+          bash -n first-start.sh
+          node --check gateway/static/i18n.js
           node --check gateway/static/app.js
           node --check gateway/static/dashboard.js
           node --check gateway/static/docker.js
-          node --test tests/dashboard_sse.test.js
+          node --test tests/*.test.js
           docker compose config --quiet
           docker compose -f compose.yaml -f compose.docker.yaml config --quiet
           docker compose -f compose.ghcr.yaml -f compose.docker.yaml config --quiet
+
+      - name: Check first-start installation on Debian
+        run: |
+          docker run --rm \
+            -v "$PWD/first-start.sh:/first-start.sh:ro" \
+            -v "$PWD/tests/installer_smoke.sh:/installer-smoke.sh:ro" \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            debian:12-slim bash /installer-smoke.sh
 
       - name: Build the image
         run: docker build --pull -t gateway:ci .

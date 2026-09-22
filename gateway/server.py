@@ -134,6 +134,7 @@ class Handler(BaseHTTPRequestHandler):
                 healthy = self.server.store.status()["healthy"]
                 return self.respond(200 if healthy else 503, {"healthy": healthy})
             files = {"/": ("index.html", "text/html; charset=utf-8"),
+                     "/i18n.js": ("i18n.js", "text/javascript; charset=utf-8"),
                      "/app.js": ("app.js", "text/javascript; charset=utf-8"),
                      "/dashboard.js": ("dashboard.js", "text/javascript; charset=utf-8"),
                      "/dashboard.css": ("dashboard.css", "text/css; charset=utf-8"),
