@@ -60,7 +60,7 @@ class DockerTests(unittest.TestCase):
             "Config": {"Env": ["SECRET=never-send-secret"]}, "Mounts": [{"Source": "never-send-secret"}]}
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
         self.docker = Docker(self.root, in_container=True)
-        self.value = dict(enabled=True, socket_path=self.path, gateway_container="gateway-self")
+        self.value = dict(enabled=True, socket_path=self.path, gateway_container="gateway-self", host_address="")
 
     def tearDown(self):
         self.server.shutdown()
@@ -125,6 +125,59 @@ class DockerTests(unittest.TestCase):
         self.assertFalse(rows["unpublished"]["selectable"])
         self.assertEqual(len(self.server.calls), 2)
 
+    def test_other_network_uses_host_ip_and_published_port(self):
+        self.value["host_address"] = "10.0.0.10"
+        ports = [{"PrivatePort": 80, "PublicPort": 8001, "Type": "tcp", "IP": "0.0.0.0"},
+                 {"PrivatePort": 80, "PublicPort": 8001, "Type": "tcp", "IP": "::"},
+                 {"PrivatePort": 80, "PublicPort": 8001, "Type": "tcp", "IP": "0.0.0.0"},
+                 {"PrivatePort": 53, "PublicPort": 5353, "Type": "udp", "IP": "0.0.0.0"}]
+        self.server.containers = [container("isolated", network="other", ports=ports),
+            container("gateway-self", "a" * 64, ports=ports), container("stopped", "c" * 64, "exited", ports=ports)]
+        rows = {c["name"]: c for c in self.connect()["containers"]}
+        target = dict(address="10.0.0.10", port=8001, container_port=80, kind="published")
+        self.assertEqual(rows["isolated"]["endpoints"], [target])
+        self.assertEqual(rows["isolated"]["host_endpoints"], [target])
+        self.assertEqual(rows["isolated"]["shared_networks"], [])
+        self.assertFalse(rows["gateway-self"]["host_endpoints"])
+        self.assertFalse(rows["stopped"]["host_endpoints"])
+
+    def test_shared_network_prefers_dns_and_also_offers_host_port(self):
+        self.value["host_address"] = "10.0.0.10"
+        self.server.containers = [container(ports=[{"PrivatePort": 80, "PublicPort": 8001, "Type": "tcp", "IP": "0.0.0.0"}])]
+        row = self.connect()["containers"][0]
+        self.assertEqual(row["endpoints"], [dict(address="backend_1", kind="dns")])
+        self.assertEqual(row["host_endpoints"][0]["port"], 8001)
+
+    def test_host_bindings_preserve_specific_ip_and_exclude_loopback(self):
+        self.value["host_address"] = "10.0.0.10"
+        self.server.containers = [container(network="other", ports=[
+            {"PrivatePort": 80, "PublicPort": 8080, "Type": "tcp", "IP": "127.0.0.1"},
+            {"PrivatePort": 80, "PublicPort": 8081, "Type": "tcp", "IP": "::1"},
+            {"PrivatePort": 80, "PublicPort": 8082, "Type": "tcp", "IP": "10.1.1.10"}])]
+        row = self.connect()["containers"][0]
+        self.assertEqual(row["host_endpoints"], [dict(address="10.1.1.10", port=8082, container_port=80, kind="published")])
+        self.server.containers[0]["Ports"].pop()
+        row = self.docker.snapshot(force=True)["containers"][0]
+        self.assertFalse(row["selectable"])
+        self.assertIn("localhost", row["host_reason"])
+
+    def test_wildcard_ports_require_host_ip_and_support_ipv6(self):
+        self.server.containers = [container(network="other", ports=[
+            {"PrivatePort": 80, "PublicPort": 8001, "Type": "tcp", "IP": "::"}])]
+        row = self.connect()["containers"][0]
+        self.assertFalse(row["selectable"])
+        self.assertIn("Укажите IP", row["host_reason"])
+        self.value["host_address"] = "fd00::1"
+        row = self.connect()["containers"][0]
+        self.assertEqual(row["endpoints"][0]["address"], "fd00::1")
+
+    def test_legacy_settings_read_without_rewriting_file(self):
+        legacy = {k: v for k, v in self.value.items() if k != "host_address"}
+        text = json.dumps(legacy)
+        self.docker.file.write_text(text)
+        self.assertEqual(self.docker.read()["host_address"], "")
+        self.assertEqual(self.docker.file.read_text(), text)
+
     def test_default_bridge_and_ipv6_only_use_explicit_ip_not_unresolvable_dns(self):
         self.server.own["NetworkSettings"]["Networks"] = {"bridge": {"NetworkID": "bridge-id"}}
         self.server.containers = [container(network="bridge")]
@@ -163,7 +216,9 @@ class DockerTests(unittest.TestCase):
     def test_local_socket_configuration_rejects_remote_urls_and_injection(self):
         for key, bad in (("socket_path", "tcp://host:2375"), ("socket_path", "/tmp/a\nsock.sock"),
                          ("socket_path", "/tmp/../secret.sock"), ("gateway_container", "name/json?all=1"),
-                         ("enabled", "yes")):
+                         ("enabled", "yes"), ("host_address", "http://host:80"), ("host_address", "0.0.0.0"),
+                         ("host_address", "127.0.0.1"), ("host_address", "::1"), ("host_address", "fe80::1%eth0"),
+                         ("host_address", "224.0.0.1"), ("host_address", 123)):
             invalid = copy.deepcopy(self.value)
             invalid[key] = bad
             with self.subTest(key=key, value=bad), self.assertRaises(ValueError):

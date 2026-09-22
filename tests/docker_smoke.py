@@ -138,10 +138,30 @@ def main():
         assert request("/api/config")["revision"] == saved["revision"]
         print("PASS: container recreation at another IP without changing or applying a route")
 
+        # A container in the default bridge is reached through its published
+        # host port, without adding either container to another network.
+        isolated = docker("run", "-d", "--name", PREFIX + "-isolated", "--network", "bridge",
+                          "-p", "0.0.0.0::8000", "--entrypoint", "python3",
+                          IMAGE, "-u", "-c", BACKEND, "backend-host-port")
+        OWNED.append(isolated)
+        host_address = json.loads(docker("inspect", gateway))[0]["NetworkSettings"]["Networks"][NETWORK]["Gateway"]
+        discovered = request("/api/docker", {"revision": discovered["revision"],
+            "settings": {**discovered["settings"], "host_address": host_address}})
+        row = next(c for c in discovered["containers"] if c["id"] == isolated)
+        assert row["selectable"] and not row["shared_networks"], row
+        target = row["endpoints"][0]
+        assert target["address"] == host_address and target["port"] == port(isolated, 8000), target
+        cfg["hosts"][0]["routes"][0]["targets"] = [{"address": target["address"],
+            "port": target["port"], "weight": 1, "backup": False}]
+        saved = request("/api/config", {"config": cfg, "revision": saved["revision"]})
+        request("/api/apply", {"revision": saved["revision"]})
+        eventually(lambda: traffic() == "backend-host-port")
+        print("PASS: container in a different Docker network via host IP and published port")
+
         disconnected = request("/api/docker", {"revision": discovered["revision"],
             "settings": {**discovered["settings"], "enabled": False}})
         assert not disconnected["connected"]
-        assert traffic() in {"backend-a-recreated", "backend-b"}
+        assert traffic() == "backend-host-port"
         print("PASS: disabling discovery does not stop configured traffic")
     except Exception:
         if gateway:

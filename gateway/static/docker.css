@@ -66,6 +66,11 @@
 #docker-picker .form-actions { margin: 20px -25px 0; padding: 17px 25px; position: sticky; bottom: 0; z-index: 2; background: #202023; }
 .docker-picker-toolbar { display: flex; gap: 12px; align-items: center; }
 .docker-picker-toolbar .search-field { flex: 1; }
+.docker-access-controls { display: grid; grid-template-columns: 1fr 1fr auto; align-items: end; gap: 12px; margin-top: 16px; padding: 15px; background: #211b13; border: 1px solid #ffaf3530; border-radius: 10px; }
+.docker-access-controls label { font-size: 11px; color: #c9b18e; }
+.docker-access-controls input, .docker-access-controls select { height: 39px; font-size: 12px; margin-bottom: 0; }
+.docker-access-controls button { height: 39px; color: #ffbc58; border-color: #6f522c; }
+@media (max-width: 700px) { .docker-access-controls { grid-template-columns: 1fr; } }
 .docker-picker-context { color: #9b9ba7; font-size: 11px; line-height: 1.7; margin: 14px 0; }
 .docker-choices { display: grid; gap: 10px; max-height: 340px; overflow: auto; padding-right: 4px; scrollbar-width: thin; scrollbar-color: #565660 transparent; }
 .docker-choice { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 12px; padding: 16px; border: 1px solid #3b3b41; border-radius: 11px; background: #141416; }

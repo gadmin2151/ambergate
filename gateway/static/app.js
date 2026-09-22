@@ -115,7 +115,7 @@ function showLogin() {
   stopDashboardStream();
   config = null; health = null;
   dashboardData = null; dashboardError = '';
-  dockerData = null; dockerDraft = null; dockerError = '';
+  dockerData = null; dockerDraft = null; dockerError = ''; dockerHostDraft = null; dockerPickerMode = 'auto';
   if ($('#docker-picker').open) $('#docker-picker').close();
   if ($('#confirm-modal').open) $('#confirm-modal').close('cancel');
   if ($('#modal').open) $('#modal').close();

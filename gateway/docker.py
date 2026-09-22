@@ -35,7 +35,8 @@ class UnixConnection(http.client.HTTPConnection):
 
 
 def settings(value):
-    if not isinstance(value, dict) or set(value) != {"enabled", "socket_path", "gateway_container"}:
+    required = {"enabled", "socket_path", "gateway_container"}
+    if not isinstance(value, dict) or not required <= set(value) or set(value) - required - {"host_address"}:
         raise ValueError("Неверный набор настроек Docker")
     if type(value["enabled"]) is not bool:
         raise ValueError("enabled должен быть true/false")
@@ -47,7 +48,52 @@ def settings(value):
     name = value["gateway_container"]
     if not isinstance(name, str) or name and not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}", name):
         raise ValueError("Контейнер gateway: имя или ID, без схемы и пути")
-    return dict(value)
+    host = value.get("host_address", "")
+    if not isinstance(host, str):
+        raise ValueError("IP Docker-хоста должен быть строкой")
+    if host:
+        try:
+            address = ipaddress.ip_address(host)
+            if "%" in host or address.is_unspecified or address.is_loopback or address.is_multicast or address.is_link_local:
+                raise ValueError()
+        except ValueError:
+            raise ValueError("Укажите доступный IPv4 или IPv6 Docker-хоста, без схемы и порта") from None
+        host = str(address)
+    return {**value, "host_address": host}
+
+
+def published_targets(ports, host_address="", native=False):
+    endpoints, reason = {}, "Нет опубликованных TCP-портов"
+    for port in ports:
+        public = port.get("PublicPort")
+        if type(public) is not int or not 1 <= public <= 65535:
+            continue
+        try:
+            bind = ipaddress.ip_address(port.get("IP") or "0.0.0.0")
+        except ValueError:
+            continue
+        if bind.is_multicast or bind.is_link_local or "%" in str(bind):
+            continue
+        if bind.is_unspecified:
+            if native:
+                target = "127.0.0.1" if bind.version == 4 else "::1"
+            elif not host_address:
+                reason = "Укажите IP Docker-хоста для опубликованных портов"
+                continue
+            elif ipaddress.ip_address(host_address).version != bind.version:
+                reason = "Нет публикации для выбранной версии IP Docker-хоста"
+                continue
+            else:
+                target = host_address
+        elif bind.is_loopback and not native:
+            reason = "Порт опубликован только на localhost Docker-хоста"
+            continue
+        else:
+            # A publication bound to a specific interface must keep that address.
+            target = str(bind)
+        endpoints[target, public] = dict(address=target, port=public,
+            container_port=port["PrivatePort"], kind="published")
+    return sorted(endpoints.values(), key=lambda e: (":" in e["address"], e["port"], e["address"])), reason
 
 
 class Docker:
@@ -61,7 +107,8 @@ class Docker:
         # Settings are validated when the user saves/enables discovery.
         self.defaults = dict(enabled=False,
                                      socket_path=os.environ.get("GATEWAY_DOCKER_SOCKET", "/var/run/docker.sock"),
-                                     gateway_container=os.environ.get("GATEWAY_DOCKER_CONTAINER", ""))
+                                     gateway_container=os.environ.get("GATEWAY_DOCKER_CONTAINER", ""),
+                                     host_address="")
 
     def read(self):
         return settings(json.loads(self.file.read_text())) if self.file.exists() else dict(self.defaults)
@@ -140,16 +187,16 @@ class Docker:
                 self_id = own["Id"]
             except DockerError:
                 network_message = "Не удалось определить сети gateway. Укажите его имя или ID в настройках."
-        rows = [self.container(c, shared, self_id, result["mode"]) for c in containers[:500]]
+        rows = [self.container(c, shared, self_id, result["mode"], value["host_address"]) for c in containers[:500]]
         result.update(connected=True, engine_version=str(version.get("Version", ""))[:80],
                       gateway_networks=sorted(shared), truncated=len(containers) >= 500,
-                      message=network_message or ("Контейнеры доступны через общие сети Docker" if shared else
+                      message=network_message or ("Общая сеть Docker или опубликованные порты хоста" if shared else
                               "Локальный запуск: используйте опубликованные TCP-порты" if result["mode"] == "host" else
                               "У gateway нет подключённых сетей Docker"))
         result["containers"] = sorted(rows, key=lambda c: (not c["selectable"], c["name"]))
         result["networks"] = sorted({n for c in rows for n in c["networks"]})
 
-    def container(self, c, shared, self_id, mode):
+    def container(self, c, shared, self_id, mode, host_address=""):
         name = str((c.get("Names") or [str(c.get("Id", ""))[:12]])[0]).lstrip("/")[:253]
         labels = c.get("Labels") or {}
         nets = c.get("NetworkSettings", {}).get("Networks", {})
@@ -162,23 +209,16 @@ class Docker:
                    project=str(labels.get("com.docker.compose.project", ""))[:100],
                    service=str(labels.get("com.docker.compose.service", ""))[:100],
                    networks=sorted(nets), shared_networks=sorted(common), endpoints=[],
-                   ports=sorted({p["PrivatePort"] for p in ports}), selectable=False, reason="")
+                   ports=sorted({p["PrivatePort"] for p in ports}), selectable=False, reason="",
+                   host_endpoints=[], host_reason="")
+        published, host_reason = published_targets(ports, host_address, native=mode == "host")
         if c.get("Id") == self_id:
             row["reason"] = "Это сам gateway"
         elif c.get("State") != "running":
             row["reason"] = "Контейнер не запущен"
         elif mode == "host":
-            for p in ports:
-                public = p.get("PublicPort")
-                if type(public) is not int or not 1 <= public <= 65535:
-                    continue
-                try:
-                    address = ipaddress.ip_address(p.get("IP") or "0.0.0.0")
-                except ValueError:
-                    continue
-                target = "127.0.0.1" if address == ipaddress.ip_address("0.0.0.0") else "::1" if address.is_unspecified else str(address)
-                row["endpoints"].append(dict(address=target, port=public, container_port=p["PrivatePort"], kind="published"))
-            row["reason"] = "Нет опубликованных TCP-портов" if not row["endpoints"] else ""
+            row["endpoints"] = published
+            row["reason"] = host_reason if not published else ""
         elif not common:
             row["reason"] = "Нет общей сети с gateway"
         else:
@@ -198,6 +238,13 @@ class Docker:
                             continue
                         row["endpoints"].append(dict(address=address, kind="ip", network=n))
                 row["reason"] = "Нет адреса в общей сети" if not row["endpoints"] else ""
+        if c.get("Id") != self_id and c.get("State") == "running":
+            row["host_endpoints"] = published
+            row["host_reason"] = "" if published else host_reason
+            if not row["endpoints"] and published:
+                row["endpoints"], row["reason"] = published, ""
+        else:
+            row["host_reason"] = row["reason"]
         row["selectable"] = bool(row["endpoints"])
         # Docker can publish the same target more than once (e.g. v4 and v6).
         unique = {(e["address"], e.get("port")): e for e in row["endpoints"]}
