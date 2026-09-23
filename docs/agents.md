@@ -91,7 +91,7 @@ For a private CA, mount its PEM bundle in the agent and set `AMBERGATE_AGENT_CA_
 ## State, revocation and failures
 
 - Inventory is reported every 5 seconds. The panel receives agent status through its existing **SSE stream**. Container details show the latest received inventory when opened.
-- Healthy, reachable, labelled containers become targets. Invalid labels, an incomplete inventory or loss of Docker access preserve that agent's last valid report until its lease expires.
+- Running, labelled containers with a shared network become targets. Application responses are monitored by Nginx; Docker health-check status does not independently remove a running container. Invalid labels, an incomplete inventory or loss of Docker access preserve that agent's last valid report until its lease expires.
 - In **Auto** mode, expired agents are removed on the next reconciliation (up to 5 additional seconds). Other agents and manually configured targets remain. An empty managed route returns **503**.
 - **Preview** proposes configuration changes; **Off** leaves configuration unchanged. Tunnel disconnection still fails upstream connections immediately, allowing Nginx to try a remaining healthy target.
 - Disabling, deleting or rotating a token immediately disconnects that agent's tunnel and rejects the old token. Rotation requires updating and restarting the remote agent.
