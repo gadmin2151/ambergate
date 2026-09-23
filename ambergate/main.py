@@ -16,6 +16,7 @@ def main():
                   setting("RUN_DIR", "/run/ambergate"),
                   nginx_bin=os.environ.get("NGINX_BIN", "nginx"),
                   port=int(setting("HTTP_PORT", "80")),
+                  tls_port=int(setting("HTTPS_PORT", "443")),
                   control_port=int(setting("CONTROL_PORT", "8084")),
                   mime_types=os.environ.get("NGINX_MIME_TYPES", "/etc/nginx/mime.types"))
     auth = Auth(store.data)

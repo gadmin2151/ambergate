@@ -46,3 +46,12 @@ if bash /first-start.sh --no-start >/tmp/legacy-install-output 2>&1; then exit 1
 grep -q 'existing installation' /tmp/legacy-install-output
 test ! -e /opt/ambergate/compose.yaml
 printf 'PASS: dependency installation, checks, existing data, custom ports and socket mounting\n'
+
+# Managed TLS is opt-in and cannot collide with the admin/HTTP listener.
+if bash /first-start.sh --with-tls --http-port 443 >/dev/null 2>&1; then exit 1; fi
+bash /first-start.sh --no-start --dir /tmp/gateway-tls --with-tls
+python3 - <<'PYTLS'
+import json,pathlib
+service=json.loads(pathlib.Path('/tmp/gateway-tls/compose.yaml').read_text())['services']['ambergate']
+assert service['ports']==['80:80','127.0.0.1:8083:8083','443:443']
+PYTLS

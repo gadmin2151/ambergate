@@ -70,6 +70,7 @@ function startDashboardStream(force = false) {
       if (typeof receiveDockerLabels === 'function') receiveDockerLabels(data);
       if (typeof receiveGeneral === 'function') receiveGeneral(data);
       if (typeof receiveAgents === 'function') receiveAgents(data);
+      if (typeof receiveCertificates === 'function') receiveCertificates(data);
     } catch { retry('Не удалось прочитать обновление. Переподключаемся'); }
   });
   source.addEventListener('stream_error', () => {

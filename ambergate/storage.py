@@ -54,7 +54,7 @@ def write_json(path, data):
 
 class Store:
     def __init__(self, data_dir, cache_dir, run_dir, nginx_bin="nginx", port=80,
-                 control_port=8084, mime_types="/etc/nginx/mime.types"):
+                 control_port=8084, mime_types="/etc/nginx/mime.types", tls_port=443):
         self.data = Path(data_dir).resolve()
         self.revisions = self.data / "revisions"
         self.active = self.data / "active"
@@ -63,7 +63,8 @@ class Store:
         self.nginx_bin = nginx_bin
         self.options = dict(cache_dir=str(Path(cache_dir).resolve()),
                             run_dir=str(Path(run_dir).resolve()), port=port,
-                            control_port=control_port, mime_types=mime_types)
+                            control_port=control_port, mime_types=mime_types,
+                            tls_dir=str(self.data / "tls"), tls_port=tls_port)
         self.process = None
         self.started = time.time()
         self.last_error = None

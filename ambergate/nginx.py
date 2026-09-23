@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .config import validate, route_targets
 from .response_rewrite import directives as response_directives
+from .tls import certificate_info
 
 
 def digest(value):
@@ -17,11 +18,11 @@ def ip_literal(value):
 
 
 def render(config, generation, cache_dir="/cache", run_dir="/run/ambergate", port=80,
-           control_port=8084, mime_types="/etc/nginx/mime.types"):
+           control_port=8084, mime_types="/etc/nginx/mime.types", tls_dir=None, tls_port=443):
     c = validate(config)
     s = c["settings"]
     # These paths are administrator-controlled environment values, not web input.
-    for value in (cache_dir, run_dir, mime_types):
+    for value in (cache_dir, run_dir, mime_types, *([tls_dir] if tls_dir else [])):
         if not str(value).startswith("/") or any(x in str(value) for x in ('"', '\\', '\n', '\r', '$')):
             raise ValueError("Runtime paths must be absolute and contain no nginx metacharacters")
     lines = [
@@ -81,6 +82,10 @@ def render(config, generation, cache_dir="/cache", run_dir="/run/ambergate", por
               "        location = /status { stub_status; }",
               "        location / { return 404; }", "    }",
               f"    server {{ listen {port} default_server; server_name _; return 404; }}"]
+    certificates = {h['id']: certificate_info(tls_dir, h['domain']) for h in c['hosts']
+                    if h['enabled'] and h.get('tls', {}).get('enabled')}
+    if any(certificates.values()):
+        lines += [f"    server {{ listen {tls_port} ssl default_server; ssl_reject_handshake on; return 404; }}"]
     for host in c["hosts"]:
         if not host["enabled"]:
             continue
@@ -111,7 +116,19 @@ def render(config, generation, cache_dir="/cache", run_dir="/run/ambergate", por
                       or any("agent" in target for target in route_targets(route)))
             lines += (["        keepalive 2;", "        keepalive_timeout 5s;"] if remote else ["        keepalive 32;"])
             lines += ["    }"]
-        lines += ["    server {", f"        listen {port};", f"        server_name {host['domain'].lower()};",
+        lines += ["    server {", f"        listen {port};", f"        server_name {host['domain'].lower()};"]
+        tls = host.get('tls', {})
+        cert = certificates.get(host['id'])
+        if cert:
+            lines += [f"        listen {tls_port} ssl;", "        ssl_protocols TLSv1.2 TLSv1.3;",
+                      f'        ssl_certificate "{cert["certificate"]}";',
+                      f'        ssl_certificate_key "{cert["key"]}";',
+                      "        ssl_session_cache shared:AmberGateTLS:10m;", "        ssl_session_timeout 1d;"]
+        if tls.get('enabled'):
+            lines += ["        location ^~ /.well-known/acme-challenge/ {",
+                      f'            root "{run_dir}-acme";', "            default_type text/plain;",
+                      "            try_files $uri =404;", "        }"]
+        lines += [
                   "        if ($request_method !~ ^(GET|HEAD|POST|PUT|PATCH|DELETE|OPTIONS)$) { return 405; }"]
         if s["block_dotfiles"]:
             lines += ['        if ($uri ~ "(^|/)\\.(?!well-known(?:/|$))") { return 404; }']
@@ -123,6 +140,9 @@ def render(config, generation, cache_dir="/cache", run_dir="/run/ambergate", por
             locations = ["/"] if path == "/" else ["= " + path, "^~ " + path + "/"]
             for location in locations:
                 lines += [f"        location {location} {{"]
+                if cert and tls.get('redirect_http'):
+                    # Location-level redirect leaves HTTP-01 reachable on port 80.
+                    lines.append(f"            if ($scheme = http) {{ return 308 https://{host['domain'].lower()}$request_uri; }}")
                 if "response_rewrite" in route and location.startswith("= "):
                     lines += ["            absolute_redirect off;", f"            return 308 {path}/$is_args$args;", "        }"]
                     continue
@@ -175,7 +195,10 @@ def render(config, generation, cache_dir="/cache", run_dir="/run/ambergate", por
                 suffix = "/" if route["strip_prefix"] and path != "/" else ""
                 lines += [f"            proxy_pass http://{upstream}{suffix};", "        }"]
         if not any(r["path"] == "/" for r in host["routes"]):
-            lines += ["        location / { return 404; }"]
+            lines += ["        location / {"]
+            if cert and tls.get('redirect_http'):
+                lines.append(f"            if ($scheme = http) {{ return 308 https://{host['domain'].lower()}$request_uri; }}")
+            lines += ["            return 404;", "        }"]
         lines += ["    }"]
     lines += ["}", ""]
     return "\n".join(lines)

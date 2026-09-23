@@ -38,6 +38,7 @@ jobs:
           AMBERGATE_SERVER_URL=https://ambergate.exemple.com AMBERGATE_AGENT_TOKEN=ci-placeholder docker compose -f compose.agent.namespace.yaml config --quiet
           node --test tests/*.test.js
           docker compose -f examples/docker-labels.compose.yaml --profile advanced --profile group --profile host config --quiet
+          docker compose -f compose.ghcr.yaml -f compose.tls.yaml config --quiet
           docker compose config --quiet
           docker compose -f compose.yaml -f compose.docker.yaml config --quiet
           docker compose -f compose.ghcr.yaml -f compose.docker.yaml config --quiet
@@ -60,6 +61,9 @@ jobs:
           docker run --rm --entrypoint python3 \
             -v "$PWD/tests:/app/tests:ro" \
             ambergate:ci -m unittest discover -v
+
+      - name: Verify certificate issuance and renewal against Pebble
+        run: python3 tests/acme_smoke.py
 
       - name: Discover and balance real Docker containers
         run: python3 tests/docker_smoke.py

@@ -147,3 +147,14 @@ test('extended agent setup grants only selected namespace capabilities',()=>{
  assert.match(yaml,/AMBERGATE_AGENT_NAMESPACE: "true"/);
  assert.throws(()=>f.run('agentCompose("token","https://ambergate.exemple.com","apps",false,true)'));
 });
+
+test('domain overview drills into one host and TLS stays explicitly opt-in',()=>{
+ const f=panelFixture();
+ f.run("config.hosts.push({id:'host',domain:'example.com',enabled:true,routes:[newRoute('/api','API','backend',8000)]});");
+ const overview=f.run('routesPage()');assert.match(overview,/domain-tile/);assert.doesNotMatch(overview,/class="route-row"/);
+ f.run("selectedHost='host'");const detail=f.run('routesPage()');assert.match(detail,/class="route-row"/);assert.match(detail,/All domains/);assert.doesNotMatch(detail,/[А-Яа-яЁё]/);
+ assert.match(f.run('tlsFields(config.hosts[0])'),/hidden disabled/);assert.match(f.run('tlsFields(config.hosts[0])'),/name="tls_renew_days"[^>]*value="5"/);
+ f.run("config.hosts[0].tls={enabled:true,renew_before_days:5}; certificateData={host:{domain:'example.com',enabled:true,status:'error',error:'<bad>',next_attempt:1234}};");
+ assert.match(f.run('certificateDetails(config.hosts[0])'),/&lt;bad&gt;/);assert.doesNotMatch(f.run('certificateDetails(config.hosts[0])'),/[А-Яа-яЁё]/);
+ f.run("selectedHost='deleted'");assert.match(f.run('routesPage()'),/domain-tile/);assert.equal(f.run('selectedHost'),null);
+});

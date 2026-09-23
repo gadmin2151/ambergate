@@ -104,13 +104,33 @@ def validate(config):
     domains, ids = set(), set()
     for hi, host in enumerate(config["hosts"]):
         hp = f"hosts[{hi}]"
-        obj(host, ("id", "domain", "enabled", "routes"), hp)
+        if not isinstance(host, dict):
+            fail(hp, "неверный набор полей")
+        obj({k: v for k, v in host.items() if k != "tls"}, ("id", "domain", "enabled", "routes"), hp)
         check_id(host["id"], ids, hp)
         hostname(host["domain"], hp + ".domain")
         if host["domain"].lower() in domains:
             fail(hp, "домен уже существует")
         domains.add(host["domain"].lower())
         boolean(host["enabled"], hp + ".enabled")
+        if "tls" in host:
+            tls = host["tls"]
+            obj(tls, ("enabled", "email", "renew_before_days", "redirect_http", "terms_accepted"), hp + ".tls")
+            for key in ("enabled", "redirect_http", "terms_accepted"):
+                boolean(tls[key], hp + ".tls." + key)
+            integer(tls["renew_before_days"], 1, 30, hp + ".tls.renew_before_days")
+            if not isinstance(tls["email"], str) or len(tls["email"]) > 254 or (tls["email"] and not re.fullmatch(r"[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+", tls["email"])):
+                fail(hp, "Enter a valid certificate contact email")
+            if tls["enabled"]:
+                if not tls["email"] or not tls["terms_accepted"]:
+                    fail(hp, "Certificate email and Let's Encrypt terms acceptance are required")
+                try:
+                    ipaddress.ip_address(host["domain"])
+                except ValueError:
+                    if "." not in host["domain"] or host["domain"].split(".")[-1].isdigit():
+                        fail(hp, "Managed TLS requires a fully qualified DNS domain")
+                else:
+                    fail(hp, "Managed TLS requires a DNS domain, not an IP address")
         sequence(host["routes"], 0, 50, hp + ".routes")
         paths = set()
         for ri, route in enumerate(host["routes"]):

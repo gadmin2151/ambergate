@@ -12,7 +12,7 @@
 <p align="center">Manage Nginx from a web interface. Connect Docker machines, route and balance traffic, and see what is happening — with configuration stored on your own server.</p>
 <p align="center"><a href="#quick-start">Quick start</a> · <a href="#what-you-can-configure">Features</a> · <a href="#service-map">Service map</a> · <a href="#remote-docker-machines">Agents</a> · <a href="#response-rewriting">Response rewriting</a> · <a href="#documentation">Documentation</a></p>
 
-**AmberGate** is a self-hosted HTTP gateway built with Nginx, Python's standard library and vanilla JavaScript. The central gateway and panel run in **one Docker container**. Add one optional agent container per remote Docker machine. No external database or metrics service is required; TLS remains with your existing reverse proxy.
+**AmberGate** is a self-hosted HTTP gateway built with Nginx, a Python control plane and vanilla JavaScript. The central gateway and panel run in **one Docker container**. Add one optional agent container per remote Docker machine. No external database or metrics service is required; keep your existing TLS proxy or enable per-domain Let’s Encrypt SSL.
 
 | Application traffic | Control panel | Configuration | Images |
 |:--|:--|:--|:--|
@@ -98,6 +98,16 @@ To build from source, use `docker compose up -d --build`. You can copy [`.env.ex
 
 If your TLS proxy already occupies port 80, map the gateway to `127.0.0.1:8080:80` and forward application traffic there. The panel and agent API use the separate listener on **8083**.
 
+## Domain workspaces & optional SSL
+
+Open **Routes** to see all domains as tiles. Select a domain to manage its routes, target servers and SSL settings in one workspace.
+
+![Domain overview](docs/screenshots/domains.en.png)
+
+**Let’s Encrypt is off by default.** Enable it in domain settings, enter an email and apply. Certificates renew automatically **5 days before expiry**; change the window per domain. Issuance errors and expiry dates update live through SSE. HTTP → HTTPS redirection is optional.
+
+For HTTPS, publish port 443 with `compose.tls.yaml` or `first-start.sh --with-tls`. Public port 80 must reach the gateway for HTTP-01 checks. [Setup, renewal and external proxy details →](docs/ssl.md)
+
 ## Multiple domains, one gateway
 
 | Domain | Path | Destination |
@@ -128,7 +138,7 @@ An app may return `Location: /login` even when its public route is `/workspace`.
 | HTML → browser | `href="/assets/app.css"` becomes `href="/workspace/assets/app.css"` |
 | Cookie → browser | `Path=/` becomes `Path=/workspace/` |
 
-The upstream configuration stays unchanged. This works with direct targets and agent tunnels, including HTTPS clients behind your external TLS proxy. **Additional HTML substitutions** support application-specific strings through a generic editor; `{prefix}` expands to the route path.
+The upstream configuration stays unchanged. This works with direct targets and agent tunnels, including HTTPS clients using managed SSL or an external TLS proxy. **Additional HTML substitutions** support application-specific strings through a generic editor; `{prefix}` expands to the route path.
 
 <details>
 <summary><strong>See the response rewriting editor</strong></summary>
@@ -273,6 +283,7 @@ Pushes to `main` publish `latest` and `sha-<full-commit-SHA>`. Version tags publ
 | Guide | Contents |
 |:--|:--|
 | [Service map and request journey](docs/architecture.md) | Connection diagrams, component roles, ports and tunnels |
+| [Optional SSL](docs/ssl.md) | Let’s Encrypt, automatic renewal, ports and certificate storage |
 | [Agent setup](docs/agents.md) | One-command installation, network modes, TLS proxy, tokens and limits |
 | [Docker labels](docs/docker-labels.md) | All keys, groups, conflicts, failure behavior and examples |
 | [Response rewriting](docs/response-rewriting.md) | Redirects, cookies, HTML rules and compatibility limits |
@@ -280,6 +291,6 @@ Pushes to `main` publish `latest` and `sha-<full-commit-SHA>`. Version tags publ
 | [Contributing](CONTRIBUTING.md) | Development, tests, project layout and translations |
 | [Screenshot notes](docs/screenshots/README.md) | Demo environment and image provenance |
 
-**Scope:** HTTP applications and WebSocket upgrades. Certificates stay with your TLS proxy; upstream HTTPS, gRPC, raw TCP forwarding and a full WAF are not provided. `nginx.conf` is generated from validated fields, not edited as arbitrary directives. Configure trusted proxy IPs/CIDRs for correct client-IP limits, and keep administration on a trusted network or secured external proxy.
+**Scope:** HTTP applications and WebSocket upgrades. Optional Let’s Encrypt SSL uses HTTP-01; wildcard certificates, IP certificates, DNS-01, upstream HTTPS, gRPC, raw TCP forwarding and a full WAF are not provided. `nginx.conf` is generated from validated fields, not edited as arbitrary directives. Configure trusted proxy IPs/CIDRs for correct client-IP limits, and keep administration on a trusted network or secured external proxy.
 
 <p align="center"><br><img src="docs/logo.svg" width="38" alt="AmberGate logo"><br><sub>Your server. Your traffic. Your rules.</sub></p>

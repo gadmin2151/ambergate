@@ -5,6 +5,7 @@ services:
     restart: unless-stopped
     ports:
       - "80:80"
+      # Optional managed TLS: use -f compose.tls.yaml to publish port 443.
       - "127.0.0.1:8083:8083"
     environment:
       # Optional: set in .env before FIRST startup. Otherwise a password is

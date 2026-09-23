@@ -1,0 +1,6 @@
+# Optional: docker compose -f compose.ghcr.yaml -f compose.tls.yaml up -d
+# Publishing 443 does not request certificates. Enable SSL for each domain in the UI.
+services:
+  ambergate:
+    ports:
+      - "443:443"

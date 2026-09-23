@@ -17,6 +17,7 @@ from .tunnel_hub import TunnelHub
 from .tunnel import upgrade
 from .settings import GeneralSettings, HttpConfirmationRequired
 from .events import DashboardEvents, event
+from .certificates import Certificates
 
 STATIC = Path(__file__).parent / "static"
 
@@ -34,6 +35,7 @@ class Server(ThreadingHTTPServer):
         self.tunnels = TunnelHub(store.data)
         self.agents = Agents(store.data, self.tunnels)
         self.labels = LabelController(store, self.docker, self.agents)
+        self.certificates = Certificates(store)
         self.events = DashboardEvents(self.dashboard)
         # 32 agent control channels + 128 data streams + 16 SSE clients,
         # leaving room for short admin requests under the bounded socket pool.
@@ -45,23 +47,27 @@ class Server(ThreadingHTTPServer):
             raise
 
     def dashboard(self):
-        return {**self.store.dashboard(), "labels": self.labels.snapshot(), "agents": self.agents.snapshot(), "general": self.settings.snapshot()}
+        return {**self.store.dashboard(), "labels": self.labels.snapshot(), "agents": self.agents.snapshot(), "general": self.settings.snapshot(), "certificates": self.certificates.snapshot()}
 
     def serve_forever(self, poll_interval=.5):
         self.tunnels.start()
         self.labels.start()
+        self.certificates.start()
         try:
             super().serve_forever(poll_interval)
         finally:
             self.labels.stop()
+            self.certificates.stop()
 
     def shutdown(self):
+        self.certificates.stop()
         self.labels.stop()
         self.tunnels.stop()
         self.events.stop()
         super().shutdown()
 
     def server_close(self):
+        self.certificates.stop()
         self.labels.stop()
         self.tunnels.stop()
         self.events.stop()

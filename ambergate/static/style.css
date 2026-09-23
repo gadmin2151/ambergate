@@ -721,3 +721,30 @@ button.confirm-delete:hover { background: #ffbf5c; border-color: #ffcc7c; color:
 #response-rewrite-options details { padding:14px; border:1px solid var(--border); border-radius:10px; }
 #response-rewrite-options summary { cursor:pointer; font-size:13px; }
 @media(max-width:650px) { .response-rule { grid-template-columns:1fr auto; } .response-rule label { grid-column:1; } .response-rule button { grid-column:2; grid-row:1 / span 2; } }
+
+/* Domain overview and its focused routing workspace. */
+.domain-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,310px),1fr));gap:20px;margin-bottom:28px}
+.domain-tile{position:relative;display:flex;flex-direction:column;min-width:0;border:1px solid var(--border,#303034);border-radius:18px;background:linear-gradient(145deg,#1a1916,#111112 70%);transition:border-color .18s,transform .18s;overflow:hidden}
+.domain-tile:hover{border-color:#856027;transform:translateY(-2px)}
+.domain-open{display:flex;flex-direction:column;align-items:stretch;text-align:left;border:0;background:transparent;padding:24px;gap:20px;flex:1;border-radius:18px 18px 0 0;color:inherit}
+.domain-open:hover{background:#ffaf3505}
+.domain-tile-top,.domain-tile-counts,.domain-tile-bottom,.domain-toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.domain-open h3{font-size:20px;line-height:1.4;overflow-wrap:anywhere;margin:0 0 6px}
+.domain-open p{color:var(--muted,#999);font-size:12px;margin:0;line-height:1.7}
+.domain-tile-counts{justify-content:flex-start;gap:28px;color:var(--muted,#999);font-size:12px}
+.domain-tile-counts strong{display:block;color:#f4f3f0;font-size:24px;font-weight:600;line-height:1.6}
+.domain-tile-bottom{padding:14px 20px;border-top:1px solid #ffffff0c;min-height:62px}
+.domain-tile-bottom>span{font-size:12px;color:#bbb}
+.domain-tile-bottom .icon{height:32px;width:32px}
+.domain-toolbar{margin:0 0 22px;flex-wrap:wrap}
+.domain-ssl{border:1px solid #ffaf352e;background:linear-gradient(120deg,#ffaf3508,#121213);border-radius:16px;padding:22px 24px;margin-bottom:24px}
+.domain-ssl-head{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.domain-ssl-head h2{font-size:16px;margin:0;flex:1}
+.domain-ssl p{font-size:13px;line-height:1.7;color:#aaa;margin:6px 0 0}
+.domain-ssl .ssl-error{color:#ffac99;white-space:pre-wrap;overflow-wrap:anywhere;max-height:150px;overflow:auto}
+.tls-settings{padding:20px;border:1px solid #ffaf3528;border-radius:12px;background:#ffaf3505}
+.tls-settings>.check{font-weight:600;color:#f3e7d1}
+.tls-settings fieldset{border:0;margin:18px 0 0;padding:0;min-width:0}
+.tls-settings fieldset[hidden]{display:none}
+.tls-settings a{color:#ffaf35}
+.tls-settings .hint{line-height:1.7}

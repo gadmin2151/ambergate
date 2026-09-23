@@ -32,8 +32,13 @@ def read_event(response):
 class SnapshotStore:
     def __init__(self, data):
         self.data = data
+        self.options = {'run_dir': str(data / 'run')}
+        self.lock = threading.RLock()
         self.calls = 0
         self.fail = False
+
+    def active_config(self):
+        return {'hosts': []}
 
     def status(self):
         return {"healthy": True}

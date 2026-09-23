@@ -17,6 +17,7 @@ Existing Docker, Compose, configuration and data are preserved.
   --admin-bind IP     Admin listen IP on a new install (default: 127.0.0.1)
   --admin-port PORT   Admin port on a new install (default: 8083)
   --http-port PORT    AmberGate HTTP port on a new install (default: 80)
+  --with-tls         Publish port 443 for optional per-domain Let's Encrypt SSL
   --with-docker      Mount the Docker socket for optional container discovery
   --socket PATH      Local Docker socket (default: /var/run/docker.sock)
   --no-start         Install dependencies and prepare files, without starting AmberGate
@@ -30,7 +31,7 @@ HELP
 }
 main() {
   local install_dir=/opt/ambergate admin_bind=127.0.0.1 admin_port=8083 http_port=80
-  local socket_path=/var/run/docker.sock with_docker=0 no_start=0 check_only=0
+  local socket_path=/var/run/docker.sock with_docker=0 with_tls=0 no_start=0 check_only=0
   local original_args=("$@")
   while (($#)); do
     case "$1" in
@@ -42,6 +43,7 @@ main() {
         esac
         shift 2;;
       --with-docker) with_docker=1; shift;;
+      --with-tls) with_tls=1; shift;;
       --no-start) no_start=1; shift;;
       --check) check_only=1; shift;;
       -h|--help) usage; return;;
@@ -55,6 +57,9 @@ main() {
     [[ $port =~ ^[0-9]{1,5}$ ]] && ((10#$port >= 1 && 10#$port <= 65535)) || die "Ports must be between 1 and 65535."
   done
   ((10#$admin_port != 10#$http_port)) || die "Admin and HTTP ports must differ."
+  if ((with_tls)); then
+    ((10#$admin_port != 443 && 10#$http_port != 443)) || die "Port 443 is reserved for --with-tls."
+  fi
   [[ -r /etc/os-release ]] || die "Cannot detect this Linux distribution."
   # shellcheck disable=SC1091
   . /etc/os-release
@@ -140,7 +145,7 @@ PY
     log "Keeping existing $install_dir/compose.yaml and all data"
   else
     log "Preparing $install_dir"
-    python3 - "$install_dir" "$admin_bind" "$admin_port" "$http_port" "$with_docker" "$socket_path" <<'PY'
+    python3 - "$install_dir" "$admin_bind" "$admin_port" "$http_port" "$with_docker" "$socket_path" "$with_tls" <<'PY'
 import json,os,pathlib,sys
 root=pathlib.Path(sys.argv[1]); address=sys.argv[2]
 if ':' in address: address='['+address+']'
@@ -149,6 +154,7 @@ service={'image':'ghcr.io/gadmin2151/ambergate:latest','restart':'unless-stopped
  'volumes':['./data:/data','./cache:/cache','./run:/run/ambergate'],
  'networks':['ambergate'],'stop_grace_period':'35s',
  'logging':{'driver':'json-file','options':{'max-size':'10m','max-file':'3'}}}
+if sys.argv[7]=='1': service['ports'].append('443:443')
 if sys.argv[5]=='1':
  service['volumes'].append({'type':'bind','source':sys.argv[6],'target':'/var/run/docker.sock','read_only':True,'bind':{'create_host_path':False}})
  service['environment']={'AMBERGATE_DOCKER_SOCKET':'/var/run/docker.sock'}

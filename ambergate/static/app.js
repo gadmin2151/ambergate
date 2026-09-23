@@ -162,7 +162,7 @@ function switchLanguage(value) {
 function showLogin() {
   sidebarMobileOpen=false;document.body.classList.remove('sidebar-modal-open');
   stopDashboardStream();
-  config = null; health = null;
+  config = null; health = null; certificateData = {}; selectedHost = null;
   dashboardData = null; dashboardError = '';
   dockerLabelsData = null; dockerLabelMode = null; agentsData = null; generalData = null; generalDraft = null;
   dockerData = null; dockerDraft = null; dockerError = ''; dockerHostDraft = null; dockerPickerMode = 'auto';
@@ -187,6 +187,7 @@ function saveDockContent() {
 }
 function render() {
   if (!config || !csrf) return;
+  if (selectedHost && !config.hosts.some(h=>h.id===selectedHost)) selectedHost=null;
   const navScroll=$('.sidebar-scroll')?.scrollTop || 0;
   const current = nav.find(n => n[0] === page);
   const descriptions = {
@@ -217,7 +218,7 @@ function render() {
       ${btn('sidebar-close','','','sidebar-backdrop',`tabindex="-1" aria-label="${t('Закрыть меню')}"`)}
       <div class="workspace">
         <header class="topbar"><div class="top-left">${btn('sidebar-open','','panel','sidebar-mobile-toggle ghost icon',`aria-label="${t('Открыть меню')}" title="${t('Открыть меню')}" aria-controls="sidebar" aria-expanded="false"`)}<div class="crumb">${icon('server')}<span>Мой AmberGate</span>${icon('chevron')}<strong>${t(current[1])}</strong></div></div><div class="top-right">${languageSwitcher()}<span class="status" id="nginx-status">${statusHTML()}</span><span class="topbar-divider"></span>${btn('logout','','exit','ghost icon',t('aria-label="Выйти" title="Выйти"'))}</div></header>
-        <main><div class="page-head"><div><span class="eyebrow">${page === 'dashboard' ? t('LIVE OVERVIEW') : page === 'routes' ? t('TRAFFIC MANAGEMENT') : t('AMBERGATE CONTROL')}</span><h1>${page === 'routes' ? t('Домены и маршруты') : t(current[1])}</h1><p>${descriptions[page]}</p></div>${page === 'dashboard' ? ui`<div class="dash-controls"><span>${icon('clock')} Последние 15 минут</span>${btn('refresh-dashboard',t('Обновить'),'history','', 'id="refresh-dashboard"')}</div>` : page === 'routes' ? btn('add-host',t('Добавить домен'),'plus','primary') : `<span class="page-symbol">${icon(page)}</span>`}</div>
+        <main><div class="page-head"><div><span class="eyebrow">${page === 'dashboard' ? t('LIVE OVERVIEW') : page === 'routes' ? t('TRAFFIC MANAGEMENT') : t('AMBERGATE CONTROL')}</span><h1>${page === 'routes' ? esc(config.hosts.find(h=>h.id===selectedHost)?.domain || t('Домены и маршруты')) : t(current[1])}</h1><p>${descriptions[page]}</p></div>${page === 'dashboard' ? ui`<div class="dash-controls"><span>${icon('clock')} Последние 15 минут</span>${btn('refresh-dashboard',t('Обновить'),'history','', 'id="refresh-dashboard"')}</div>` : page === 'routes' ? (selectedHost ? btn('edit-host',t('Настройки домена'),'sliders','',`data-host="${selectedHost}"`) : btn('add-host',t('Добавить домен'),'plus','primary')) : `<span class="page-symbol">${icon(page)}</span>`}</div>
           <div id="page-content">${pageContent()}</div>
           <div class="page-note"><span>${icon('lock')}Локальное хранение конфигурации</span><span>AmberGate <span class="footer-version">v1.0</span></span></div>
         </main>
@@ -245,7 +246,80 @@ function pageContent() {
   if (page === 'history') return historyPage();
   return ui`<div class="toolbar"><div class="flex"><h2 id="preview-heading">Сгенерированный конфиг</h2>${badge(dirty ? t('Несохранённый') : state.pending ? t('Черновик') : t('Применён'),'green')}</div><div class="actions">${btn('active-config',t('Действующий конфиг'),'code','small')}${btn('test',t('Проверить nginx -t'),'check','small',busy ? 'disabled' : '')}</div></div><div class="code-toolbar"><span>nginx.conf</span>${btn('copy-config',t('Копировать'),'','small')}</div><pre id="preview" tabindex="0">Генерация…</pre><div class="notice">${icon('info')}<div>Конфигурация создаётся из настроек панели. При проверке текущие изменения сохраняются в черновик. Рабочая конфигурация меняется только после «Применить».</div></div>`;
 }
+let selectedHost = null;
+let certificateData = {};
+function certificateStatus(host) {
+  if (!host.tls?.enabled) return {status:'disabled'};
+  const current = certificateData[host.id];
+  if (!current || current.domain !== host.domain || !current.enabled) return {status:'pending'};
+  return current;
+}
+function certificateBadge(host) {
+  const status = certificateStatus(host).status;
+  const labels = {
+    disabled:at('SSL выключен','SSL off'), pending:at('SSL ожидает выпуска','SSL pending'),
+    issuing:at('Выпуск SSL…','Issuing SSL…'), ready:at('SSL активен','SSL active'),
+    error:at('Ошибка SSL','SSL error'), expired:at('SSL истёк','SSL expired')
+  };
+  return badge(labels[status] || status, status==='ready'?'green':['error','expired'].includes(status)?'red':status==='disabled'?'gray':'amber');
+}
+function domainTile(host) {
+  const servers=host.routes.reduce((n,r)=>n+routeTargets(r).length,0);
+  return `<article class="domain-tile ${host.enabled?'':'host-disabled'}">
+    <button type="button" class="domain-open" data-action="open-host" data-host="${host.id}" aria-label="${esc(at('Открыть маршруты','Open routes')+' · '+host.domain)}">
+      <span class="domain-tile-top"><span class="domain-icon">${icon('globe')}</span>${badge(host.enabled?t('Включён'):t('Выключен'),host.enabled?'green':'gray')}</span>
+      <div><h3>${esc(host.domain)}</h3><p>${host.routes.slice(0,4).map(r=>esc(r.path)).join(' · ') || at('Добавьте первый маршрут','Add your first route')}${host.routes.length>4?' · …':''}</p></div>
+      <span class="domain-tile-counts"><span><strong>${host.routes.length}</strong>${t('Маршруты')}</span><span><strong>${servers}</strong>${t('Серверы')}</span><span>${icon('arrow')}</span></span>
+    </button><div class="domain-tile-bottom"><span data-certificate-badge="${host.id}">${certificateBadge(host)}</span>${btn('edit-host','','sliders','ghost icon',`data-host="${host.id}" title="${t('Настройки домена')}" aria-label="${t('Настройки домена')} ${esc(host.domain)}"`)}</div>
+  </article>`;
+}
+function certificateDetails(host) {
+  const c=certificateStatus(host),tls=host.tls;
+  const date=value=>value?new Date(value*1000).toLocaleString(locale()):'—';
+  return `<div class="domain-ssl-head">${icon('lock')}<h2>SSL / Let’s Encrypt</h2>${certificateBadge(host)}</div>
+    ${!tls?.enabled?`<p>${at('Вы можете включить выпуск сертификата в настройках домена. При выключенном SSL запросы к Let’s Encrypt не отправляются.','Enable certificate issuance in domain settings. When SSL is off, AmberGate makes no requests to Let’s Encrypt.')}</p>`:
+    `<p>${at('Автоматическое продление за','Automatic renewal starts')} <strong>${tls.renew_before_days}</strong> ${at('дн. до истечения.','days before expiry.')}</p>
+    ${c.expires_at?`<p>${at('Действует до','Valid until')}: <strong>${esc(date(c.expires_at))}</strong> · ${at('Продление с','Renewal from')}: ${esc(date(c.renew_at))}</p>`:''}
+    ${c.status==='pending'?`<p>${at('Выпуск начнётся после применения настроек. Домен должен вести на AmberGate, порт 80 должен быть доступен из интернета.','Issuance starts after applying settings. Point the domain to AmberGate and make port 80 reachable from the internet.')}</p>`:''}
+    ${c.error?`<p class="ssl-error">${esc(c.error)}</p><p>${at('Следующая попытка','Next attempt')}: ${esc(date(c.next_attempt))}</p>`:''}`}`;
+}
+function domainPage(host) {
+  return `<div class="domain-toolbar">${btn('all-hosts',at('Все домены','All domains'),'routes','ghost')}<span>${at('Маршруты и SSL этого домена','Routes and SSL for this domain')}</span></div>
+    <section class="domain-ssl" id="domain-certificate" aria-live="polite">${certificateDetails(host)}</section>${hostCard(host)}`;
+}
+function receiveCertificates(data) {
+  certificateData=data.certificates || {};
+  if(page!=='routes'||!config)return;
+  for(const host of config.hosts) {
+    const node=document.querySelector(`[data-certificate-badge="${host.id}"]`);
+    if(node){const html=certificateBadge(host);if(node.innerHTML!==html)node.innerHTML=html;}
+  }
+  const host=config.hosts.find(h=>h.id===selectedHost),node=$('#domain-certificate');
+  if(host&&node){const html=certificateDetails(host);if(node.innerHTML!==html)node.innerHTML=html;}
+}
+function tlsFields(host) {
+  const tls=host?.tls || {enabled:false,email:'',renew_before_days:5,redirect_http:false,terms_accepted:false};
+  return `<section class="tls-settings">${check(at('Выпускать SSL через Let’s Encrypt','Issue SSL with Let’s Encrypt'),'tls_enabled',tls.enabled)}
+    <p class="hint">${at('Необязательно. Выпуск и продление выполняются только для включённого и применённого домена.','Optional. Issuance and renewal run only for enabled, applied domains.')}</p>
+    <fieldset id="tls-fields" ${tls.enabled?'':'hidden disabled'}><div class="stack">
+      ${field(at('Email для сертификата','Certificate contact email'),'tls_email',tls.email,'email','maxlength="254"')}
+      ${field(at('Продлевать за сколько дней до истечения','Renew this many days before expiry'),'tls_renew_days',tls.renew_before_days,'number','min="1" max="30"')}
+      ${check(at('Перенаправлять HTTP → HTTPS после выпуска','Redirect HTTP → HTTPS after issuance'),'tls_redirect',tls.redirect_http)}
+      ${check(at('Я принимаю','I accept')+' <a href="https://letsencrypt.org/repository/" target="_blank" rel="noopener noreferrer">'+at('условия Let’s Encrypt','the Let’s Encrypt terms')+'</a>','tls_terms',tls.terms_accepted)}
+      <p class="hint">${at('DNS домена должен указывать на AmberGate. Откройте входящие порты 80 и 443. Если есть внешний прокси, передайте /.well-known/acme-challenge/ на HTTP-порт AmberGate без авторизации. Wildcard и IP-сертификаты в этом режиме не поддерживаются.','The domain DNS must point to AmberGate. Open inbound ports 80 and 443. If using an external proxy, forward /.well-known/acme-challenge/ to AmberGate HTTP without authentication. Wildcard and IP certificates are not supported in this mode.')}</p>
+    </div></fieldset></section>`;
+}
+function syncTlsFields() {
+  const enabled=$('#modal [name=tls_enabled]').checked;
+  const fields=$('#tls-fields');if(!fields)return;
+  fields.hidden=!enabled;fields.disabled=!enabled;
+  for(const name of ['tls_email','tls_renew_days','tls_terms'])$('#modal [name='+name+']').required=enabled;
+}
+
 function routesPage() {
+  const selected = config.hosts.find(h=>h.id===selectedHost);
+  if (selected) return domainPage(selected);
+  selectedHost = null;
   const rs = routes();
   const metrics = [
     ['globe',t('Домены'),config.hosts.length,ui`${config.hosts.filter(h=>h.enabled).length} включено`, 'green'],
@@ -266,14 +340,14 @@ function filteredHosts() {
     if (hostFilter === 'enabled' && !host.enabled || hostFilter === 'disabled' && host.enabled) return false;
     return !query || [host.domain, ...host.routes.flatMap(r=>[r.name,r.path,...routeTargets(r).map(t=>`${t.address}:${t.port}`)])].some(value=>value.toLocaleLowerCase().includes(query));
   });
-  return filtered.length ? filtered.map(hostCard).join('') : ui`<div class="search-empty">${icon('search')}<h3>Ничего не найдено</h3><p>Попробуйте другое название или сбросьте фильтры.</p>${btn('reset-search',t('Сбросить фильтры'),'','small')}</div>`;
+  return filtered.length ? `<div class="domain-grid">${filtered.map(domainTile).join('')}</div>` : ui`<div class="search-empty">${icon('search')}<h3>Ничего не найдено</h3><p>Попробуйте другое название или сбросьте фильтры.</p>${btn('reset-search',t('Сбросить фильтры'),'','small')}</div>`;
 }
 function bindRouteSearch() {
-  $('#route-search').addEventListener('input', event=>{routeQuery=event.target.value;$('#host-list').innerHTML=filteredHosts();});
+  $('#route-search')?.addEventListener('input', event=>{routeQuery=event.target.value;$('#host-list').innerHTML=filteredHosts();});
 }
 function hostCard(host) {
   return `<article class="host-card ${host.enabled ? '' : 'host-disabled'}">
-    <div class="host-head"><div class="host-title"><div class="domain-icon">${icon('globe')}</div><div><div class="domain-heading"><h3>${esc(host.domain)}</h3>${badge(host.enabled ? t('Включён') : t('Выключен'),host.enabled ? 'green' : 'gray')}</div><p>${host.routes.length} ${plural(host.routes.length,t('маршрут'),t('маршрута'),t('маршрутов'))}<span>·</span>HTTP</p></div></div><div class="actions">${btn('add-route',t('Добавить маршрут'),'plus','small',`data-host="${host.id}"`)}${btn('edit-host','','sliders','ghost icon',ui`data-host="${host.id}" aria-label="Настройки домена ${esc(host.domain)}" title="Настройки домена"`)}</div></div>
+    <div class="host-head"><div class="host-title"><div class="domain-icon">${icon('globe')}</div><div><div class="domain-heading"><h3>${esc(host.domain)}</h3>${badge(host.enabled ? t('Включён') : t('Выключен'),host.enabled ? 'green' : 'gray')}</div><p>${host.routes.length} ${plural(host.routes.length,t('маршрут'),t('маршрута'),t('маршрутов'))}<span>·</span>${host.tls?.enabled ? 'HTTP / HTTPS' : 'HTTP'}</p></div></div><div class="actions">${btn('add-route',t('Добавить маршрут'),'plus','small',`data-host="${host.id}"`)}${btn('edit-host','','sliders','ghost icon',ui`data-host="${host.id}" aria-label="Настройки домена ${esc(host.domain)}" title="Настройки домена"`)}</div></div>
     ${host.routes.length ? t('<div class="route-columns"><span>ВХОДЯЩИЙ МАРШРУТ</span><span></span><span>ЦЕЛЕВЫЕ СЕРВЕРЫ</span><span>ПРАВИЛА</span><span></span></div>') : ''}
     <div class="route-list">${host.routes.length ? host.routes.map(route => routeCard(host,route)).join('') : t('<div class="host-empty"><strong>У домена пока нет маршрутов</strong><p>Добавьте маршрут, чтобы направлять запросы к приложению. Домен без маршрутов отвечает 404.</p></div>')}</div>
     <div class="host-foot"><span>${icon('shield')}${config.settings.block_dotfiles ? t('Защита скрытых файлов') : t('Скрытые файлы разрешены')}</span><span>${icon('server')}${host.routes.reduce((n,r)=>n+routeTargets(r).length,0)} ${plural(host.routes.reduce((n,r)=>n+routeTargets(r).length,0),t('сервер'),t('сервера'),t('серверов'))}</span></div>
@@ -327,15 +401,18 @@ async function saveDraft(){collectSettings(); accept(await api('config',{config,
 function editHost(id) {
   const existing = config.hosts.find(h=>h.id === id);
   setModal(existing ? t('Настройки домена') : t('Новый домен'),t('Каждый домен получает свои маршруты и серверы. Укажите имя без http:// и пути.'),
-    `<div class="stack">${field(t('Домен'),'domain',existing?.domain || '','text','required placeholder="example.com" maxlength="253"')}${check(t('Домен включён'),'enabled',existing?.enabled ?? true)}${existing ? `<div>${btn('delete-host',t('Удалить домен'),'trash','danger small',`data-host="${id}"`)}</div>` : ui`<div class="docker-target-heading"><h3>Серверы первого маршрута /</h3>${btn('docker-picker',t('Выбрать из Docker'),'docker','small')}</div><div id="target-editor" class="target-editor">${targetFields({address:'frontend',port:3000,weight:1,backup:false})}</div>${btn('add-target',t('Добавить сервер'),'plus','add-target-button')}<p class="hint">Создадим маршрут / с балансировкой Round robin. Остальные маршруты и алгоритм можно настроить после.</p>`}</div>`, async data=>{
+    `<div class="stack">${field(t('Домен'),'domain',existing?.domain || '','text','required placeholder="example.com" maxlength="253"')}${check(t('Домен включён'),'enabled',existing?.enabled ?? true)}${tlsFields(existing)}${existing ? `<div>${btn('delete-host',t('Удалить домен'),'trash','danger small',`data-host="${id}"`)}</div>` : ui`<div class="docker-target-heading"><h3>Серверы первого маршрута /</h3>${btn('docker-picker',t('Выбрать из Docker'),'docker','small')}</div><div id="target-editor" class="target-editor">${targetFields({address:'frontend',port:3000,weight:1,backup:false})}</div>${btn('add-target',t('Добавить сервер'),'plus','add-target-button')}<p class="hint">Создадим маршрут / с балансировкой Round robin. Остальные маршруты и алгоритм можно настроить после.</p>`}</div>`, async data=>{
       const candidate = structuredClone(config);
       const host = existing ? candidate.hosts.find(h=>h.id === id) : {id:uid(),routes:[newRoute('/','Frontend',data.get('address').trim(),Number(data.get('port')))]};
       if (!existing) host.routes[0].targets = collectTargets();
       host.domain = data.get('domain').trim().toLowerCase(); host.enabled = data.has('enabled');
+      host.tls = {enabled:data.has('tls_enabled'), email:(data.get('tls_email') ?? existing?.tls?.email ?? '').trim(), renew_before_days:Number(data.get('tls_renew_days') ?? existing?.tls?.renew_before_days ?? 5), redirect_http:data.has('tls_redirect'), terms_accepted:data.has('tls_terms')};
       if (!existing) candidate.hosts.push(host);
-      await api('preview',{config:candidate}); config = candidate; routeQuery=''; hostFilter='all'; changed();
+      await api('preview',{config:candidate}); config = candidate; selectedHost=host.id; routeQuery=''; hostFilter='all'; changed();
     });
   if (!existing) $('#modal').dataset.replaceDockerTargets = 'true';
+  const toggle=$('#modal [name=tls_enabled]');
+  if(toggle?.addEventListener) {toggle.addEventListener('change',syncTlsFields);syncTlsFields();}
 }
 function collectTargets() {
   return [...document.querySelectorAll('#target-editor .target-fields')].map(row=>({address:$('[name=address]',row).value.trim(),port:Number($('[name=port]',row).value),weight:Number($('[name=weight]',row).value),backup:$('[name=backup]',row).checked,...(row.dataset.agent?{agent:JSON.parse(row.dataset.agent)}:{})}));
@@ -417,6 +494,8 @@ function editRoute(hostId, routeId) {
     $('#modal-form .form-actions .hint').textContent=t('Управляется Docker labels');
   }
   if (!existing) $('#modal').dataset.replaceDockerTargets = 'true';
+  const toggle=$('#modal [name=tls_enabled]');
+  if(toggle?.addEventListener) {toggle.addEventListener('change',syncTlsFields);syncTlsFields();}
   $('#modal-form').addEventListener('input',updatePathPreview);
   updatePathPreview();
 }
@@ -452,11 +531,13 @@ document.addEventListener('click', async event=>{
   if (busy) return;
   try {
     if (action.startsWith('agent-')) return await agentAction(action,button.dataset.id);
-    if (action === 'navigate') {const fromDrawer=sidebarMobileOpen;collectSettings();closeSidebar(false);page=button.dataset.page;render();if(fromDrawer){const heading=$('main h1');heading.tabIndex=-1;heading.focus({preventScroll:true});}}
+    if (action === 'navigate') {const fromDrawer=sidebarMobileOpen;collectSettings();closeSidebar(false);page=button.dataset.page;selectedHost=null;render();if(fromDrawer){const heading=$('main h1');heading.tabIndex=-1;heading.focus({preventScroll:true});}}
     if (action === 'refresh-dashboard') startDashboardStream(true);
     if (action === 'filter-hosts') {hostFilter=button.dataset.filter;render();}
     if (action === 'reset-search') {routeQuery='';hostFilter='all';render();}
     if (action === 'route-tab') selectRouteTab(button.dataset.tab);
+    if (action === 'open-host') {selectedHost=button.dataset.host;render();}
+    if (action === 'all-hosts') {selectedHost=null;render();}
     if (action === 'add-host') editHost();
     if (action === 'edit-host') editHost(button.dataset.host);
     if (action === 'add-route' || action === 'edit-route') editRoute(button.dataset.host,button.dataset.route);
