@@ -4,6 +4,7 @@ const $ = (selector, parent = document) => parent.querySelector(selector);
 const esc = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const uid = () => 'id_' + (crypto.randomUUID ? crypto.randomUUID().replaceAll('-', '') : Array.from(crypto.getRandomValues(new Uint8Array(16)), n => n.toString(16).padStart(2, '0')).join(''));
 const paths = {
+  general:'M4 7h5 M15 7h5 M4 17h11 M19 17h1 M9 4v6 M15 14v6',
   agents:'M4 3h6v6H4z M14 3h6v6h-6z M9 15h6v6H9z M7 9v3h10V9 M12 12v3',
   dashboard:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',
   docker:'M4 8h4v4H4z M9 8h4v4H9z M14 8h4v4h-4z M9 3h4v4H9z M2 13h17l3-3 M2 13c0 6 4 8 9 8s8-4 8-8',
@@ -33,7 +34,7 @@ const paths = {
   user:'M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0 M4 21v-2a8 8 0 0 1 16 0v2',
 };
 const icon = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[name] || paths.routes}"/></svg>`;
-const nav = [['dashboard','Обзор системы'],['routes','Маршруты'],['docker','Docker'],['agents','Агенты'],['shield','Защита и лимиты'],['cache','Кеширование'],['code','nginx.conf'],['history','История версий']];
+const nav = [['dashboard','Обзор системы'],['routes','Маршруты'],['docker','Docker'],['agents','Агенты'],['shield','Защита и лимиты'],['cache','Кеширование'],['code','nginx.conf'],['history','История версий'],['general','Общие настройки']];
 const balanceLabels = {round_robin:'Round robin', least_conn:'Least connections', ip_hash:'IP hash'};
 let state = null, config = null, csrf = '', page = 'dashboard', dirty = false, busy = false, health = null;
 let toastTimer = null;
@@ -46,7 +47,7 @@ async function api(path, body, options = {}) {
   const data = await response.json();
   if (!response.ok) {
     if (response.status === 401 && path !== 'login') { csrf = ''; showLogin(); }
-    throw new Error(data.error || `HTTP ${response.status}`);
+    const error=new Error(data.error || `HTTP ${response.status}`);error.code=data.code;error.details=data;throw error;
   }
   return data;
 }
@@ -68,7 +69,7 @@ function accept(snapshot) {state = snapshot; config = structuredClone(snapshot.c
 function changed() { dirty = JSON.stringify(config) !== JSON.stringify(state.config); render(); }
 function updateSaveState() {
   const dock = $('#save-dock');
-  if (dock) {dock.innerHTML = saveDockContent(); dock.hidden = ['dashboard','docker','agents'].includes(page) && !dirty && !state.pending;}
+  if (dock) {dock.innerHTML = saveDockContent(); dock.hidden = ['dashboard','docker','agents','general'].includes(page) && !dirty && !state.pending;}
   document.querySelectorAll('[data-action="test"]').forEach(el => el.disabled = busy);
 }
 function routeTargets(route) { return [...route.targets, ...(route.docker?.targets || [])]; }
@@ -132,7 +133,7 @@ function showLogin() {
   stopDashboardStream();
   config = null; health = null;
   dashboardData = null; dashboardError = '';
-  dockerLabelsData = null; dockerLabelMode = null; agentsData = null;
+  dockerLabelsData = null; dockerLabelMode = null; agentsData = null; generalData = null; generalDraft = null;
   dockerData = null; dockerDraft = null; dockerError = ''; dockerHostDraft = null; dockerPickerMode = 'auto';
   if ($('#docker-picker').open) $('#docker-picker').close();
   if ($('#confirm-modal').open) $('#confirm-modal').close('cancel');
@@ -158,7 +159,8 @@ function render() {
   const current = nav.find(n => n[0] === page);
   const descriptions = {
     dashboard:t('Трафик, ответы и состояние вашего AmberGate — в реальном времени.'),
-    agents:at('Контейнеры на удалённых машинах — через защищённые исходящие туннели.','Containers on remote machines, connected through secure outbound tunnels.'),
+    general:at('Общий адрес сервера и параметры подключения агентов.','Server address and agent connection settings.'),
+    agents:at('Контейнеры на удалённых машинах — через исходящие туннели.','Containers on remote machines, connected through outbound tunnels.'),
     docker:t('Подключите Docker и выбирайте контейнеры для маршрутов и балансировки.'),
     routes:t('Управляйте трафиком всех ваших приложений в одном месте.'),
     shield:t('Настройте ограничения и правила доступа для ваших приложений.'),
@@ -182,7 +184,7 @@ function render() {
           <div id="page-content">${pageContent()}</div>
           <div class="page-note"><span>${icon('lock')}Локальное хранение конфигурации</span><span>AmberGate <span class="footer-version">v1.0</span></span></div>
         </main>
-        <div class="save-dock" id="save-dock" aria-live="polite" ${['dashboard','docker','agents'].includes(page) && !dirty && !state.pending ? 'hidden' : ''}>${saveDockContent()}</div>
+        <div class="save-dock" id="save-dock" aria-live="polite" ${['dashboard','docker','agents','general'].includes(page) && !dirty && !state.pending ? 'hidden' : ''}>${saveDockContent()}</div>
       </div>
     </div>`;
   if (page === 'shield') bindSettings();
@@ -191,12 +193,14 @@ function render() {
   startDashboardStream();
   if (page === 'docker') loadDockerPage();
   if (page === 'agents') loadAgentsPage();
+  if (page === 'general') bindGeneralPage();
 }
 
 function pageContent() {
   if (page === 'dashboard') return `<div id="dashboard-live">${dashboardContent()}</div>`;
   if (page === 'docker') return dockerPage();
   if (page === 'agents') return agentsPage();
+  if (page === 'general') return generalPage();
   if (page === 'routes') return routesPage();
   if (page === 'shield') return settingsPage();
   if (page === 'cache') return cachePage();

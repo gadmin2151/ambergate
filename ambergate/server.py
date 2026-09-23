@@ -15,6 +15,7 @@ from .labels import LabelController
 from .agents import Agents, AgentUnauthorized
 from .tunnel_hub import TunnelHub
 from .tunnel import upgrade
+from .settings import GeneralSettings, HttpConfirmationRequired
 from .events import DashboardEvents, event
 
 STATIC = Path(__file__).parent / "static"
@@ -29,6 +30,7 @@ class Server(ThreadingHTTPServer):
         self.store = store
         self.auth = auth
         self.docker = Docker(store.data)
+        self.settings = GeneralSettings(store.data)
         self.tunnels = TunnelHub(store.data)
         self.agents = Agents(store.data, self.tunnels)
         self.labels = LabelController(store, self.docker, self.agents)
@@ -43,7 +45,7 @@ class Server(ThreadingHTTPServer):
             raise
 
     def dashboard(self):
-        return {**self.store.dashboard(), "labels": self.labels.snapshot(), "agents": self.agents.snapshot()}
+        return {**self.store.dashboard(), "labels": self.labels.snapshot(), "agents": self.agents.snapshot(), "general": self.settings.snapshot()}
 
     def serve_forever(self, poll_interval=.5):
         self.tunnels.start()
@@ -204,6 +206,7 @@ class Handler(BaseHTTPRequestHandler):
                      "/dashboard.css": ("dashboard.css", "text/css; charset=utf-8"),
                      "/docker.js": ("docker.js", "text/javascript; charset=utf-8"),
                      "/agents.js": ("agents.js", "text/javascript; charset=utf-8"),
+                     "/general.js": ("general.js", "text/javascript; charset=utf-8"),
                      "/docker.css": ("docker.css", "text/css; charset=utf-8"),
                      "/style.css": ("style.css", "text/css; charset=utf-8"),
                      "/favicon.svg": ("favicon.svg", "image/svg+xml")}
@@ -227,6 +230,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(200, self.server.docker.snapshot(force=urlsplit(self.path).query == "refresh=1"))
             if path == "/api/docker/labels":
                 return self.respond(200, self.server.labels.snapshot())
+            if path == "/api/settings":
+                return self.respond(200, self.server.settings.snapshot())
             if path == "/api/agents" or path.startswith("/api/agents/"):
                 return self.respond(200, self.server.agents.snapshot(None if path == "/api/agents" else path.rsplit("/", 1)[-1]))
             if path == "/api/export":
@@ -270,6 +275,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(200, self.server.agents.report(self.headers.get("Authorization", ""), body))
             if path == "/api/agents":
                 return self.respond(200, self.server.agents.mutate(body))
+            if path == "/api/settings":
+                return self.respond(200, self.server.settings.save(body["settings"], body["revision"], body.get("confirm_http", False)))
             if path == "/api/login":
                 result = self.server.auth.login(body.get("password"), self.client_address[0])
                 if result is None:
@@ -306,6 +313,8 @@ class Handler(BaseHTTPRequestHandler):
             self.respond(404, {"error": "Не найдено"})
         except AgentUnauthorized as exc:
             self.respond(401, {"error": str(exc)})
+        except HttpConfirmationRequired as exc:
+            self.respond(400, {"error": str(exc), "code": "http_confirmation_required", "public_url": exc.public_url})
         except ConflictError as exc:
             self.respond(409, {"error": str(exc)})
         except PermissionError as exc:

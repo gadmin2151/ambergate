@@ -232,7 +232,7 @@ Invalid local labels or conflicting route options pause the update and retain th
 
 Run **AmberGate Agent** as a Docker container on each machine, with access to its `docker.sock` and application networks. Agents report labels and container state, then carry upstream traffic over outbound HTTPS/WSS tunnels. Neither apps nor agents need published ports. Matching labels combine replicas from different machines into a single load balancer.
 
-Open **Agents → Add agent** to generate a token and download a ready-to-run Compose file. The panel shows connection state through SSE, container inventory and token controls. Your existing external TLS proxy serves the central panel over HTTPS.
+Set the central address once in **General settings** (example: `embergate.exemple.com`), then open **Agents → Add agent**. Copy a ready-to-run **single-line `docker run` command** or download **Docker Compose**; the wizard fills in the address and token and shows the connection arriving through SSE. Domains use HTTPS via your external TLS proxy. A plain IP uses HTTP on port 8083 only after an explicit warning and risk confirmation.
 
 **[Agent setup guide →](docs/agents.md)** · **[Agent Compose →](compose.agent.yaml)** · **[Complete example →](examples/agent.compose.yaml)**
 

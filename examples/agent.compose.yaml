@@ -9,8 +9,9 @@ services:
     tmpfs:
       - /tmp:size=16m,mode=1777
     environment:
-      AMBERGATE_SERVER_URL: ${AMBERGATE_SERVER_URL:?Set central HTTPS URL}
+      AMBERGATE_SERVER_URL: ${AMBERGATE_SERVER_URL:?Set the central address from General settings}
       AMBERGATE_AGENT_TOKEN: ${AMBERGATE_AGENT_TOKEN:?Create token in Agents}
+      AMBERGATE_AGENT_ALLOW_HTTP: ${AMBERGATE_AGENT_ALLOW_HTTP:-false}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks: [applications]

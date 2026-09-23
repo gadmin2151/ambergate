@@ -461,6 +461,34 @@ class GatewayIntegrationTests(unittest.TestCase):
         # Restore fixture password for repeatability.
         self.auth.set_password("test-password-12345")
 
+    def test_general_address_api_requires_session_csrf_and_http_confirmation(self):
+        port = self.admin.server_port
+        original = self.store.snapshot()
+        settings = self.admin.settings.snapshot()
+        cookie, session = self.auth.login("test-password-12345", "general-settings-test")
+        headers = {"Cookie": "ambergate_session=" + cookie, "Content-Type": "application/json"}
+        body = dict(settings={"public_url": "10.0.0.10"}, revision=settings["revision"])
+        self.assertEqual(request(port, "/api/settings")[0], 401)
+        self.assertEqual(request(port, "/api/settings", "POST", headers, json.dumps(body))[0], 403)
+        headers["X-CSRF-Token"] = session["csrf"]
+        try:
+            status, _, data = request(port, "/api/settings", "POST", headers, json.dumps(body))
+            self.assertEqual(status, 400)
+            warning = json.loads(data)
+            self.assertEqual(warning["code"], "http_confirmation_required")
+            self.assertEqual(warning["public_url"], "http://10.0.0.10:8083")
+            self.assertEqual(self.admin.settings.snapshot(), settings)
+            status, _, data = request(port, "/api/settings", "POST", headers, json.dumps({**body, "confirm_http": True}))
+            self.assertEqual(status, 200)
+            saved = json.loads(data)
+            self.assertTrue(saved["settings"]["allow_http"])
+            self.assertEqual(json.loads(request(port, "/api/dashboard", headers=headers)[2])["general"], saved)
+            self.assertEqual(self.store.snapshot(), original)
+            self.assertEqual(request(port, "/api/settings", "POST", headers, json.dumps(body))[0], 409)
+        finally:
+            self.admin.settings.save({"public_url": settings["settings"]["public_url"]}, self.admin.settings.snapshot()["revision"], True)
+            self.auth.logout(cookie)
+
     def test_dashboard_observes_traffic_cache_errors_and_excludes_admin_probes(self):
         self.config["hosts"][0]["domain"] = "telemetry.test"
         self.config["hosts"][0]["routes"][0]["cache"] = True

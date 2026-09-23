@@ -20,6 +20,7 @@ node --check ambergate/static/app.js
 node --check ambergate/static/dashboard.js
 node --check ambergate/static/docker.js
 node --check ambergate/static/agents.js
+node --check ambergate/static/general.js
 node --test tests/*.test.js
 python3 -m unittest discover -v
 docker compose config --quiet
