@@ -234,6 +234,8 @@ Run **AmberGate Agent** as a Docker container on each machine, with access to it
 
 Set the central address once in **General settings** (example: `embergate.exemple.com`), then open **Agents → Add agent**. Copy a ready-to-run **single-line `docker run` command** or download **Docker Compose**; the wizard fills in the address and token and shows the connection arriving through SSE. Domains use HTTPS via your external TLS proxy. A plain IP uses HTTP on port 8083 only after an explicit warning and risk confirmation.
 
+You can also select remote containers directly in **Routes → Choose from Docker → Container source**. Mix containers from different agents and local servers in one load balancer, without labels or published ports. The sidebar has independent scrolling and a persistent compact icon mode.
+
 **[Agent setup guide →](docs/agents.md)** · **[Agent Compose →](compose.agent.yaml)** · **[Complete example →](examples/agent.compose.yaml)**
 
 ## Know what is happening

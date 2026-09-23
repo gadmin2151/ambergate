@@ -23,7 +23,7 @@ Nginx still controls hosts, paths, balancing, caching and limits. The agent stre
 2. Open **Agents → Add agent**, give the machine a name and create it.
 3. Enter the existing application Docker network on that machine. The **Docker run** tab shows a complete **single-line command**, with your saved address and the new agent token already inserted. Click **Copy command** and run it on the Docker machine.
 4. Keep the wizard open: **Agent connected** appears automatically through SSE when the agent reports successfully. The **Docker Compose** tab offers a ready-to-run file and `docker compose -f compose.agent.yaml up -d` instead.
-5. Add route labels to your applications and recreate those containers. Select **Preview** or **Apply automatically** in the label automation card. The same policy controls local Docker and all agents; the default is **Off**.
+5. Configure routes manually using the container picker below, or add route labels to your applications. For labels, select **Preview** or **Apply automatically** in the automation card. The same label policy controls local Docker and all agents; the default is **Off**.
 
 Example command (the wizard fills in your real address and token):
 
@@ -59,6 +59,18 @@ docker compose -f compose.agent.yaml up -d
 ```
 
 The image is `ghcr.io/gadmin2151/ambergate-agent:latest` for amd64 and arm64. Agent and central images are built from the same revision; prefer matching versions.
+
+## Select remote containers in a route
+
+Open **Routes → Add/edit route → Choose from Docker** and change **Container source** from **Local Docker** to your agent. Select running containers, choose their private HTTP ports (or enter a port manually), then **Add selected → Save route → Apply**. Labels, local Docker socket access on central AmberGate and published application ports are not required.
+
+To balance several machines, add containers from one agent, reopen the picker and choose another agent. Leave **Replace current server list** unchecked to keep existing targets. Local servers and agent targets can share a route; weights and backup targets work normally.
+
+The route displays the agent, container and application port. Traffic uses a persistent loopback mapping on central AmberGate and the agent's outbound tunnel. Container recreation with the same name updates its destination on the next report; stopped, removed or unreachable containers fail closed and Nginx can try another target. These manually selected routes remain under your control, including when label automation is **Off**. Their selection takes effect in Nginx only after applying the route.
+
+**Existing agents need an image update for manual selection.** The picker detects older agents and explains this instead of generating an unusable route. For Compose, run `docker compose -f compose.agent.yaml pull` followed by `docker compose -f compose.agent.yaml up -d`. For Docker run, generate a **New token** in the agent card and recreate the old agent with the new installation command. Update central AmberGate first.
+
+Manual registrations are stored in `/data/agent-manual.json`, with stable ports in `/data/agent-ports.json`. Back up the entire `/data` directory with routes; route JSON alone cannot transfer these host-local tunnel mappings to another installation. Removing a route does not recycle its port, so history cannot silently point to another container. The shared limit is 1024 retained tunnel mappings.
 
 ## Compact labels, private container ports
 

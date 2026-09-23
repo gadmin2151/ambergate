@@ -15,6 +15,7 @@ from .nginx import digest
 from .storage import ConflictError, write_json
 
 TOKEN = re.compile(r"ag_([a-f0-9]{32})\.([A-Za-z0-9_-]{43})")
+MANUAL_TARGET = re.compile(r"docker:([a-f0-9]{64}):([1-9][0-9]{0,4})")
 
 
 class AgentUnauthorized(ValueError):
@@ -118,6 +119,16 @@ class Agents:
     def __init__(self, data, hub, clock=time.time):
         self.data, self.hub, self.clock = data, hub, clock
         self.file = data / "agents.json"
+        self.manual_file = data / "agent-manual.json"
+        self.manual = json.loads(self.manual_file.read_text()) if self.manual_file.exists() else []
+        if not isinstance(self.manual, list) or len(self.manual) > 1024:
+            raise ValueError("Invalid manual agent targets")
+        for target in self.manual:
+            obj(target, ("id", "container", "port"), "manual agent target")
+            if not isinstance(target["id"], str) or not re.fullmatch(r"[a-f0-9]{32}", target["id"]):
+                raise ValueError("Invalid manual agent ID")
+            upstream_hostname(target["container"], "container")
+            integer(target["port"], 1, 65535, "port")
         self.directory = data / "agents"
         self.directory.mkdir(exist_ok=True, mode=0o700)
         self.lock = threading.RLock()
@@ -189,7 +200,62 @@ class Agents:
                 result.update(token=token, agent_id=agent["id"])
             return result
 
-    def report(self, authorization, raw):
+    def select_targets(self, body):
+        """Reserve stable loopback endpoints; route edits still require Save / Apply."""
+        obj(body, ("agent_id", "targets"), "agent targets")
+        sequence(body["targets"], 1, 32, "agent targets")
+        with self.lock:
+            agent = self.find(body["agent_id"])
+            report = self.reports.get(agent["id"], {})
+            if (not agent["enabled"] or not self.hub.connected(agent["id"])
+                    or not 0 <= self.clock() - report.get("seen_at", 0) < agent["timeout"]
+                    or not report.get("inventory", {}).get("connected")
+                    or report["inventory"]["truncated"]):
+                raise ValueError("Agent is unavailable. Refresh its connection and try again.")
+            if not report.get("manual_routing"):
+                raise ValueError("Update the agent image to select containers without labels.")
+            selected = []
+            for target in body["targets"]:
+                obj(target, ("container_id", "port"), "agent target")
+                integer(target["port"], 1, 65535, "container port")
+                row = next((c for c in report["inventory"]["containers"] if c["id"] == target["container_id"]), None)
+                if not row or row["state"] != "running" or row["is_gateway"] or not row["endpoints"] or not row["shared_networks"]:
+                    raise ValueError("Container is unavailable or has no shared network with its agent.")
+                value = dict(id=agent["id"], container=row["name"], port=target["port"])
+                if value not in selected:
+                    selected.append(value)
+            additions = [t for t in selected if t not in self.manual]
+            if len(self.manual) + len(additions) > 1024:
+                raise ValueError("Agent tunnel target limit reached (1024)")
+            result = []
+            for target in selected:
+                _, port = self.hub.endpoint(target["id"], target["container"], target["port"])
+                result.append(dict(address="127.0.0.1", port=port, weight=1, backup=False, agent=target))
+            if additions:
+                write_json(self.manual_file, self.manual + additions)
+                self.manual += additions
+            self.refresh_targets(agent, report)
+            return dict(targets=result)
+
+    def refresh_targets(self, agent, report):
+        now = self.clock()
+        destinations = dict(report.get("destinations", {})) if 0 <= now - report.get("valid_at", 0) < agent["timeout"] else {}
+        raw = report.get("inventory", {})
+        manual_live = (agent["enabled"] and report.get("manual_routing") and raw.get("connected")
+                       and not raw.get("truncated") and 0 <= now - report.get("seen_at", 0) < agent["timeout"])
+        if manual_live:
+            rows = {c["name"]: c for c in raw["containers"] if c["state"] == "running" and not c["is_gateway"]
+                    and c["endpoints"] and c["shared_networks"]}
+            for target in self.manual:
+                if target["id"] == agent["id"] and target["container"] in rows:
+                    key, _ = self.hub.endpoint(agent["id"], target["container"], target["port"])
+                    destinations[key] = f"docker:{rows[target['container']]['id']}:{target['port']}"
+        if not agent["enabled"]:
+            destinations = {}
+        expires = max(report.get("valid_at", 0), report.get("seen_at", 0) if manual_live else 0) + agent["timeout"]
+        self.hub.targets(agent["id"], destinations, ttl=max(0, expires - now))
+
+    def report(self, authorization, raw, manual_routing=False):
         snapshot = inventory(raw)
         with self.lock:
             identity = self.authenticate(authorization)
@@ -198,7 +264,7 @@ class Agents:
                 raise PermissionError("Agent reports are limited to one per second")
             self.rate[identity] = now
             old = self.reports.get(identity, {})
-            state = {**old, "seen_at": now, "inventory": snapshot, "error": ""}
+            state = {**old, "seen_at": now, "inventory": snapshot, "error": "", "manual_routing": manual_routing}
             routes, errors = agent_routes(snapshot)
             if not snapshot["connected"]:
                 errors = ["Agent Docker unavailable"]
@@ -218,8 +284,7 @@ class Agents:
                 state.update(valid_at=now, entries=entries, destinations=destinations)
             write_json(self.directory / (identity + ".json"), state)
             self.reports[identity] = state
-            if not state["error"]:
-                self.hub.targets(identity, state["destinations"])
+            self.refresh_targets(self.find(identity), state)
             return dict(ok=not bool(state["error"]), error=state["error"], received_at=now)
 
     def snapshot(self, identity=None):
@@ -237,6 +302,9 @@ class Agents:
                 value = {k: v for k, v in agent.items() if k != "token_hash"}
                 rows = report.get("inventory", {}).get("containers", [])
                 value.update(status=status, tunnel=connected, last_seen=report.get("seen_at"),
+                             manual_routing=report.get("manual_routing", False),
+                             docker_connected=report.get("inventory", {}).get("connected", False),
+                             truncated=report.get("inventory", {}).get("truncated", False),
                              error=report.get("error", ""), containers=len(rows), running=sum(c["state"] == "running" for c in rows),
                              routes=len(report.get("entries", [])), engine_version=report.get("inventory", {}).get("engine_version", ""))
                 if identity:
@@ -253,8 +321,7 @@ class Agents:
                 age = now - report.get("valid_at", 0)
                 if agent["enabled"] and 0 <= age < agent["timeout"]:
                     entries += copy.deepcopy(report.get("entries", []))
-                else:
-                    self.hub.targets(agent["id"], {})
+                self.refresh_targets(agent, report)
                 if agent["enabled"] and (report.get("error") or report and age >= agent["timeout"]):
                     warnings.append(agent["name"] + ": " + (report.get("error") or "Agent lease expired"))
             return entries, warnings, self.file.exists()

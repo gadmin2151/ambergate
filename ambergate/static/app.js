@@ -4,6 +4,7 @@ const $ = (selector, parent = document) => parent.querySelector(selector);
 const esc = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const uid = () => 'id_' + (crypto.randomUUID ? crypto.randomUUID().replaceAll('-', '') : Array.from(crypto.getRandomValues(new Uint8Array(16)), n => n.toString(16).padStart(2, '0')).join(''));
 const paths = {
+  panel:'M3 4h18v16H3z M9 4v16 M16 9l-3 3 3 3',
   general:'M4 7h5 M15 7h5 M4 17h11 M19 17h1 M9 4v6 M15 14v6',
   agents:'M4 3h6v6H4z M14 3h6v6h-6z M9 15h6v6H9z M7 9v3h10V9 M12 12v3',
   dashboard:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',
@@ -39,6 +40,35 @@ const balanceLabels = {round_robin:'Round robin', least_conn:'Least connections'
 let state = null, config = null, csrf = '', page = 'dashboard', dirty = false, busy = false, health = null;
 let toastTimer = null;
 let routeQuery = '', hostFilter = 'all';
+let sidebarCollapsed = window.matchMedia?.('(max-width: 980px)').matches || false;
+let sidebarMobileOpen = false;
+try { const saved=localStorage.getItem('ambergate.sidebar.collapsed'); if(saved!==null)sidebarCollapsed=saved==='true'; } catch { /* Storage can be disabled. */ }
+const mobileSidebar = () => window.matchMedia?.('(max-width: 700px)').matches || false;
+function syncSidebar() {
+  const shell=$('.shell'), sidebar=$('#sidebar');if(!shell||!sidebar)return;
+  const mobile=mobileSidebar(), open=mobile && sidebarMobileOpen;
+  shell.classList.toggle('sidebar-collapsed',sidebarCollapsed);
+  shell.classList.toggle('sidebar-open',open);
+  document.body.classList.toggle('sidebar-modal-open',open);
+  sidebar.inert=mobile&&!open;
+  $('.workspace').inert=open;
+  if(open){sidebar.setAttribute('role','dialog');sidebar.setAttribute('aria-modal','true');}
+  else{sidebar.removeAttribute('role');sidebar.removeAttribute('aria-modal');}
+  const label=mobile?t('Закрыть меню'):sidebarCollapsed?t('Развернуть меню'):t('Свернуть меню');
+  const toggle=$('[data-action=sidebar-toggle]');
+  toggle.setAttribute('aria-label',label);toggle.title=label;toggle.setAttribute('aria-expanded',String(mobile?open:!sidebarCollapsed));
+  $('.sidebar-toggle-label').textContent=label;
+  $('[data-action=sidebar-open]').setAttribute('aria-expanded',String(open));
+}
+function closeSidebar(restoreFocus=true) {
+  const wasOpen=sidebarMobileOpen;sidebarMobileOpen=false;syncSidebar();
+  if(wasOpen&&restoreFocus)$('[data-action=sidebar-open]')?.focus({preventScroll:true});
+}
+window.matchMedia?.('(max-width: 700px)').addEventListener('change',()=>{
+  const focusedInside=$('#sidebar')?.contains(document.activeElement);
+  closeSidebar(false);
+  if(focusedInside&&mobileSidebar())$('[data-action=sidebar-open]')?.focus({preventScroll:true});
+});
 
 async function api(path, body, options = {}) {
   const response = await fetch('/api/' + path, {method:body === undefined ? 'GET' : 'POST', credentials:'same-origin',
@@ -130,6 +160,7 @@ function switchLanguage(value) {
   window.scrollTo(...scroll);
 }
 function showLogin() {
+  sidebarMobileOpen=false;document.body.classList.remove('sidebar-modal-open');
   stopDashboardStream();
   config = null; health = null;
   dashboardData = null; dashboardError = '';
@@ -156,6 +187,7 @@ function saveDockContent() {
 }
 function render() {
   if (!config || !csrf) return;
+  const navScroll=$('.sidebar-scroll')?.scrollTop || 0;
   const current = nav.find(n => n[0] === page);
   const descriptions = {
     dashboard:t('Трафик, ответы и состояние вашего AmberGate — в реальном времени.'),
@@ -170,16 +202,21 @@ function render() {
   };
   $('#app').innerHTML = ui`
     <div class="shell ${page === 'dashboard' ? 'dashboard-shell' : ''}">
-      <aside class="sidebar">
+      <aside class="sidebar" id="sidebar" aria-label="Главное меню">
+        <div class="sidebar-header">
         <button type="button" class="brand brand-home" data-action="navigate" data-page="dashboard" aria-label="AmberGate — ${t('Обзор системы')}" title="${t('Обзор системы')}"><img src="/favicon.svg?v=3" alt=""><span class="brand-name">Amber<span class="brand-accent">Gate</span><small>NGINX GATEWAY</small></span></button>
-        <div class="workspace-switch"><span class="workspace-symbol">${icon('server')}</span><div><strong>Мой AmberGate</strong><small>${t('Self-hosted workspace')}</small></div><span class="workspace-dot"></span></div>
+        </div>
+        <div class="sidebar-scroll">
         <div class="nav-caption">ПРОСТРАНСТВО</div>
         <nav aria-label="Главное меню">${nav.map(([key,label]) => btn('navigate',`<span>${t(label)}</span>${key === 'routes' ? `<span class="nav-count">${config.hosts.length}</span>` : ''}`,key,page === key ? 'active' : '',`data-page="${key}" aria-label="${t(label)}" title="${t(label)}" ${page === key ? 'aria-current="page"' : ''}`)).join('')}</nav>
-        <div class="side-bottom"><div class="side-card"><div class="side-card-icon">${icon('shield')}</div><strong>Ваш сервер. Ваши данные.</strong><p>Настройки хранятся локально.<br>Всё остаётся под вашим контролем.</p><span class="side-card-caption"><span class="dot"></span> NGINX GATEWAY</span></div>
+        </div>
+        <div class="side-bottom">
+        ${btn('sidebar-toggle',`<span class="sidebar-toggle-label">${t('Свернуть меню')}</span>`,'panel','sidebar-toggle ghost',`aria-controls="sidebar" aria-expanded="true"`)}
         <div class="side-account"><span class="avatar">A</span><div><strong>Администратор</strong><small>Локальный аккаунт</small></div>${btn('password','','sliders','ghost icon',t('aria-label="Сменить пароль" title="Сменить пароль"'))}</div></div>
       </aside>
+      ${btn('sidebar-close','','','sidebar-backdrop',`tabindex="-1" aria-label="${t('Закрыть меню')}"`)}
       <div class="workspace">
-        <header class="topbar"><div class="crumb">${icon('server')}<span>Мой AmberGate</span>${icon('chevron')}<strong>${t(current[1])}</strong></div><div class="top-right">${languageSwitcher()}<span class="status" id="nginx-status">${statusHTML()}</span><span class="topbar-divider"></span>${btn('logout','','exit','ghost icon',t('aria-label="Выйти" title="Выйти"'))}</div></header>
+        <header class="topbar"><div class="top-left">${btn('sidebar-open','','panel','sidebar-mobile-toggle ghost icon',`aria-label="${t('Открыть меню')}" title="${t('Открыть меню')}" aria-controls="sidebar" aria-expanded="false"`)}<div class="crumb">${icon('server')}<span>Мой AmberGate</span>${icon('chevron')}<strong>${t(current[1])}</strong></div></div><div class="top-right">${languageSwitcher()}<span class="status" id="nginx-status">${statusHTML()}</span><span class="topbar-divider"></span>${btn('logout','','exit','ghost icon',t('aria-label="Выйти" title="Выйти"'))}</div></header>
         <main><div class="page-head"><div><span class="eyebrow">${page === 'dashboard' ? t('LIVE OVERVIEW') : page === 'routes' ? t('TRAFFIC MANAGEMENT') : t('AMBERGATE CONTROL')}</span><h1>${page === 'routes' ? t('Домены и маршруты') : t(current[1])}</h1><p>${descriptions[page]}</p></div>${page === 'dashboard' ? ui`<div class="dash-controls"><span>${icon('clock')} Последние 15 минут</span>${btn('refresh-dashboard',t('Обновить'),'history','', 'id="refresh-dashboard"')}</div>` : page === 'routes' ? btn('add-host',t('Добавить домен'),'plus','primary') : `<span class="page-symbol">${icon(page)}</span>`}</div>
           <div id="page-content">${pageContent()}</div>
           <div class="page-note"><span>${icon('lock')}Локальное хранение конфигурации</span><span>AmberGate <span class="footer-version">v1.0</span></span></div>
@@ -187,6 +224,7 @@ function render() {
         <div class="save-dock" id="save-dock" aria-live="polite" ${['dashboard','docker','agents','general'].includes(page) && !dirty && !state.pending ? 'hidden' : ''}>${saveDockContent()}</div>
       </div>
     </div>`;
+  syncSidebar();$('.sidebar-scroll').scrollTop=navScroll;
   if (page === 'shield') bindSettings();
   if (page === 'code') loadPreview();
   if (page === 'routes') bindRouteSearch();
@@ -247,7 +285,7 @@ function routeCard(host, route) {
   return `<div class="route-row">
     <div class="route-identity"><span class="route-icon ${tone}">${icon(route.path==='/' ? 'globe' : route.path.includes('s3') ? 'cache' : 'code')}</span><div><div class="route-name">${esc(route.name)} ${route.docker ? badge(route.docker.managed ? 'Docker labels' : 'group: ' + route.docker.group,'amber') : ''}</div><div class="route-path"><code>${esc(route.path)}</code><span>${route.path==='/' ? t('корневой путь') : route.strip_prefix ? t('убрать префикс') : t('сохранить путь')}</span></div></div></div>
     <span class="flow-arrow">${icon('arrow')}</span>
-    <div class="upstream-list">${routeTargets(route).map(t=>`<div class="target-line"><span class="target-node">${icon('server')}</span><code>${esc(t.address)}<span class="target-port">:${t.port}</span></code>${t.backup ? badge('backup') : t.weight>1 ? badge('×'+t.weight) : ''}</div>`).join('')}${!routeTargets(route).length ? badge(t('Нет серверов · HTTP 503'),'amber') : ''}<span class="balance-label">${icon('routes')}${esc(balanceLabels[route.balance])}</span></div>
+    <div class="upstream-list">${routeTargets(route).map(t=>`<div class="target-line"><span class="target-node">${icon('server')}</span><code>${esc(t.agent?t.agent.container:t.address)}<span class="target-port">:${t.agent?t.agent.port:t.port}</span>${t.agent?` <small>${esc(targetAgentName(t))}</small>`:''}</code>${t.backup ? badge('backup') : t.weight>1 ? badge('×'+t.weight) : ''}</div>`).join('')}${!routeTargets(route).length ? badge(t('Нет серверов · HTTP 503'),'amber') : ''}<span class="balance-label">${icon('routes')}${esc(balanceLabels[route.balance])}</span></div>
     <div class="route-rules"><span class="rule ${route.cache ? 'rule-enabled' : ''}">${icon('cache')}${route.cache ? ui`Кеш ${route.cache_ttl} сек` : t('Кеш выключен')}</span><span class="rule">${icon('shield')}${route.rate_rps ? route.rate_rps+' r/s' : config.settings.rate_rps ? t('Общий лимит') : t('Без лимита')}</span>${route.websocket ? '<span class="protocol-label">WebSocket</span>' : ''}</div>
     ${btn('edit-route','','edit','route-edit icon',ui`data-host="${host.id}" data-route="${route.id}" aria-label="Изменить маршрут ${esc(route.name)}" title="Изменить маршрут"`)}
   </div>`;
@@ -300,9 +338,12 @@ function editHost(id) {
   if (!existing) $('#modal').dataset.replaceDockerTargets = 'true';
 }
 function collectTargets() {
-  return [...document.querySelectorAll('#target-editor .target-fields')].map(row=>({address:$('[name=address]',row).value.trim(),port:Number($('[name=port]',row).value),weight:Number($('[name=weight]',row).value),backup:$('[name=backup]',row).checked}));
+  return [...document.querySelectorAll('#target-editor .target-fields')].map(row=>({address:$('[name=address]',row).value.trim(),port:Number($('[name=port]',row).value),weight:Number($('[name=weight]',row).value),backup:$('[name=backup]',row).checked,...(row.dataset.agent?{agent:JSON.parse(row.dataset.agent)}:{})}));
 }
+function targetAgentName(target) {return agentsData?.agents.find(a=>a.id===target.agent.id)?.name || target.agent.id.slice(0,8);}
+
 function targetFields(target) {
+  if(target.agent)return `<div class="target-fields" data-agent="${esc(JSON.stringify(target.agent))}"><span class="target-marker" title="${esc(targetAgentName(target))}">${icon('agents')}</span>${field('Agent · '+targetAgentName(target),'agent_container',target.agent.container,'text','readonly')}${field(t('Порт'),'agent_port',target.agent.port,'number','readonly')}${field(t('Вес'),'weight',target.weight,'number','required min="1" max="1000"')}${check(t('Резерв'),'backup',target.backup)}${btn('remove-target','','trash','ghost icon',t('aria-label="Удалить сервер" title="Удалить сервер"'))}<input type="hidden" name="address" value="${esc(target.address)}"><input type="hidden" name="port" value="${target.port}"></div>`;
   return `<div class="target-fields"><span class="target-marker">${icon('server')}</span>${field(t('Сервер или IP'),'address',target.address,'text','required placeholder="backend-1"')}${field(t('Порт'),'port',target.port,'number','required min="1" max="65535"')}${field(t('Вес'),'weight',target.weight,'number','required min="1" max="1000"')}${check(t('Резерв'),'backup',target.backup)}${btn('remove-target','','trash','ghost icon',t('aria-label="Удалить сервер" title="Удалить сервер"'))}</div>`;
 }
 function selectRouteTab(name) {
@@ -377,14 +418,23 @@ function download(name, content, type) {
 document.addEventListener('click', async event=>{
   const button = event.target.closest('[data-action]'); if (!button || button.disabled) return;
   const action = button.dataset.action;
+  if(action==='sidebar-open'){sidebarMobileOpen=true;syncSidebar();$('#sidebar nav .active')?.focus({preventScroll:true});return;}
+  if(action==='sidebar-close')return closeSidebar();
+  if(action==='sidebar-toggle'){
+    if(mobileSidebar())return closeSidebar();
+    sidebarCollapsed=!sidebarCollapsed;
+    try{localStorage.setItem('ambergate.sidebar.collapsed',String(sidebarCollapsed));}catch{ /* Keep the session preference. */ }
+    syncSidebar();return;
+  }
   if (action === 'language') { switchLanguage(button.dataset.language); return; }
   if (action === 'dismiss-toast') { $('#toast').hidden=true; return; }
   if (action === 'close') return $('#modal').close();
+  if (action === 'password' && sidebarMobileOpen) closeSidebar();
   if (action === 'logout') return task(async()=>{await api('logout',{}); csrf=''; dirty=false; showLogin();});
   if (busy) return;
   try {
     if (action.startsWith('agent-')) return await agentAction(action,button.dataset.id);
-    if (action === 'navigate') {collectSettings(); page=button.dataset.page; render();}
+    if (action === 'navigate') {const fromDrawer=sidebarMobileOpen;collectSettings();closeSidebar(false);page=button.dataset.page;render();if(fromDrawer){const heading=$('main h1');heading.tabIndex=-1;heading.focus({preventScroll:true});}}
     if (action === 'refresh-dashboard') startDashboardStream(true);
     if (action === 'filter-hosts') {hostFilter=button.dataset.filter;render();}
     if (action === 'reset-search') {routeQuery='';hostFilter='all';render();}
@@ -424,6 +474,14 @@ document.addEventListener('click', async event=>{
 });
 document.addEventListener('keydown', event=>{
   if ($('#confirm-modal').open || $('#docker-picker').open) return;
+  if(sidebarMobileOpen&&!$('#modal').open){
+    if(event.key==='Escape'){event.preventDefault();closeSidebar();return;}
+    if(event.key==='Tab'){
+      const buttons=[...$('#sidebar').querySelectorAll('button:not(:disabled)')], first=buttons[0], last=buttons.at(-1);
+      if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
+      else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
+    }
+  }
   const editable=event.target.closest('input,textarea,select,[contenteditable=true]');
   if(event.target.matches('[data-action="route-tab"]') && ['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) {
     event.preventDefault(); const buttons=[...document.querySelectorAll('[data-action="route-tab"]')];

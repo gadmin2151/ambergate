@@ -272,7 +272,10 @@ class Handler(BaseHTTPRequestHandler):
             if not isinstance(body, dict):
                 raise ValueError("Ожидается JSON-объект")
             if path == "/api/agents/report":
-                return self.respond(200, self.server.agents.report(self.headers.get("Authorization", ""), body))
+                return self.respond(200, self.server.agents.report(self.headers.get("Authorization", ""), body,
+                                    manual_routing=self.headers.get("X-AmberGate-Manual-Routing") == "1"))
+            if path == "/api/agents/targets":
+                return self.respond(200, self.server.agents.select_targets(body))
             if path == "/api/agents":
                 return self.respond(200, self.server.agents.mutate(body))
             if path == "/api/settings":

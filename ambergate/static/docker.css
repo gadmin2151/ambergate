@@ -197,3 +197,8 @@ dialog.agent-setup-modal { width:860px; }
 .agent-install-status.connected>svg { color:#a0c795; }
 .clipboard-buffer { position:fixed; left:-10000px; top:0; width:1px; height:1px; }
 @media(max-width:650px) { .general-card { padding:20px; } .general-examples { grid-template-columns:1fr; } .general-actions,.agent-center-bar { flex-direction:column; align-items:stretch; } .agent-steps { gap:9px; } .agent-steps li { font-size:10px; gap:6px; } .agent-steps li+li::before { display:none; } .agent-steps span { width:23px; height:23px; flex-shrink:0; } .agent-command-head { align-items:flex-start; } .agent-setup-modal .form-actions { flex-wrap:wrap; } }
+
+.docker-source-control { margin-bottom: 18px; }
+.agent-picker-context { padding: 14px 16px; border: 1px solid #51432d; border-radius: 9px; background: #ffaf3509; }
+.agent-picker-context strong { margin-left: 9px; color: #e9e9ed; }
+.agent-picker-context p { margin-top: 9px; line-height: 1.6; }

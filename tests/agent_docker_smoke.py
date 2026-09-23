@@ -72,6 +72,7 @@ def main():
                 apps.append(run(PREFIX+f'-app-{i}','--network',private,'--label',
                     'ambergate.route=host=agent.test;path=/api;port=8000;strip=true',
                     '--entrypoint','python3',IMAGE,'-u','-c',BACKEND,f'app-{i}'))
+            manual_app=run(PREFIX+'-manual','--network',private,'--entrypoint','python3',IMAGE,'-u','-c',BACKEND,'manual')
             central=run(PREFIX+'-central','--network',edge_net,'--network-alias','agent-central',
                 '-p','127.0.0.1::8083','-p','127.0.0.1::80',
                 '-e','AMBERGATE_ADMIN_PASSWORD=disposable-agent-docker-password',IMAGE)
@@ -128,12 +129,26 @@ proxy_set_header Connection "upgrade"; proxy_read_timeout 90s; proxy_buffering o
             detail=api('agents/'+aid)['agents'][0]
             assert {a['name'] for a in detail['inventory']} >= set(apps)
             assert detail['routes']==2
+            assert detail['manual_routing']
+            # The UI can select an unlabelled container and an unexposed application port.
+            manual_targets=api('agents/targets',dict(agent_id=aid,targets=[dict(container_id=inspect(manual_app)['Id'],port=8000)]))['targets']
+            draft=api('config'); host=next(h for h in draft['config']['hosts'] if h['domain']=='agent.test')
+            manual_route={k:v for k,v in host['routes'][0].items() if k!='docker'}
+            manual_route.update(id='manual-agent-route',name='Selected container',path='/manual',targets=manual_targets)
+            host['routes'].append(manual_route)
+            saved=api('config',dict(config=draft['config'],revision=draft['revision']));api('apply',dict(revision=saved['revision']))
+            assert traffic('/manual/check')==b'manual:/check'
+            docker('rm','-f',manual_app)
+            run(manual_app,'--network',private,'--entrypoint','python3',IMAGE,'-u','-c',BACKEND,'recreated')
+            wait(lambda:traffic('/manual/check')==b'recreated:/check')
+            assert not any(inspect(manual_app)['NetworkSettings']['Ports'].values())
             docker('restart',central)
             info=inspect(central)
             admin=int(info['NetworkSettings']['Ports']['8083/tcp'][0]['HostPort'])
             public=int(info['NetworkSettings']['Ports']['80/tcp'][0]['HostPort'])
             csrf=wait(login)['csrf']
             wait(lambda:traffic().startswith(b'app-'))
+            wait(lambda:traffic('/manual/check')==b'recreated:/check')
             docker('stop',agent)
             wait(lambda:api('agents')['agents'][0]['status']=='offline')
             def empty_route():
@@ -146,7 +161,7 @@ proxy_set_header Connection "upgrade"; proxy_read_timeout 90s; proxy_buffering o
             created=api('agents',dict(action='rotate',id=aid,revision=api('agents')['revision']))
             assert created['token']!=token
             wait(lambda:not api('agents')['agents'][0]['tunnel'])
-            print('PASS: real Docker discovery, private ports, verified TLS, balancing, uploads, restart, expiry and token revocation')
+            print('PASS: Docker discovery, private ports, TLS, labels and manual routes, container recreation, balancing, uploads, restart, expiry and revocation')
         except BaseException:
             # No environment dumps or credentials. Agent logs contain status only.
             if central: print(docker('logs','--tail','40',central,check=False))

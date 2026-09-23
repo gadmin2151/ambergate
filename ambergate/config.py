@@ -172,7 +172,16 @@ def validate(config):
             targets = route_targets(route)
             sequence(targets, 0 if "docker" in route else 1, 32, rp + ".targets")
             for target in targets:
-                obj(target, ("address", "port", "weight", "backup"), rp + ".target")
+                if not isinstance(target, dict):
+                    fail(rp, "неверный набор полей")
+                obj({k: v for k, v in target.items() if k != "agent"}, ("address", "port", "weight", "backup"), rp + ".target")
+                if "agent" in target:
+                    agent = target["agent"]
+                    obj(agent, ("id", "container", "port"), rp + ".target.agent")
+                    if not isinstance(agent["id"], str) or not re.fullmatch(r"[a-f0-9]{32}", agent["id"]) or target["address"] != "127.0.0.1":
+                        fail(rp, "Invalid agent tunnel target")
+                    upstream_hostname(agent["container"], rp + ".target.agent.container")
+                    integer(agent["port"], 1, 65535, rp + ".target.agent.port")
                 address = target["address"]
                 try:
                     if not isinstance(address, str):

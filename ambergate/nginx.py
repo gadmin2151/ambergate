@@ -106,7 +106,8 @@ def render(config, generation, cache_dir="/cache", run_dir="/run/ambergate", por
                 backup = " backup" if target["backup"] else ""
                 lines.append(f"        server {ip_literal(address)}:{target['port']} weight={target['weight']}"
                              f" max_fails=3 fail_timeout=10s{backup}{resolve};")
-            remote = any(key.startswith("agent_") for key in route.get("docker", {}).get("sources", {}))
+            remote = (any(key.startswith("agent_") for key in route.get("docker", {}).get("sources", {}))
+                      or any("agent" in target for target in route_targets(route)))
             lines += (["        keepalive 2;", "        keepalive_timeout 5s;"] if remote else ["        keepalive 32;"])
             lines += ["    }"]
         lines += ["    server {", f"        listen {port};", f"        server_name {host['domain'].lower()};",

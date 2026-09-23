@@ -3,6 +3,7 @@
 let dockerLabelsData = null, dockerLabelMode = null, dockerLabelsBusy = false, dockerConfigSync = false;
 let dockerData = null, dockerDraft = null, dockerLoading = false, dockerError = '';
 let dockerQuery = '', dockerNetwork = '', dockerOnlyReady = false;
+let dockerPickerSource = 'local';
 let dockerPickerData = null, dockerPickerToken = 0, dockerPickerMode = 'auto', dockerHostDraft = null;
 const dockerAddress = (address, port) => `${address.includes(':') ? '[' + address + ']' : address}${port ? ':' + port : ''}`;
 const dockerDate = timestamp => new Date(timestamp * 1000).toLocaleTimeString(locale());
@@ -135,7 +136,7 @@ async function saveDocker(enabled) {
 }
 
 function dockerPickerRows() {
-  if(dockerPickerMode==='auto')return dockerPickerData.containers;
+  if(dockerPickerData.agent || dockerPickerMode==='auto')return dockerPickerData.containers;
   return dockerPickerData.containers.map(c=>({...c,endpoints:c.host_endpoints || [],
     selectable:!!c.host_endpoints?.length,reason:c.host_reason || c.reason}));
 }
@@ -162,7 +163,7 @@ async function openDockerPicker(refresh=false) {
   const dialog=$('#docker-picker'), token=++dockerPickerToken;
   const selection = new Map(), search = refresh ? $('#docker-picker-search')?.value || '' : '';
   const replace = refresh ? $('[name=docker-replace]',dialog)?.checked : undefined;
-  if(refresh && dockerPickerData) for(const check of dialog.querySelectorAll('[name=docker-container]:checked')) {
+  if(refresh && dockerPickerData && dockerPickerData.source===dockerPickerSource) for(const check of dialog.querySelectorAll('[name=docker-container]:checked')) {
     const row=check.closest('[data-docker-row]'), c=dockerPickerRows()[Number(check.value)];
     const endpoint=c.endpoints[Number($('[data-docker-endpoint]',row).value)];
     selection.set(c.id,{address:endpoint.address,endpointPort:endpoint.port,port:$('[data-docker-port]',row)?.value,custom:$('[data-docker-custom]',row)?.value});
@@ -172,13 +173,27 @@ async function openDockerPicker(refresh=false) {
     dialog.showModal();
   } else $('#docker-picker-body').innerHTML=t('<p class="docker-loading">Обновляем контейнеры…</p>');
   try {
-    const data=await api('docker?refresh=1',undefined,{signal:AbortSignal.timeout(10000)});
-    if(!dialog.open || token!==dockerPickerToken || !csrf)return;
-    dockerData=data; dockerPickerData=data;
-    if(!data.connected) {
-      $('#docker-picker-body').innerHTML=ui`<div class="docker-empty compact">${icon('docker')}<h3>${data.settings.enabled ? t('Нет подключения к Docker') : t('Docker не подключён')}</h3><p>${esc(translateError(data.message))}</p><p>Подключите socket в разделе Docker. Вы можете закрыть выбор и продолжить редактирование вручную.</p>${btn('docker-picker-close',t('Вернуться к маршруту'),'arrow','primary')}</div>`;
-      return;
+    const session=csrf;
+    const summary=await api('agents');
+    if(!dialog.open || token!==dockerPickerToken || session!==csrf)return;
+    agentsData=summary;
+    if(dockerPickerSource!=='local' && !summary.agents.some(a=>a.id===dockerPickerSource))dockerPickerSource='local';
+    let data;
+    if(dockerPickerSource==='local') {
+      data=await api('docker?refresh=1',undefined,{signal:AbortSignal.timeout(10000)});dockerData=data;
+    } else {
+      const detail=await api('agents/'+dockerPickerSource,undefined,{signal:AbortSignal.timeout(10000)}), agent=detail.agents[0];
+      const ready=agent.enabled && agent.tunnel && agent.docker_connected && !agent.truncated && ['online','error'].includes(agent.status);
+      data={agent,settings:{enabled:true,host_address:''},mode:'agent',connected:ready,containers:agent.inventory.map(c=>({
+        ...c,endpoints:[{address:c.name,kind:'agent'}],
+        selectable:ready && agent.manual_routing && c.state==='running' && !c.is_gateway && c.endpoints.length>0 && c.shared_networks.length>0,
+        reason:!agent.manual_routing?at('Обновите образ агента для ручного выбора контейнеров.','Update the agent image to select containers manually.'):
+          !ready?at('Агент недоступен','Agent unavailable'):c.is_gateway?at('Это сам агент','This is the agent itself'):
+          c.state!=='running'?at('Контейнер не запущен','Container is not running'):at('Подключите агент к сети этого контейнера','Connect the agent to this container’s network')
+      }))};
     }
+    if(!dialog.open || token!==dockerPickerToken || session!==csrf)return;
+    dockerPickerData={...data,source:dockerPickerSource};
     renderDockerPicker();
     $('#docker-picker-search').value=search;filterDockerPicker(search);
     if(replace!==undefined)$('[name=docker-replace]',dialog).checked=replace;
@@ -199,20 +214,20 @@ async function openDockerPicker(refresh=false) {
   }
 }
 function renderDockerPicker() {
-  const d=dockerPickerData, rows=dockerPickerRows();
+  const d=dockerPickerData, rows=dockerPickerRows(), remote=!!d.agent;
   const previousReplace=$('[name=docker-replace]', $('#docker-picker'))?.checked;
   const previousSearch=$('#docker-picker-search')?.value || '';
   const host=location.hostname.replace(/^\[|\]$/g,'');
   const suggested=host!=='::' && host!=='::1' && host!=='0.0.0.0' && !host.startsWith('127.') && !host.startsWith('fe80:') && (/^(\d{1,3}\.){3}\d{1,3}$/.test(host) || host.includes(':')) ? host : '';
   const address=dockerHostDraft ?? (d.settings.host_address || suggested);
-  $('#docker-picker-body').innerHTML=ui`<form id="docker-picker-form"><div class="docker-picker-toolbar"><label class="search-field">${icon('search')}<input type="search" id="docker-picker-search" placeholder="Найти контейнер…" aria-label="Найти контейнер"></label>${btn('docker-picker-refresh',t('Обновить'),'history','small')}</div><div class="docker-access-controls"><label>Способ подключения<select id="docker-access-mode"><option value="auto" ${dockerPickerMode==='auto'?'selected':''}>Автоматически</option><option value="host" ${dockerPickerMode==='host'?'selected':''}>Через IP хоста</option></select></label><label>IP Docker-хоста<input id="docker-host-address" type="text" value="${esc(address)}" maxlength="45" placeholder="10.0.0.10" autocomplete="off"></label>${btn('docker-host-save',t('Сохранить IP'),'check','small')}</div><p class="docker-picker-context">${dockerPickerMode==='host' ? t('Используются опубликованные TCP-порты. Общая сеть не требуется.') : t('Сначала общая сеть Docker, иначе — опубликованный порт хоста.')} ${d.settings.host_address ? t('Сохранённый IP: ')+esc(d.settings.host_address)+'.' : t('Сохраните IP хоста для портов, опубликованных на всех интерфейсах.')}${d.truncated?t(' Показаны последние 500 контейнеров.'):''}</p><div class="docker-choices">${rows.length ? rows.map((c,i)=>dockerChoice(c,i)).join('') : t('<div class="docker-empty compact"><h3>Контейнеров пока нет</h3><p>Запустите приложения в Docker и обновите список.</p></div>')}</div><div class="docker-picker-options">${check(t('Заменить текущий список серверов'),'docker-replace',$('#modal').dataset.replaceDockerTargets==='true')}<p>Порты обнаружены по настройкам Docker. Укажите вручную, если приложение не объявило EXPOSE. Убедитесь, что порт обслуживает HTTP.</p>${d.mode==='container' && !config.settings.resolvers.includes('127.0.0.11') ? t('<p class="docker-info">Для имён контейнеров настройте DNS 127.0.0.11 в разделе «Защита и лимиты».</p>') : ''}</div><div class="error" id="docker-picker-error" role="alert"></div><div class="form-actions"><span class="hint" id="docker-selection-count">Выберите контейнеры</span>${btn('docker-picker-close',t('Отмена'),'','ghost')}<button type="submit" class="primary" id="docker-add-selected" disabled>${icon('plus')}Добавить выбранные</button></div></form>`;
+  $('#docker-picker-body').innerHTML=ui`<form id="docker-picker-form"><label class="docker-source-control">${at('Источник контейнеров','Container source')}<select id="docker-picker-source"><option value="local" ${dockerPickerSource==='local'?'selected':''}>${at('Локальный Docker · AmberGate','Local Docker · AmberGate')}</option>${(agentsData?.agents||[]).map(a=>`<option value="${a.id}" ${dockerPickerSource===a.id?'selected':''}>${esc(a.name)} · ${esc(agentStatus(a.status))}</option>`).join('')}</select></label><div class="docker-picker-toolbar"><label class="search-field">${icon('search')}<input type="search" id="docker-picker-search" placeholder="Найти контейнер…" aria-label="Найти контейнер"></label>${btn('docker-picker-refresh',t('Обновить'),'history','small')}</div>${remote?`<div class="docker-picker-context agent-picker-context">${badge(agentStatus(d.agent.status),d.connected?'green':'gray')}<strong>${esc(d.agent.name)}</strong><p>${at('Трафик идёт через туннель агента. Labels и публикация портов не нужны.','Traffic uses the agent tunnel. No labels or published ports required.')}</p>${!d.agent.manual_routing?`<p class="error">${at('Обновите контейнер агента до последнего образа ambergate-agent:latest и пересоздайте его.','Update the agent container to the latest ambergate-agent:latest image and recreate it.')}</p>`:''}</div>`:ui`<div class="docker-access-controls"><label>Способ подключения<select id="docker-access-mode"><option value="auto" ${dockerPickerMode==='auto'?'selected':''}>Автоматически</option><option value="host" ${dockerPickerMode==='host'?'selected':''}>Через IP хоста</option></select></label><label>IP Docker-хоста<input id="docker-host-address" type="text" value="${esc(address)}" maxlength="45" placeholder="10.0.0.10" autocomplete="off"></label>${btn('docker-host-save',t('Сохранить IP'),'check','small')}</div><p class="docker-picker-context">${dockerPickerMode==='host' ? t('Используются опубликованные TCP-порты. Общая сеть не требуется.') : t('Сначала общая сеть Docker, иначе — опубликованный порт хоста.')} ${d.settings.host_address ? t('Сохранённый IP: ')+esc(d.settings.host_address)+'.' : t('Сохраните IP хоста для портов, опубликованных на всех интерфейсах.')}${d.truncated?t(' Показаны последние 500 контейнеров.'):''}</p>`}<div class="docker-choices">${!d.connected&&!remote ? `<div class="docker-empty compact"><h3>${t('Docker не подключён')}</h3><p>${esc(translateError(d.message))}</p><p>${at('Выберите подключённого агента выше или настройте локальный Docker.','Select a connected agent above, or configure local Docker.')}</p></div>` : rows.length ? rows.map((c,i)=>dockerChoice(c,i)).join('') : t('<div class="docker-empty compact"><h3>Контейнеров пока нет</h3><p>Запустите приложения в Docker и обновите список.</p></div>')}</div><div class="docker-picker-options">${check(t('Заменить текущий список серверов'),'docker-replace',$('#modal').dataset.replaceDockerTargets==='true')}<p>Порты обнаружены по настройкам Docker. Укажите вручную, если приложение не объявило EXPOSE. Убедитесь, что порт обслуживает HTTP.</p>${d.mode==='container' && !config.settings.resolvers.includes('127.0.0.11') ? t('<p class="docker-info">Для имён контейнеров настройте DNS 127.0.0.11 в разделе «Защита и лимиты».</p>') : ''}</div><div class="error" id="docker-picker-error" role="alert"></div><div class="form-actions"><span class="hint" id="docker-selection-count">Выберите контейнеры</span>${btn('docker-picker-close',t('Отмена'),'','ghost')}<button type="submit" class="primary" id="docker-add-selected" disabled>${icon('plus')}Добавить выбранные</button></div></form>`;
   $('#docker-picker-form').addEventListener('submit',addDockerTargets);
   if(previousReplace!==undefined)$('[name=docker-replace]', $('#docker-picker')).checked=previousReplace;
   $('#docker-picker-search').value=previousSearch; filterDockerPicker(previousSearch);
 }
 function dockerChoice(c,i) {
   const options=c.endpoints.map((e,j)=>`<option value="${j}">${esc(e.kind==='published' ? `${e.container_port}/tcp → ${dockerAddress(e.address,e.port)}` : e.address + (e.network?' · '+e.network:''))}</option>`).join('');
-  return `<div class="docker-choice ${c.selectable?'':'unavailable'}" data-docker-row="${i}" data-docker-name="${esc([c.name,c.image,c.project,c.service].join(' ').toLowerCase())}"><label class="check docker-choice-label"><input type="checkbox" name="docker-container" value="${i}" ${c.selectable?'':'disabled'}><span><strong>${esc(c.name)}</strong><small>${esc(c.image)}</small></span></label><span class="docker-choice-state">${badge(dockerState(c.state),c.state==='running'?'green':'gray')}</span>${c.selectable ? `<div class="docker-choice-fields"><label>${c.endpoints[0].kind==='published'?t('Опубликованный порт'):t('Адрес цели')}<select data-docker-endpoint disabled>${options}</select></label>${c.endpoints[0].kind==='published' ? '' : ui`<label>Порт приложения<select data-docker-port disabled>${c.ports.map(p=>`<option value="${p}">${p}/tcp</option>`).join('')}<option value="custom" ${c.ports.length?'':'selected'}>Указать вручную</option></select></label><label data-docker-custom-wrap ${c.ports.length?'hidden':''}>TCP-порт<input type="number" min="1" max="65535" data-docker-custom placeholder="8080" disabled></label>`}</div><p class="docker-choice-note">${c.endpoints[0].kind==='dns' ? 'Docker DNS · ' + esc(c.shared_networks.join(', ')) : c.endpoints[0].kind==='ip' ? t('IP-адрес может измениться при пересоздании. Тогда обновите цель маршрута.') : t('Подключение через порт Docker-хоста.')}</p>` : `<p class="docker-choice-note">${esc(translateError(c.reason))}${c.reason==='Нет общей сети с AmberGate' ? t('. Укажите IP хоста и опубликуйте TCP-порт, либо подключите общую сеть.') : ''}</p>`}</div>`;
+  return `<div class="docker-choice ${c.selectable?'':'unavailable'}" data-docker-row="${i}" data-docker-name="${esc([c.name,c.image,c.project,c.service].join(' ').toLowerCase())}"><label class="check docker-choice-label"><input type="checkbox" name="docker-container" value="${i}" ${c.selectable?'':'disabled'}><span><strong>${esc(c.name)}</strong><small>${esc(c.image)}</small></span></label><span class="docker-choice-state">${badge(dockerState(c.state),c.state==='running'?'green':'gray')}</span>${c.selectable ? `<div class="docker-choice-fields"><label>${c.endpoints[0].kind==='published'?t('Опубликованный порт'):t('Адрес цели')}<select data-docker-endpoint disabled>${options}</select></label>${c.endpoints[0].kind==='published' ? '' : ui`<label>Порт приложения<select data-docker-port disabled>${c.ports.map(p=>`<option value="${p}">${p}/tcp</option>`).join('')}<option value="custom" ${c.ports.length?'':'selected'}>Указать вручную</option></select></label><label data-docker-custom-wrap ${c.ports.length?'hidden':''}>TCP-порт<input type="number" min="1" max="65535" data-docker-custom placeholder="8080" disabled></label>`}</div><p class="docker-choice-note">${c.endpoints[0].kind==='dns' ? 'Docker DNS · ' + esc(c.shared_networks.join(', ')) : c.endpoints[0].kind==='agent' ? at('Через агента · ','Via agent · ')+esc(dockerPickerData.agent.name)+' · '+esc(c.shared_networks.join(', ')) : c.endpoints[0].kind==='ip' ? t('IP-адрес может измениться при пересоздании. Тогда обновите цель маршрута.') : t('Подключение через порт Docker-хоста.')}</p>` : `<p class="docker-choice-note">${esc(translateError(c.reason))}${c.reason==='Нет общей сети с AmberGate' ? t('. Укажите IP хоста и опубликуйте TCP-порт, либо подключите общую сеть.') : ''}</p>`}</div>`;
 }
 function updateDockerSelection(row) {
   const chosen=$('[name=docker-container]',row).checked;
@@ -224,17 +239,28 @@ function updateDockerSelection(row) {
   $('#docker-selection-count').textContent=ui`Выбрано контейнеров: ${count}`;
   $('#docker-add-selected').disabled=!count;
 }
-function addDockerTargets(event) {
+async function addDockerTargets(event) {
   event.preventDefault();
   const editor=$('#target-editor'); if(!editor || !$('#modal').open)return;
   const result=$('[name=docker-replace]',$('#docker-picker')).checked?[]:collectTargets();
+  const remote=[], token=dockerPickerToken, session=csrf;
   for(const check of $('#docker-picker').querySelectorAll('[name=docker-container]:checked')) {
     const row=check.closest('[data-docker-row]'), c=dockerPickerRows()[Number(check.value)];
     const endpoint=c.endpoints[Number($('[data-docker-endpoint]',row).value)];
     if(endpoint.kind==='published' && dockerHostDraft!==null && $('#docker-host-address').value.trim()!==dockerPickerData.settings.host_address){$('#docker-picker-error').textContent=t('Сначала сохраните IP Docker-хоста, затем выберите контейнеры.');return;}
     const portField=$('[data-docker-port]',row), port=endpoint.port || Number(portField.value==='custom'?$('[data-docker-custom]',row).value:portField.value);
     if(!Number.isInteger(port)||port<1||port>65535){$('#docker-picker-error').textContent=t('Укажите TCP-порт от 1 до 65535.');return;}
+    if(endpoint.kind==='agent'){remote.push({container_id:c.id,port});continue;}
     if(!result.some(t=>t.address.toLowerCase()===endpoint.address.toLowerCase()&&t.port===port))result.push({address:endpoint.address,port,weight:1,backup:false});
+  }
+  if(remote.length){
+    const button=$('#docker-add-selected');button.disabled=true;
+    try{
+      const data=await api('agents/targets',{agent_id:dockerPickerData.agent.id,targets:remote});
+      if(session!==csrf || token!==dockerPickerToken || !$('#docker-picker').open || editor!==$('#target-editor'))return;
+      for(const target of data.targets)if(!result.some(t=>t.address===target.address&&t.port===target.port))result.push(target);
+    }catch(error){if(session===csrf&&token===dockerPickerToken&&$('#docker-picker-error'))$('#docker-picker-error').textContent=translateError(error.message);return;}
+    finally{if(button.isConnected)button.disabled=false;}
   }
   if(!result.length||result.length>32){$('#docker-picker-error').textContent=t('В маршруте должно быть от 1 до 32 серверов. При необходимости замените текущий список.');return;}
   editor.innerHTML=result.map(targetFields).join('');
@@ -250,6 +276,7 @@ document.addEventListener('input',event=>{
 });
 document.addEventListener('change',event=>{
   if(event.target.id==='docker-label-mode')dockerLabelMode=event.target.value;
+  if(event.target.id==='docker-picker-source'){dockerPickerSource=event.target.value;openDockerPicker(true);}
   if(event.target.id==='docker-access-mode'){dockerPickerMode=event.target.value;renderDockerPicker();}
   if(event.target.id==='docker-network'){dockerNetwork=event.target.value;$('#docker-container-list').innerHTML=dockerContainerList();}
   if(event.target.name==='docker-ready'){dockerOnlyReady=event.target.checked;$('#docker-container-list').innerHTML=dockerContainerList();}

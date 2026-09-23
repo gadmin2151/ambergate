@@ -12,7 +12,7 @@ import time
 import urllib.error
 import urllib.request
 
-from .agents import TOKEN, agent_routes, wire_snapshot
+from .agents import TOKEN, MANUAL_TARGET, agent_routes, wire_snapshot
 from .docker import Docker, settings
 from .storage import write_json
 from .tunnel import bridge, close_tcp, connect, server_url
@@ -36,6 +36,7 @@ class Agent:
         self.lock = threading.RLock()
         self.stopping = threading.Event()
         self.control, self.targets, self.streams = None, {}, {}
+        self.containers = {}
         self.slots = threading.BoundedSemaphore(32)
         self.opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect(),
             urllib.request.HTTPSHandler(context=ssl.create_default_context(cafile=ca_file)))
@@ -47,7 +48,8 @@ class Agent:
                             message="Agent inventory exceeds 1 MiB", containers=[])
             payload = json.dumps(snapshot).encode()
         request = urllib.request.Request(self.origin + "/api/agents/report", data=payload,
-            headers={"Content-Type": "application/json", "Authorization": "Bearer " + self.token})
+            headers={"Content-Type": "application/json", "Authorization": "Bearer " + self.token,
+                     "X-AmberGate-Manual-Routing": "1"})
         with self.opener.open(request, timeout=10) as response:
             value = response.read(65537)
             if len(value) > 65536:
@@ -63,13 +65,25 @@ class Agent:
         routes, _ = agent_routes(snapshot)
         with self.lock:
             self.targets = {r["target_id"]: (r["address"], r["spec"]["port"]) for r in routes}
+            self.containers = {c["id"]: c["endpoints"][0]["address"] for c in snapshot["containers"]
+                               if c["state"] == "running" and not c["is_gateway"] and c["endpoints"] and c["shared_networks"]}
+            if not snapshot["connected"] or snapshot["truncated"]:
+                self.containers = {}
         return snapshot
+
+    def destination(self, target):
+        """The central server may choose a port, never an arbitrary address."""
+        match = MANUAL_TARGET.fullmatch(target)
+        if match:
+            address, port = self.containers.get(match[1]), int(match[2])
+            return (address, port) if address and port <= 65535 else None
+        return self.targets.get(target)
 
     def open_stream(self, identity, target, control):
         connection, ws = None, None
         try:
             with self.lock:
-                destination = self.targets.get(target)
+                destination = self.destination(target)
             if not destination or control is not self.control or self.stopping.is_set():
                 raise ValueError("Agent target is unavailable")
             connection = socket.create_connection(destination, timeout=5)
@@ -99,7 +113,9 @@ class Agent:
                 opcode, payload = control.receive()
                 value = json.loads(payload) if opcode == 1 else None
                 if (not isinstance(value, dict) or set(value) != {"type", "id", "target"} or value["type"] != "open"
-                        or not all(isinstance(value[k], str) and re.fullmatch(r"[a-f0-9]{32}", value[k]) for k in ("id", "target"))):
+                        or not isinstance(value["id"], str) or not re.fullmatch(r"[a-f0-9]{32}", value["id"])
+                        or not isinstance(value["target"], str)
+                        or not (re.fullmatch(r"[a-f0-9]{32}", value["target"]) or MANUAL_TARGET.fullmatch(value["target"]))):
                     raise ValueError("Invalid tunnel control message")
                 if self.slots.acquire(blocking=False):
                     threading.Thread(target=self.open_stream, args=(value["id"], value["target"], control),

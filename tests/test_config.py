@@ -42,11 +42,23 @@ class ConfigurationTests(unittest.TestCase):
         r["targets"][0]["backup"] = True
         with self.assertRaises(ValidationError):
             validate(c)
+
         r["targets"].append({"address": "backend", "port": 80, "weight": 1, "backup": False})
         validate(c)
         r["balance"] = "ip_hash"
         with self.assertRaises(ValidationError):
             validate(c)
+
+    def test_manual_agent_metadata_and_bounded_tunnel_keepalives(self):
+        c = config(); target = c['hosts'][0]['routes'][0]['targets'][0]
+        target['agent'] = dict(id='a'*32, container='backend-1', port=8080)
+        self.assertEqual(validate(c), c)
+        self.assertIn('keepalive_timeout 5s;', render(c,'manual-agent'))
+        for field,value in [('id','invalid'),('container','bad;host'),('port',0)]:
+            bad = config(); bad['hosts'][0]['routes'][0]['targets'][0]['agent'] = {**target['agent'],field:value}
+            with self.subTest(field=field), self.assertRaises(ValidationError): validate(bad)
+        target['address']='10.0.0.5'
+        with self.assertRaises(ValidationError): validate(c)
 
     def test_prefix_matching_is_bounded(self):
         c = config()

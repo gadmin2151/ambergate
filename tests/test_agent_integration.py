@@ -64,6 +64,59 @@ def eventually(predicate, seconds=12):
 
 @unittest.skipUnless(NGINX and Path(MIME).is_file(), 'Requires real Nginx')
 class AgentIntegrationTests(unittest.TestCase):
+    def test_manual_routes_via_admin_api_without_labels_or_local_docker(self):
+        with tempfile.TemporaryDirectory(prefix='manual-agent-') as tmp:
+            root=Path(tmp);root.chmod(0o755)
+            store=Store(root/'data',root/'cache',root/'run',NGINX,port=free_port(),control_port=free_port(),mime_types=MIME)
+            store.start();self.addCleanup(store.stop)
+            with patch.dict(os.environ,{'AMBERGATE_ADMIN_PASSWORD':'agent-test-password-123'}):auth=Auth(store.data)
+            admin=Server(('127.0.0.1',0),store,auth)
+            threading.Thread(target=admin.serve_forever,daemon=True).start()
+            self.addCleanup(admin.server_close);self.addCleanup(admin.shutdown)
+            apps,agents,created=[],[],[]
+            try:
+                status,headers,body=request(admin.server_port,'/api/login','POST',{'Content-Type':'application/json'},json.dumps({'password':'agent-test-password-123'}))
+                self.assertEqual(status,200)
+                credentials={'Content-Type':'application/json','Cookie':headers['Set-Cookie'].split(';')[0],'X-CSRF-Token':json.loads(body)['csrf']}
+                for index in range(2):
+                    app=ThreadingHTTPServer(('127.0.0.1',0),App);apps.append(app)
+                    threading.Thread(target=app.serve_forever,daemon=True).start()
+                    identity=admin.agents.mutate(dict(action='create',name=f'Manual {index}',revision=admin.agents.revision()))
+                    created.append(identity)
+                    raw=report(app.server_port,identity='ab'[index]);raw.pop('version')
+                    raw['containers'][0]['route_labels']={};raw['containers'][0]['ports']=[]
+                    docker=Mock();docker.snapshot.return_value=raw
+                    agent=Agent(f'http://127.0.0.1:{admin.server_port}',identity['token'],docker,allow_http=True,interval=2)
+                    agents.append(agent);threading.Thread(target=agent.run,daemon=True).start()
+                eventually(lambda:all(a['status']=='online' for a in admin.agents.snapshot()['agents']))
+                self.assertEqual(admin.labels.snapshot()['mode'],'off')
+                self.assertEqual(admin.agents.routing()[0],[])
+                before=store.snapshot();targets=[]
+                for i,item in enumerate(created):
+                    payload=json.dumps(dict(agent_id=item['agent_id'],targets=[dict(container_id='ab'[i]*64,port=apps[i].server_port)]))
+                    self.assertEqual(request(admin.server_port,'/api/agents/targets','POST',{'Content-Type':'application/json','Authorization':'Bearer '+item['token']},payload)[0],401)
+                    self.assertEqual(request(admin.server_port,'/api/agents/targets','POST',{**credentials,'X-CSRF-Token':''},payload)[0],403)
+                    status,_,body=request(admin.server_port,'/api/agents/targets','POST',credentials,payload)
+                    self.assertEqual(status,200,body);targets.extend(json.loads(body)['targets'])
+                self.assertEqual(store.snapshot()['revision'],before['revision'])
+                candidate=config();candidate['hosts'][0]['routes'][0]['targets']=targets
+                saved=store.save(candidate,before['revision']);store.apply(saved['revision'])
+                seen=set()
+                for _ in range(12):
+                    status,_,body=request(store.options['port'],'/manual')
+                    self.assertEqual(status,200,body);seen.add(json.loads(body)['app'])
+                self.assertEqual(seen,{a.server_port for a in apps})
+                # Revocation drops the first manual target; Nginx fails over to the other agent.
+                admin.agents.mutate(dict(action='delete',id=created[0]['agent_id'],revision=admin.agents.revision()))
+                for _ in range(4):
+                    status,_,body=request(store.options['port'],'/still-online')
+                    self.assertEqual(status,200,body);self.assertEqual(json.loads(body)['app'],apps[1].server_port)
+                self.assertEqual(store.active_config(),candidate)
+            finally:
+                for agent in agents:agent.stop()
+                admin.shutdown();admin.server_close();store.stop()
+                for app in apps:app.shutdown();app.server_close()
+
     def test_end_to_end_balancing_upload_websocket_isolation_expiry_and_restart(self):
         with tempfile.TemporaryDirectory(prefix='agent-integration-') as tmp:
             root = Path(tmp); root.chmod(0o755)

@@ -100,6 +100,64 @@ class RegistryTests(unittest.TestCase):
         self.assertEqual(self.agents.routing()[0], [])
         with self.assertRaises(PermissionError): self.agents.report(auth, report())
 
+    def test_manual_targets_without_labels_persist_and_follow_container_recreation(self):
+        aid, auth = self.create()
+        raw = report(); raw['containers'][0]['route_labels'] = {}; raw['containers'][0]['ports'] = []
+        self.agents.report(auth, raw, manual_routing=True)
+        body = dict(agent_id=aid, targets=[dict(container_id='a'*64, port=9001)])
+        target = self.agents.select_targets(body)['targets'][0]
+        self.assertEqual(target['agent'], dict(id=aid, container='app', port=9001))
+        self.assertEqual(self.agents.routing()[0], [])  # Independent of label automation.
+        self.assertEqual(list(self.hub.destinations[aid].values()), ['docker:'+'a'*64+':9001'])
+        self.assertEqual(self.agents.select_targets(body)['targets'], [target])
+        self.assertEqual(len(self.agents.manual), 1)
+        self.assertEqual(self.agents.manual_file.stat().st_mode & 0o777, 0o600)
+        self.agents = Agents(self.root, self.hub, clock=lambda: self.now)
+        self.now += 5; raw['containers'][0]['id'] = 'b'*64
+        self.agents.report(auth, raw, manual_routing=True)
+        self.assertEqual(list(self.hub.destinations[aid].values()), ['docker:'+'b'*64+':9001'])
+        body['targets'][0]['container_id'] = 'b'*64
+        self.assertEqual(self.agents.select_targets(body)['targets'], [target])
+        self.now += 5; raw['containers'] = []
+        self.agents.report(auth, raw, manual_routing=True)
+        self.assertEqual(self.hub.destinations[aid], {})
+        self.assertEqual(len(self.hub.ports), 1)
+
+    def test_manual_selection_requires_capability_live_inventory_and_shared_container(self):
+        aid, auth = self.create(); raw = report()
+        body = dict(agent_id=aid, targets=[dict(container_id='a'*64, port=8080)])
+        self.agents.report(auth, raw)
+        with self.assertRaisesRegex(ValueError, 'Update the agent'): self.agents.select_targets(body)
+        self.now += 5; self.agents.report(auth, raw, manual_routing=True)
+        for candidate in (dict(container_id='b'*64, port=8080), dict(container_id='a'*64, port=65536),
+                          dict(container_id='a'*64, port=True), dict(container_id='a'*64, port=80, address='localhost')):
+            with self.subTest(candidate=candidate), self.assertRaises(ValueError):
+                self.agents.select_targets(dict(agent_id=aid, targets=[candidate]))
+        for patch in (dict(is_gateway=True), dict(shared_networks=[]), dict(endpoints=[]), dict(state='exited')):
+            altered = copy.deepcopy(raw); altered['containers'][0].update(patch); self.now += 5
+            self.agents.report(auth, altered, manual_routing=True)
+            with self.subTest(patch=patch), self.assertRaises(ValueError): self.agents.select_targets(body)
+        self.now += 5; self.agents.report(auth, raw, manual_routing=True)
+        self.now += 31
+        with self.assertRaises(ValueError): self.agents.select_targets(body)
+        self.agents.routing(); self.assertEqual(self.hub.destinations[aid], {})
+
+    def test_agent_resolves_manual_requests_only_from_its_own_current_inventory(self):
+        from ambergate.agent import Agent
+        _, auth = self.create()
+        raw = report(); raw.pop('version'); raw['containers'][0]['route_labels'] = {}
+        docker = Mock(); docker.snapshot.return_value = raw
+        agent = Agent('http://localhost:8083', auth[7:], docker, allow_http=True)
+        agent.collect()
+        self.assertEqual(agent.destination('docker:'+'a'*64+':1234'), ('127.0.0.1',1234))
+        for target in ('docker:'+'b'*64+':1234','docker:'+'a'*64+':65536', 'docker:127.0.0.1:80', 'http://localhost'):
+            self.assertIsNone(agent.destination(target))
+        for patch in (dict(is_gateway=True), dict(shared_networks=[]), dict(endpoints=[]), dict(state='exited')):
+            altered=copy.deepcopy(raw);altered['containers'][0].update(patch);docker.snapshot.return_value=altered
+            agent.collect();self.assertIsNone(agent.destination('docker:'+'a'*64+':1234'))
+        raw['connected']=False;docker.snapshot.return_value=raw
+        agent.collect();self.assertIsNone(agent.destination('docker:'+'a'*64+':1234'))
+
     def test_merge_two_agents_and_freeze_only_local_docker(self):
         a, auth_a = self.create(); b, auth_b = self.create()
         self.agents.report(auth_a, report())

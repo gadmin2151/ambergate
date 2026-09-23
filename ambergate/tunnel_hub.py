@@ -4,6 +4,7 @@ import secrets
 import selectors
 import socket
 import threading
+import time
 
 from .storage import write_json
 from .tunnel import bridge, close_tcp
@@ -15,6 +16,7 @@ class TunnelHub:
         self.lock = threading.RLock()
         self.selector = selectors.DefaultSelector()
         self.listeners, self.controls, self.destinations, self.pending = {}, {}, {}, {}
+        self.expires = {}
         self.stopping = threading.Event()
         self.slots = threading.BoundedSemaphore(128)
         self.thread = None
@@ -62,9 +64,10 @@ class TunnelHub:
                 self.ports[key] = assigned
             return key, self.ports[key]
 
-    def targets(self, agent_id, destinations):
+    def targets(self, agent_id, destinations, ttl=None):
         with self.lock:
             self.destinations[agent_id] = dict(destinations)
+            self.expires[agent_id] = time.monotonic() + ttl if ttl is not None else float('inf')
 
     def connected(self, agent_id):
         with self.lock:
@@ -154,7 +157,7 @@ class TunnelHub:
                 control = self.controls.get(agent_id)
                 target = self.destinations.get(agent_id, {}).get(key)
                 count = sum(p["agent"] == agent_id for p in self.pending.values())
-                if not control or control.closed.is_set() or not target or count >= 32:
+                if not control or control.closed.is_set() or not target or count >= 32 or time.monotonic() >= self.expires.get(agent_id, 0):
                     self.unavailable(connection)
                     return
                 pending = dict(agent=agent_id, tcp=connection, claimed=False, ws=None,
