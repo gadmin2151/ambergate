@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1080" viewBox="0 0 1600 1080" role="img" aria-labelledby="title desc"><title id="title">AmberGate — карта сервисов</title><desc id="desc">Логическая карта: клиенты, внешний TLS, один центральный gateway, локальные приложения и два исходящих агента.</desc>
+<defs><linearGradient id="panel" x2="0" y2="1"><stop stop-color="#1c1b19"/><stop offset="1" stop-color="#141414"/></linearGradient><radialGradient id="glow"><stop stop-color="#ffaf35" stop-opacity=".08"/><stop offset="1" stop-color="#ffaf35" stop-opacity="0"/></radialGradient><pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".8" fill="#625338" opacity=".28"/></pattern><marker id="amber-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#ffaf35" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker><marker id="soft-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#d6cec1" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<rect width="1600" height="1080" fill="#09090a"/><rect width="1600" height="1080" fill="url(#dots)"/><ellipse cx="1100" cy="80" rx="650" ry="350" fill="url(#glow)"/>
+<g transform="translate(53 24) scale(.18)">
+<defs>
+    <linearGradient id="amber-fire" x1="0" y1="0" x2=".15" y2="1"><stop stop-color="#ffe575"/><stop offset=".46" stop-color="#ffaf35"/><stop offset="1" stop-color="#ea771b"/></linearGradient>
+    <mask id="gate-cut"><rect width="256" height="256" fill="white"/><path d="M91 210v-70a37 37 0 0 1 74 0v70Z" fill="black"/></mask>
+  </defs>
+  <path d="M139 12c0 34 22 60 39 85 8-19 10-36 5-54 34 28 51 67 49 109-3 54-43 91-104 91-61 0-103-35-104-84 0-29 12-55 34-77-3 25 4 42 17 54-6-47 17-87 64-124Z" fill="url(#amber-fire)" mask="url(#gate-cut)"/>
+  <path d="M128 207v-44m0 0-20-20m20 20 20-20" fill="none" stroke="#ffaf35" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="108" cy="142" r="7" fill="#ffaf35"/><circle cx="148" cy="142" r="7" fill="#ffaf35"/>
+</g>
+<text x="110" y="57" fill="#f2f0ed" font-family="Arial,DejaVu Sans,sans-serif" font-size="25" font-weight="700" text-anchor="start">AmberGate</text>
+<text x="1544" y="53" fill="#a8a5a0" font-family="Arial,DejaVu Sans,sans-serif" font-size="14" font-weight="600" text-anchor="end">АРХИТЕКТУРА  /  01</text>
+<text x="56" y="126" fill="#f2f0ed" font-family="Arial,DejaVu Sans,sans-serif" font-size="42" font-weight="700" text-anchor="start">Все сервисы. Одна точка входа.</text>
+<text x="56" y="165" fill="#a8a5a0" font-family="Arial,DejaVu Sans,sans-serif" font-size="20" font-weight="400" text-anchor="start">Логическая карта маршрутов, Docker discovery и подключений агентов.</text>
+<rect x="650" y="210" width="370" height="614" rx="20" fill="#101011" stroke="#77552c"/>
+<text x="674" y="241" fill="#ffaf35" font-family="Arial,DejaVu Sans,sans-serif" font-size="16" font-weight="700" text-anchor="start">CENTRAL AMBERGATE</text>
+<text x="674" y="799" fill="#a8a5a0" font-family="Arial,DejaVu Sans,sans-serif" font-size="16" font-weight="400" text-anchor="start">Один Docker-контейнер</text>
+<rect x="1108" y="210" width="436" height="290" rx="20" fill="#101011" stroke="#383633"/>
+<text x="1132" y="242" fill="#f2f0ed" font-family="Arial,DejaVu Sans,sans-serif" font-size="20" font-weight="700" text-anchor="start">docker-01</text>
+<text x="1520" y="241" fill="#ffaf35" font-family="Arial,DejaVu Sans,sans-serif" font-size="15" font-weight="600" text-anchor="end">Сеть хоста</text>
+<rect x="1108" y="534" width="436" height="290" rx="20" fill="#101011" stroke="#383633"/>
+<text x="1132" y="566" fill="#f2f0ed" font-family="Arial,DejaVu Sans,sans-serif" font-size="20" font-weight="700" text-anchor="start">docker-02</text>
+<text x="1520" y="565" fill="#ffaf35" font-family="Arial,DejaVu Sans,sans-serif" font-size="15" font-weight="600" text-anchor="end">Namespace</text>
+<path d="M276 303H326" fill="none" stroke="#ffaf35" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#amber-arrow)"/>
+<text x="301" y="281" fill="#a8a5a0" font-family="DejaVu Sans Mono,monospace" font-size="13" font-weight="400" text-anchor="middle">443</text>
+<path d="M596 303H674" fill="none" stroke="#ffaf35" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#amber-arrow)"/>
+<text x="634" y="281" fill="#a8a5a0" font-family="DejaVu Sans Mono,monospace" font-size="13" font-weight="400" text-anchor="middle">80</text>
+<path d="M834 410V508" fill="none" stroke="#ffaf35" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#amber-arrow)"/>
+<text x="854" y="466" fill="#a8a5a0" font-family="DejaVu Sans Mono,monospace" font-size="15" font-weight="400" text-anchor="start">loopback</text>
+<path d="M674 374H620V506H584" fill="none" stroke="#ffaf35" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#amber-arrow)"/>
+<path d="M1132 305H1062V548H996" fill="none" stroke="#d6cec1" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="6 7" marker-end="url(#soft-arrow)"/>
+<path d="M1132 629H1076V612H996" fill="none" stroke="#d6cec1" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="6 7" marker-end="url(#soft-arrow)"/>
+<rect x="56" y="250" width="220" height="112" rx="16" fill="#151516" stroke="#383633"/>
+<text x="78" y="286" fill="#f2f0ed" font-family="Arial,DejaVu Sans,sans-serif" font-size="22" font-weight="700" text-anchor="start">Пользователи</text>
+<text x="78" y="315" fill="#a8a5a0" font-family="Arial,DejaVu Sans,sans-serif" font-size="17" font-weight="400" text-anchor="start">example.com</text>
+<text x="78" y="340" fill="#a8a5a0" font-family="Arial,DejaVu Sans,sans-serif" font-size="17" font-weight="400" text-anchor="start">HTTPS</text>
+<rect x="326" y="250" width="270" height="112" rx="16" fill="#151516" stroke="#383633"/>
+<text x="350" y="286" fill="#f2f0ed" font-family="Arial,DejaVu Sans,sans-serif" font-size="22" font-weight="700" text-anchor="start">Ваш TLS-прокси</text>
+<text x="350" y="315" fill="#a8a5a0" font-family="Arial,DejaVu Sans,sans-serif" font-size="16" font-weight="400" text-anchor="start">Сертификаты + HTTPS</text>
+<text x="350" y="340" fill="#a8a5a0" font-family="Arial,DejaVu Sans,sans-serif" font-size="16" font-weight="400" text-anchor="start">Отдельно от AmberGate</text>
+<rect x="674" y="270" width="322" height="140" rx="16" fill="url(#panel)" stroke="#8c642f"/>
+<text x="696" y="308" fill="#f2f0ed" font-family="Arial,DejaVu Sans,sans-serif" font-size="24" font-weight="700" text-anchor="start">Nginx  :80</text>
+<text x="696" y="338" fill="#a8a5a0" font-family="Arial,DejaVu Sans,sans-serif" font-size="17" font-weight="400" text-anchor="start">Домены → пути → серверы</text>
+<rect x="696" y="355" width="82" height="28" rx="7" fill="#292116" stroke="#564126"/>
+<text x="737.0" y="374" fill="#ffaf35" font-family="Arial,DejaVu Sans,sans-serif" font-size="13" font-weight="600" text-anchor="middle">Пути</text>
+<rect x="788" y="355" width="83" height="28" rx="7" fill="#292116" stroke="#564126"/>
+<text x="829.5" y="374" fill="#ffaf35" font-family="Arial,DejaVu Sans,sans-serif" font-size="13" font-weight="600" text-anchor="middle">Кеш</text>
+<rect x="881" y="355" width="90" height="28" rx="7" fill="#292116" stroke="#564126"/>
+<text x="926.0" y="374" fill="#ffaf35" font-family="Arial,DejaVu Sans,sans-serif" font-size="13" font-weight="600" text-anchor="middle">Лимиты</text>
+<rect x="674" y="508" width="322" height="170" rx="16" fill="url(#panel)" stroke="#675743"/>
+<text x="696" y="544" fill="#f2f0ed" font-family="Arial,DejaVu Sans,sans-serif" font-size="22" font-weight="700" text-anchor="start">Панель + tunnel hub</text>
+<text x="696" y="575" fill="#ffaf35" font-family="DejaVu Sans Mono,monospace" font-size="23" font-weight="400" text-anchor="start">:8083</text>
+<text x="696" y="605" fill="#a8a5a0" font-family="Arial,DejaVu Sans,sans-serif" font-size="16" font-weight="400" text-anchor="start">API агентов + live SSE</text>
+<text x="696" y="630" fill="#a8a5a0" font-family="Arial,DejaVu Sans,sans-serif" font-size="16" font-weight="400" text-anchor="start">HTTPS/WSS через TLS-прокси</text>
+<text x="696" y="655" fill="#a8a5a0" font-family="Arial,DejaVu Sans,sans-serif" font-size="16" font-weight="400" text-anchor="start">Отдельный токен на агента</text>
+<rect x="674" y="710" width="322" height="57" rx="16" fill="#191816" stroke="#383633"/>
+<text x="696" y="745" fill="#ffaf35" font-family="DejaVu Sans Mono,monospace" font-size="20" font-weight="400" text-anchor="start">/data</text>
+<text x="790" y="745" fill="#a8a5a0" font-family="Arial,DejaVu Sans,sans-serif" font-size="17" font-weight="400" text-anchor="start">настройки</text>
+<rect x="56" y="458" width="528" height="366" rx="20" fill="#101011" stroke="#383633"/>
+<text x="80" y="494" fill="#f2f0ed" font-family="Arial,DejaVu Sans,sans-serif" font-size="22" font-weight="700" text-anchor="start">Прямые цели маршрутов</text>
+<text x="80" y="523" fill="#a8a5a0" font-family="Arial,DejaVu Sans,sans-serif" font-size="17" font-weight="400" text-anchor="start">Общая сеть или опубликованный порт хоста</text>
+<rect x="80" y="550" width="228" height="103" rx="16" fill="url(#panel)" stroke="#383633"/>
+<text x="100" y="587" fill="#f2f0ed" font-family="Arial,DejaVu Sans,sans-serif" font-size="20" font-weight="600" text-anchor="start">frontend</text>
+<text x="100" y="624" fill="#ffaf35" font-family="DejaVu Sans Mono,monospace" font-size="20" font-weight="400" text-anchor="start">:3000</text>
+<rect x="332" y="550" width="228" height="103" rx="16" fill="url(#panel)" stroke="#383633"/>
+<text x="352" y="587" fill="#f2f0ed" font-family="Arial,DejaVu Sans,sans-serif" font-size="20" font-weight="600" text-anchor="start">object-storage</text>
+<text x="352" y="624" fill="#ffaf35" font-family="DejaVu Sans Mono,monospace" font-size="20" font-weight="400" text-anchor="start">:9000</text>
+<path d="M80 679H560" fill="none" stroke="#383633" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="80" y="710" fill="#d6cec1" font-family="DejaVu Sans Mono,monospace" font-size="17" font-weight="400" text-anchor="start">example.com / → frontend</text>
+<text x="80" y="744" fill="#d6cec1" font-family="Arial,DejaVu Sans,sans-serif" font-size="16" font-weight="400" text-anchor="start">s3.example.com /</text>
+<text x="80" y="771" fill="#d6cec1" font-family="Arial,DejaVu Sans,sans-serif" font-size="16" font-weight="400" text-anchor="start">→ S3 · исходные Host и путь</text>
+<rect x="1132" y="268" width="180" height="86" rx="16" fill="url(#panel)" stroke="#77552c"/>
+<text x="1150" y="302" fill="#f2f0ed" font-family="Arial,DejaVu Sans,sans-serif" font-size="23" font-weight="700" text-anchor="start">Agent</text>
+<text x="1150" y="331" fill="#ffaf35" font-family="Arial,DejaVu Sans,sans-serif" font-size="15" font-weight="400" text-anchor="start">AmberGate</text>
+<rect x="1346" y="268" width="174" height="86" rx="16" fill="#191919" stroke="#383633"/>
+<text x="1360" y="301" fill="#f2f0ed" font-family="Arial,DejaVu Sans,sans-serif" font-size="18" font-weight="600" text-anchor="start">docker.sock</text>
+<text x="1360" y="329" fill="#a8a5a0" font-family="Arial,DejaVu Sans,sans-serif" font-size="14" font-weight="400" text-anchor="start">labels + статус</text>
+<path d="M1346 314H1313" fill="none" stroke="#d6cec1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#soft-arrow)"/>
+<path d="M1222 355V400" fill="none" stroke="#ffaf35" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#amber-arrow)"/>
+<text x="1242" y="384" fill="#a8a5a0" font-family="Arial,DejaVu Sans,sans-serif" font-size="14" font-weight="400" text-anchor="start">внутренний HTTP</text>
+<rect x="1132" y="402" width="388" height="74" rx="16" fill="url(#panel)" stroke="#383633"/>
+<text x="1152" y="432" fill="#f2f0ed" font-family="Arial,DejaVu Sans,sans-serif" font-size="21" font-weight="600" text-anchor="start">API replica 01</text>
+<text x="1152" y="459" fill="#ffaf35" font-family="DejaVu Sans Mono,monospace" font-size="16" font-weight="400" text-anchor="start">:3000 · bridge: apps</text>
+<rect x="1132" y="592" width="180" height="86" rx="16" fill="url(#panel)" stroke="#77552c"/>
+<text x="1150" y="626" fill="#f2f0ed" font-family="Arial,DejaVu Sans,sans-serif" font-size="23" font-weight="700" text-anchor="start">Agent</text>
+<text x="1150" y="655" fill="#ffaf35" font-family="Arial,DejaVu Sans,sans-serif" font-size="15" font-weight="400" text-anchor="start">AmberGate</text>
+<rect x="1346" y="592" width="174" height="86" rx="16" fill="#191919" stroke="#383633"/>
+<text x="1360" y="625" fill="#f2f0ed" font-family="Arial,DejaVu Sans,sans-serif" font-size="18" font-weight="600" text-anchor="start">docker.sock</text>
+<text x="1360" y="653" fill="#a8a5a0" font-family="Arial,DejaVu Sans,sans-serif" font-size="14" font-weight="400" text-anchor="start">labels + статус</text>
+<path d="M1346 638H1313" fill="none" stroke="#d6cec1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#soft-arrow)"/>
+<path d="M1222 679V724" fill="none" stroke="#ffaf35" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#amber-arrow)"/>
+<text x="1242" y="708" fill="#a8a5a0" font-family="Arial,DejaVu Sans,sans-serif" font-size="14" font-weight="400" text-anchor="start">внутренний HTTP</text>
+<rect x="1132" y="726" width="388" height="74" rx="16" fill="url(#panel)" stroke="#383633"/>
+<text x="1152" y="756" fill="#f2f0ed" font-family="Arial,DejaVu Sans,sans-serif" font-size="21" font-weight="600" text-anchor="start">API replica 02</text>
+<text x="1152" y="783" fill="#ffaf35" font-family="DejaVu Sans Mono,monospace" font-size="16" font-weight="400" text-anchor="start">127.0.0.1:3000 · network=none</text>
+<path d="M56 865H102" fill="none" stroke="#ffaf35" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#amber-arrow)"/>
+<text x="117" y="871" fill="#d6cec1" font-family="Arial,DejaVu Sans,sans-serif" font-size="17" font-weight="400" text-anchor="start">Запросы приложений</text>
+<path d="M520 865H566" fill="none" stroke="#d6cec1" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="6 7" marker-end="url(#soft-arrow)"/>
+<text x="581" y="871" fill="#d6cec1" font-family="Arial,DejaVu Sans,sans-serif" font-size="17" font-weight="400" text-anchor="start">Исходящие HTTPS/WSS агента</text>
+<text x="1544" y="871" fill="#ffaf35" font-family="Arial,DejaVu Sans,sans-serif" font-size="17" font-weight="600" text-anchor="end">Без публикации удалённых портов</text>
+<rect x="56" y="899" width="1488" height="99" rx="14" fill="#19160f" stroke="#574022"/>
+<text x="80" y="930" fill="#ffaf35" font-family="Arial,DejaVu Sans,sans-serif" font-size="14" font-weight="700" text-anchor="start">ОДИН МАРШРУТ · ДВЕ МАШИНЫ</text>
+<text x="80" y="964" fill="#f2f0ed" font-family="DejaVu Sans Mono,monospace" font-size="21" font-weight="400" text-anchor="start">example.com /api → API replica 01 + API replica 02</text>
+<text x="1518" y="956" fill="#a8a5a0" font-family="Arial,DejaVu Sans,sans-serif" font-size="16" font-weight="400" text-anchor="end">Одинаковые labels или ручной выбор</text>
+<path d="M56 1017H1544" fill="none" stroke="#383633" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="56" y="1051" fill="#a8a5a0" font-family="Arial,DejaVu Sans,sans-serif" font-size="15" font-weight="400" text-anchor="start">Пример развёртывания · соединения агентов проходят через внешний TLS-прокси</text>
+<text x="1544" y="1051" fill="#a8a5a0" font-family="Arial,DejaVu Sans,sans-serif" font-size="15" font-weight="400" text-anchor="end">github.com/gadmin2151/ambergate</text>
+</svg>

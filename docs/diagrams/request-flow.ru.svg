@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1080" viewBox="0 0 1600 1080" role="img" aria-labelledby="title desc"><title id="title">AmberGate — путь запроса</title><desc id="desc">Агент регистрируется по HTTPS/WSS. Запрос проходит через внешний TLS, Nginx, туннель агента и приватный контейнер. Переписывание ответа возвращает внешний префикс.</desc>
+<defs><linearGradient id="panel" x2="0" y2="1"><stop stop-color="#1c1b19"/><stop offset="1" stop-color="#141414"/></linearGradient><radialGradient id="glow"><stop stop-color="#ffaf35" stop-opacity=".08"/><stop offset="1" stop-color="#ffaf35" stop-opacity="0"/></radialGradient><pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".8" fill="#625338" opacity=".28"/></pattern><marker id="amber-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#ffaf35" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker><marker id="soft-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#d6cec1" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<rect width="1600" height="1080" fill="#09090a"/><rect width="1600" height="1080" fill="url(#dots)"/><ellipse cx="1100" cy="80" rx="650" ry="350" fill="url(#glow)"/>
+<g transform="translate(53 24) scale(.18)">
+<defs>
+    <linearGradient id="amber-fire" x1="0" y1="0" x2=".15" y2="1"><stop stop-color="#ffe575"/><stop offset=".46" stop-color="#ffaf35"/><stop offset="1" stop-color="#ea771b"/></linearGradient>
+    <mask id="gate-cut"><rect width="256" height="256" fill="white"/><path d="M91 210v-70a37 37 0 0 1 74 0v70Z" fill="black"/></mask>
+  </defs>
+  <path d="M139 12c0 34 22 60 39 85 8-19 10-36 5-54 34 28 51 67 49 109-3 54-43 91-104 91-61 0-103-35-104-84 0-29 12-55 34-77-3 25 4 42 17 54-6-47 17-87 64-124Z" fill="url(#amber-fire)" mask="url(#gate-cut)"/>
+  <path d="M128 207v-44m0 0-20-20m20 20 20-20" fill="none" stroke="#ffaf35" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="108" cy="142" r="7" fill="#ffaf35"/><circle cx="148" cy="142" r="7" fill="#ffaf35"/>
+</g>
+<text x="110" y="57" fill="#f2f0ed" font-family="Arial,DejaVu Sans,sans-serif" font-size="25" font-weight="700" text-anchor="start">AmberGate</text>
+<text x="1544" y="53" fill="#a8a5a0" font-family="Arial,DejaVu Sans,sans-serif" font-size="14" font-weight="600" text-anchor="end">АРХИТЕКТУРА  /  02</text>
+<text x="56" y="126" fill="#f2f0ed" font-family="Arial,DejaVu Sans,sans-serif" font-size="42" font-weight="700" text-anchor="start">Путь запроса. Туда и обратно.</text>
+<text x="56" y="165" fill="#a8a5a0" font-family="Arial,DejaVu Sans,sans-serif" font-size="20" font-weight="400" text-anchor="start">Браузер использует /workspace. Приложение получает привычные пути от корня.</text>
+<rect x="56" y="214" width="1488" height="143" rx="18" fill="#141413" stroke="#383633"/>
+<text x="80" y="247" fill="#ffaf35" font-family="Arial,DejaVu Sans,sans-serif" font-size="14" font-weight="700" text-anchor="start">ДО ПЕРВОГО ЗАПРОСА</text>
+<text x="80" y="285" fill="#f2f0ed" font-family="DejaVu Sans Mono,monospace" font-size="21" font-weight="400" text-anchor="start">docker.sock</text>
+<path d="M247 279H294" fill="none" stroke="#d6cec1" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="6 7" marker-end="url(#soft-arrow)"/>
+<text x="310" y="285" fill="#f2f0ed" font-family="Arial,DejaVu Sans,sans-serif" font-size="22" font-weight="600" text-anchor="start">Agent</text>
+<path d="M390 279H441" fill="none" stroke="#d6cec1" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="6 7" marker-end="url(#soft-arrow)"/>
+<text x="459" y="285" fill="#f2f0ed" font-family="Arial,DejaVu Sans,sans-serif" font-size="21" font-weight="400" text-anchor="start">TLS proxy :443</text>
+<path d="M634 279H683" fill="none" stroke="#d6cec1" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="6 7" marker-end="url(#soft-arrow)"/>
+<text x="705" y="285" fill="#f2f0ed" font-family="Arial,DejaVu Sans,sans-serif" font-size="22" font-weight="600" text-anchor="start">AmberGate :8083</text>
+<text x="80" y="329" fill="#a8a5a0" font-family="Arial,DejaVu Sans,sans-serif" font-size="18" font-weight="400" text-anchor="start">Агент сам открывает соединение: список контейнеров + labels + проверка токена.</text>
+<rect x="1217" y="253" width="300" height="28" rx="7" fill="#292116" stroke="#564126"/>
+<text x="1367.0" y="272" fill="#ffaf35" font-family="Arial,DejaVu Sans,sans-serif" font-size="13" font-weight="600" text-anchor="middle">Без входящего порта агента</text>
+<text x="56" y="402" fill="#ffaf35" font-family="Arial,DejaVu Sans,sans-serif" font-size="15" font-weight="700" text-anchor="start">ЗАПРОС →</text>
+<text x="1544" y="402" fill="#d6cec1" font-family="Arial,DejaVu Sans,sans-serif" font-size="15" font-weight="700" text-anchor="end">← ОТВЕТ · той же цепочкой</text>
+<rect x="56" y="428" width="220" height="190" rx="16" fill="url(#panel)" stroke="#383633"/>
+<text x="76" y="456" fill="#ffaf35" font-family="Arial,DejaVu Sans,sans-serif" font-size="14" font-weight="700" text-anchor="start">01</text>
+<text x="76" y="492" fill="#f2f0ed" font-family="Arial,DejaVu Sans,sans-serif" font-size="24" font-weight="700" text-anchor="start">Браузер</text>
+<text x="76" y="532" fill="#d6cec1" font-family="DejaVu Sans Mono,monospace" font-size="16" font-weight="400" text-anchor="start">GET</text>
+<text x="76" y="558" fill="#d6cec1" font-family="DejaVu Sans Mono,monospace" font-size="16" font-weight="400" text-anchor="start">/workspace/</text>
+<text x="76" y="593" fill="#a8a5a0" font-family="Arial,DejaVu Sans,sans-serif" font-size="14" font-weight="400" text-anchor="start">Внешний адрес</text>
+<rect x="326" y="428" width="220" height="190" rx="16" fill="url(#panel)" stroke="#383633"/>
+<text x="346" y="456" fill="#ffaf35" font-family="Arial,DejaVu Sans,sans-serif" font-size="14" font-weight="700" text-anchor="start">02</text>
+<text x="346" y="492" fill="#f2f0ed" font-family="Arial,DejaVu Sans,sans-serif" font-size="24" font-weight="700" text-anchor="start">TLS proxy</text>
+<text x="346" y="532" fill="#d6cec1" font-family="DejaVu Sans Mono,monospace" font-size="16" font-weight="400" text-anchor="start">HTTPS → HTTP</text>
+<text x="346" y="558" fill="#d6cec1" font-family="DejaVu Sans Mono,monospace" font-size="16" font-weight="400" text-anchor="start">:443 → :80</text>
+<text x="346" y="593" fill="#a8a5a0" font-family="Arial,DejaVu Sans,sans-serif" font-size="14" font-weight="400" text-anchor="start">Ваши сертификаты</text>
+<rect x="596" y="428" width="360" height="190" rx="16" fill="url(#panel)" stroke="#805b2c"/>
+<text x="616" y="456" fill="#ffaf35" font-family="Arial,DejaVu Sans,sans-serif" font-size="14" font-weight="700" text-anchor="start">03</text>
+<text x="616" y="492" fill="#f2f0ed" font-family="Arial,DejaVu Sans,sans-serif" font-size="24" font-weight="700" text-anchor="start">AmberGate</text>
+<text x="616" y="532" fill="#d6cec1" font-family="DejaVu Sans Mono,monospace" font-size="16" font-weight="400" text-anchor="start">Nginx → tunnel hub</text>
+<text x="616" y="558" fill="#d6cec1" font-family="DejaVu Sans Mono,monospace" font-size="16" font-weight="400" text-anchor="start">убрать префикс + баланс</text>
+<text x="616" y="593" fill="#a8a5a0" font-family="Arial,DejaVu Sans,sans-serif" font-size="14" font-weight="400" text-anchor="start">Локальная цель → WSS-поток</text>
+<rect x="1016" y="428" width="220" height="190" rx="16" fill="url(#panel)" stroke="#383633"/>
+<text x="1036" y="456" fill="#ffaf35" font-family="Arial,DejaVu Sans,sans-serif" font-size="14" font-weight="700" text-anchor="start">04</text>
+<text x="1036" y="492" fill="#f2f0ed" font-family="Arial,DejaVu Sans,sans-serif" font-size="24" font-weight="700" text-anchor="start">Agent</text>
+<text x="1036" y="532" fill="#d6cec1" font-family="DejaVu Sans Mono,monospace" font-size="16" font-weight="400" text-anchor="start">WSS → HTTP</text>
+<text x="1036" y="558" fill="#d6cec1" font-family="DejaVu Sans Mono,monospace" font-size="16" font-weight="400" text-anchor="start">приватный адрес</text>
+<text x="1036" y="593" fill="#a8a5a0" font-family="Arial,DejaVu Sans,sans-serif" font-size="14" font-weight="400" text-anchor="start">На Docker-хосте</text>
+<rect x="1296" y="428" width="248" height="190" rx="16" fill="url(#panel)" stroke="#383633"/>
+<text x="1316" y="456" fill="#ffaf35" font-family="Arial,DejaVu Sans,sans-serif" font-size="14" font-weight="700" text-anchor="start">05</text>
+<text x="1316" y="492" fill="#f2f0ed" font-family="Arial,DejaVu Sans,sans-serif" font-size="24" font-weight="700" text-anchor="start">Приложение</text>
+<text x="1316" y="532" fill="#d6cec1" font-family="DejaVu Sans Mono,monospace" font-size="16" font-weight="400" text-anchor="start">GET /</text>
+<text x="1316" y="558" fill="#d6cec1" font-family="DejaVu Sans Mono,monospace" font-size="16" font-weight="400" text-anchor="start">:3000</text>
+<text x="1316" y="593" fill="#a8a5a0" font-family="Arial,DejaVu Sans,sans-serif" font-size="14" font-weight="400" text-anchor="start">Без внешнего порта</text>
+<path d="M280 502H321" fill="none" stroke="#ffaf35" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#amber-arrow)"/>
+<path d="M321 555H280" fill="none" stroke="#d6cec1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#soft-arrow)"/>
+<path d="M550 502H591" fill="none" stroke="#ffaf35" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#amber-arrow)"/>
+<path d="M591 555H550" fill="none" stroke="#d6cec1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#soft-arrow)"/>
+<path d="M960 502H1011" fill="none" stroke="#ffaf35" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#amber-arrow)"/>
+<path d="M1011 555H960" fill="none" stroke="#d6cec1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#soft-arrow)"/>
+<path d="M1240 502H1291" fill="none" stroke="#ffaf35" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#amber-arrow)"/>
+<path d="M1291 555H1240" fill="none" stroke="#d6cec1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#soft-arrow)"/>
+<text x="56" y="657" fill="#a8a5a0" font-family="Arial,DejaVu Sans,sans-serif" font-size="18" font-weight="400" text-anchor="start">Агент открывает WebSocket для потока; запрос и ответ идут по этому туннелю.</text>
+<text x="56" y="713" fill="#ffaf35" font-family="Arial,DejaVu Sans,sans-serif" font-size="15" font-weight="700" text-anchor="start">СОХРАНИТЬ ВНЕШНИЙ ПУТЬ В ОТВЕТЕ</text>
+<text x="1544" y="713" fill="#a8a5a0" font-family="Arial,DejaVu Sans,sans-serif" font-size="16" font-weight="400" text-anchor="end">Опционально · настройка маршрута</text>
+<rect x="56" y="741" width="464" height="175" rx="16" fill="#161512" stroke="#4a3b26"/>
+<text x="78" y="777" fill="#f2f0ed" font-family="Arial,DejaVu Sans,sans-serif" font-size="22" font-weight="600" text-anchor="start">Перенаправление</text>
+<text x="78" y="817" fill="#a8a5a0" font-family="DejaVu Sans Mono,monospace" font-size="16" font-weight="400" text-anchor="start">Location: /login</text>
+<path d="M78 837V856" fill="none" stroke="#ffaf35" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#amber-arrow)"/>
+<text x="102" y="875" fill="#ffaf35" font-family="DejaVu Sans Mono,monospace" font-size="16" font-weight="400" text-anchor="start">Location: /workspace/login</text>
+<rect x="544" y="741" width="472" height="175" rx="16" fill="#161512" stroke="#4a3b26"/>
+<text x="566" y="777" fill="#f2f0ed" font-family="Arial,DejaVu Sans,sans-serif" font-size="22" font-weight="600" text-anchor="start">HTML-ссылка</text>
+<text x="566" y="817" fill="#a8a5a0" font-family="DejaVu Sans Mono,monospace" font-size="16" font-weight="400" text-anchor="start">href=&quot;/assets/app.css&quot;</text>
+<path d="M566 837V856" fill="none" stroke="#ffaf35" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#amber-arrow)"/>
+<text x="590" y="875" fill="#ffaf35" font-family="DejaVu Sans Mono,monospace" font-size="16" font-weight="400" text-anchor="start">href=&quot;/workspace/assets/app.css&quot;</text>
+<rect x="1040" y="741" width="504" height="175" rx="16" fill="#161512" stroke="#4a3b26"/>
+<text x="1062" y="777" fill="#f2f0ed" font-family="Arial,DejaVu Sans,sans-serif" font-size="22" font-weight="600" text-anchor="start">Путь cookie</text>
+<text x="1062" y="817" fill="#a8a5a0" font-family="DejaVu Sans Mono,monospace" font-size="16" font-weight="400" text-anchor="start">Path=/</text>
+<path d="M1062 837V856" fill="none" stroke="#ffaf35" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#amber-arrow)"/>
+<text x="1086" y="875" fill="#ffaf35" font-family="DejaVu Sans Mono,monospace" font-size="16" font-weight="400" text-anchor="start">Path=/workspace/</text>
+<text x="56" y="957" fill="#a8a5a0" font-family="Arial,DejaVu Sans,sans-serif" font-size="18" font-weight="400" text-anchor="start">Nginx меняет ответ до того, как TLS-прокси зашифрует его для браузера.</text>
+<text x="56" y="986" fill="#a8a5a0" font-family="Arial,DejaVu Sans,sans-serif" font-size="18" font-weight="400" text-anchor="start">HTML-правила настраиваются. JavaScript и JSON API автоматически не переписываются.</text>
+<path d="M56 1017H1544" fill="none" stroke="#383633" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="56" y="1051" fill="#a8a5a0" font-family="Arial,DejaVu Sans,sans-serif" font-size="15" font-weight="400" text-anchor="start">Пример маршрута · /workspace · включены удаление префикса и переписывание</text>
+<text x="1544" y="1051" fill="#a8a5a0" font-family="Arial,DejaVu Sans,sans-serif" font-size="15" font-weight="400" text-anchor="end">github.com/gadmin2151/ambergate</text>
+</svg>

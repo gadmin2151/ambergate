@@ -2,6 +2,8 @@
 
 [Русский](agents.ru.md) · [Back to README](../README.md)
 
+[Visual service map and request journey](architecture.md)
+
 Run one **Docker container per remote machine**, with access to its Docker socket and private application addresses. The agent discovers containers and `ambergate.route` labels, then opens outbound HTTPS/WSS connections to central AmberGate. Applications and the agent need **no published ports**.
 
 ```mermaid

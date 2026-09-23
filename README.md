@@ -10,7 +10,7 @@
 
 <h3 align="center">Your domains. Your applications. One gateway.</h3>
 <p align="center">Manage Nginx from a web interface. Connect Docker machines, route and balance traffic, and see what is happening — with configuration stored on your own server.</p>
-<p align="center"><a href="#quick-start">Quick start</a> · <a href="#what-you-can-configure">Features</a> · <a href="#remote-docker-machines">Agents</a> · <a href="#response-rewriting">Response rewriting</a> · <a href="#documentation">Documentation</a></p>
+<p align="center"><a href="#quick-start">Quick start</a> · <a href="#what-you-can-configure">Features</a> · <a href="#service-map">Service map</a> · <a href="#remote-docker-machines">Agents</a> · <a href="#response-rewriting">Response rewriting</a> · <a href="#documentation">Documentation</a></p>
 
 **AmberGate** is a self-hosted HTTP gateway built with Nginx, Python's standard library and vanilla JavaScript. The central gateway and panel run in **one Docker container**. Add one optional agent container per remote Docker machine. No external database or metrics service is required; TLS remains with your existing reverse proxy.
 
@@ -153,6 +153,21 @@ Container names on shared Docker networks are re-resolved after recreation. Choo
 
 Docker socket access grants host privileges at the API level; a `:ro` mount does not make the API read-only. AmberGate only reads Docker metadata. **[Network and permission details (RU) →](docs/configuration.ru.md#docker-socket-и-выбор-контейнеров)**
 
+## Service map
+
+See how the external TLS proxy, central AmberGate, local applications and remote Docker machines connect. Dashed links show connections initiated by agents; application traffic uses their established tunnels.
+
+[![AmberGate service connection map](docs/diagrams/service-map.en.png)](docs/diagrams/service-map.en.png)
+
+<details>
+<summary><strong>Follow a request and its response</strong></summary>
+
+[![Request through AmberGate, an agent and an application, with response rewriting](docs/diagrams/request-flow.en.png)](docs/diagrams/request-flow.en.png)
+
+</details>
+
+These are diagrams of an example deployment, not a live map of a particular server. **[Connections, ports and vector versions →](docs/architecture.md)**
+
 ## Remote Docker machines
 
 One **AmberGate Agent** container on each machine discovers local containers and carries their traffic over an outbound tunnel. Applications and agents need **no published ports**. Central Nginx still controls routing, balancing, caching and limits.
@@ -257,6 +272,7 @@ Pushes to `main` publish `latest` and `sha-<full-commit-SHA>`. Version tags publ
 
 | Guide | Contents |
 |:--|:--|
+| [Service map and request journey](docs/architecture.md) | Connection diagrams, component roles, ports and tunnels |
 | [Agent setup](docs/agents.md) | One-command installation, network modes, TLS proxy, tokens and limits |
 | [Docker labels](docs/docker-labels.md) | All keys, groups, conflicts, failure behavior and examples |
 | [Response rewriting](docs/response-rewriting.md) | Redirects, cookies, HTML rules and compatibility limits |
