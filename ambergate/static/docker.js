@@ -1,5 +1,6 @@
 'use strict';
 
+let dockerLabelsData = null, dockerLabelMode = null, dockerLabelsBusy = false, dockerConfigSync = false;
 let dockerData = null, dockerDraft = null, dockerLoading = false, dockerError = '';
 let dockerQuery = '', dockerNetwork = '', dockerOnlyReady = false;
 let dockerPickerData = null, dockerPickerToken = 0, dockerPickerMode = 'auto', dockerHostDraft = null;
@@ -7,9 +8,66 @@ const dockerAddress = (address, port) => `${address.includes(':') ? '[' + addres
 const dockerDate = timestamp => new Date(timestamp * 1000).toLocaleTimeString(locale());
 const dockerState = state => ({running:t('Запущен'), exited:t('Остановлен'), paused:t('На паузе'), restarting:t('Перезапуск'), created:t('Создан'), dead:t('Остановлен')})[state] || state;
 
+function dockerLabelsPanel() {
+  const mode=dockerLabelMode ?? dockerLabelsData?.mode ?? 'off';
+  return ui`<section class="panel docker-labels"><div class="docker-connect-title"><span class="docker-symbol">${icon('routes')}</span><div><h2>Маршруты из Docker labels</h2><p>Одна строка в Compose — домен, маршрут и балансировщик.</p></div>${badge('5s · SSE','amber')}</div><pre class="label-example">ambergate.route: "host=example.com; path=/api; port=3000"</pre><div class="label-controls"><label>Режим автоматизации<select id="docker-label-mode">${[['off',t('Выключено')],['preview',t('Предлагать изменения')],['auto',t('Применять автоматически')]].map(([key,label])=>`<option value="${key}" ${mode===key?'selected':''}>${label}</option>`).join('')}</select></label>${btn('labels-settings',t('Сохранить режим'),'save','small')}</div><p class="hint">Проверка каждые 5 секунд. Перед reload выполняется nginx -t. Ручные настройки и черновики сохраняются отдельно.</p><div id="docker-label-results" aria-live="polite">${dockerLabelsResults()}</div></section>`;
+}
+function dockerLabelsResults() {
+  const d=dockerLabelsData;
+  if(!d)return `<p>${t('Загружаем настройки Docker…')}</p>`;
+  const disabled=dockerLabelsBusy || d.mode==='off';
+  return `<div class="label-status">${badge(({off:t('Выключено'),preview:t('Предлагать изменения'),auto:t('Применять автоматически')})[d.mode],d.errors.length?'amber':'green')}<span>${d.checked_at ? dockerDate(d.checked_at) : '—'}</span></div>
+    ${d.errors.map(error=>`<p class="error">${esc(translateError(error))}</p>`).join('')}${d.warnings.map(warning=>`<p class="docker-info">${esc(translateError(warning))}</p>`).join('')}
+    ${d.changes.length ? `<div class="label-changes">${d.changes.map(change=>`<div><strong>${esc(change.host)}<code>${esc(change.path)}</code></strong>${badge(change.action==='create'?t('Новый маршрут'):t('Обновить'))}<p>${change.targets.map(target=>esc(dockerAddress(target.address,target.port))).join(', ') || t('Нет серверов · HTTP 503')}</p></div>`).join('')}</div>` : `<p class="hint">${d.mode==='off' ? t('Labels выключены. Уже настроенные маршруты сохраняются.') : d.errors.length ? t('Изменения не применены. Исправьте ошибки labels.') : t('Нет ожидающих изменений')}</p>`}
+    <div class="actions">${btn('labels-scan',t('Проверить labels'),'history','small',disabled?'disabled':'')}${btn('labels-apply',t('Применить найденное'),'check','primary small',disabled || !d.token || !d.changes.length || d.errors.length ? 'disabled':'')}</div>`;
+}
+function updateDockerLabels() {
+  const result=$('#docker-label-results');
+  if(result){
+    const focused=result.contains(document.activeElement) ? document.activeElement.dataset.action : null;
+    result.innerHTML=dockerLabelsResults();
+    if(focused)result.querySelector(`[data-action="${focused}"]`)?.focus({preventScroll:true});
+  }
+  const save=$('[data-action=labels-settings]');if(save)save.disabled=dockerLabelsBusy || !dockerLabelsData;
+}
+async function runDockerLabels(action) {
+  if(dockerLabelsBusy || !dockerLabelsData)return;
+  dockerLabelsBusy=true;updateDockerLabels();
+  const session=csrf;
+  try {
+    const value={action};
+    if(action==='settings'){value.mode=$('#docker-label-mode').value;value.revision=dockerLabelsData.revision;}
+    if(action==='apply')value.token=dockerLabelsData.token;
+    const data=await api('docker/labels',value,{signal:AbortSignal.timeout(30000)});
+    if(csrf!==session)return;
+    dockerLabelsData=data;
+    if(action==='settings') {dockerLabelMode=data.mode;notify(t('Режим labels сохранён'));}
+    if(data.errors.length)notify(t('Изменения не применены. Исправьте ошибки labels.'),true);
+    else if(action==='apply')notify(t('Конфигурация проверена и применена'));
+  } catch(error){if(csrf===session)notify(error.message,true);}
+  finally {dockerLabelsBusy=false;if(csrf===session)updateDockerLabels();}
+}
+function receiveDockerLabels(data) {
+  if(data.labels && !dockerLabelsBusy) {
+    const changed=JSON.stringify(dockerLabelsData)!==JSON.stringify(data.labels);
+    dockerLabelsData=data.labels;
+    if(changed)updateDockerLabels();
+  }
+  // Refresh read-only pages on revision changes. Never replace an open editor
+  // or unsaved form, even if it is opened while the fetch is in flight.
+  const safe=()=>csrf && !dirty && !busy && !document.querySelector('dialog[open]') && ['routes','history','dashboard'].includes(page);
+  if(data.configuration.revision && data.configuration.revision!==state?.revision && safe() && !dockerConfigSync) {
+    dockerConfigSync=true;
+    const session=csrf, revision=state.revision;
+    api('config').then(snapshot=>{
+      if(session===csrf && safe() && state.revision===revision){accept(snapshot);render();}
+    }).catch(()=>{}).finally(()=>{dockerConfigSync=false;});
+  }
+}
+
 function dockerPage() {
   const cfg = dockerDraft || dockerData?.settings || {socket_path:'/var/run/docker.sock',gateway_container:''};
-  return ui`<div class="docker-page"><section class="panel docker-connect"><div class="docker-connect-title"><span class="docker-symbol">${icon('docker')}</span><div><h2>Docker Engine</h2><p>Контейнеры вашего сервера — прямо в редакторе маршрутов.</p></div><div id="docker-status">${dockerStatus()}</div></div><form id="docker-settings"><div class="docker-settings-grid">${field(t('Путь к socket внутри AmberGate'),'socket_path',cfg.socket_path,'text','required maxlength="103" placeholder="/var/run/docker.sock"')}${field(t('Имя или ID контейнера AmberGate'),'gateway_container',cfg.gateway_container,'text',t('maxlength="128" placeholder="Автоматически"'),t('Оставьте пустым для стандартного Docker hostname.'))}${field(t('IP Docker-хоста'),'host_address',cfg.host_address || '', 'text','maxlength="45" placeholder="10.0.0.10"',t('Для опубликованных портов контейнеров из другой сети. Без схемы и порта.'))}</div><div class="docker-connect-actions"><p>Настройки подключения сохраняются локально. Рабочие маршруты меняются после «Применить».</p><span id="docker-connection-actions">${dockerConnectionActions()}</span></div><div id="docker-connection-error" class="error" role="status">${esc(translateError(dockerError))}</div></form><p class="docker-access-note">${icon('lock')}AmberGate читает Docker API. Сам socket даёт привилегированный доступ к Docker-хосту.</p></section><div id="docker-inventory">${dockerInventory()}</div><details class="docker-setup"><summary>${icon('code')} Как подключить docker.sock</summary><div><p>Запустите AmberGate с дополнительным Compose-файлом:</p><pre>docker compose -f compose.ghcr.yaml -f compose.docker.yaml up -d</pre><p>Для локальной сборки замените <code>compose.ghcr.yaml</code> на <code>compose.yaml</code>. Затем нажмите «Подключить Docker» выше.</p><p>Используйте общую сеть, например <code>ambergate</code>, или укажите IP Docker-хоста и выберите опубликованные TCP-порты. Список контейнеров сам по себе не меняет настройки сетей.</p><div class="docker-socket-note">${icon('lock')}<span>Docker socket даёт привилегированный доступ к хосту. AmberGate использует только чтение Docker API; монтирование <code>:ro</code> само по себе не ограничивает операции API.</span></div></div></details></div>`;
+  return ui`<div class="docker-page"><section class="panel docker-connect"><div class="docker-connect-title"><span class="docker-symbol">${icon('docker')}</span><div><h2>Docker Engine</h2><p>Контейнеры вашего сервера — прямо в редакторе маршрутов.</p></div><div id="docker-status">${dockerStatus()}</div></div><form id="docker-settings"><div class="docker-settings-grid">${field(t('Путь к socket внутри AmberGate'),'socket_path',cfg.socket_path,'text','required maxlength="103" placeholder="/var/run/docker.sock"')}${field(t('Имя или ID контейнера AmberGate'),'gateway_container',cfg.gateway_container,'text',t('maxlength="128" placeholder="Автоматически"'),t('Оставьте пустым для стандартного Docker hostname.'))}${field(t('IP Docker-хоста'),'host_address',cfg.host_address || '', 'text','maxlength="45" placeholder="10.0.0.10"',t('Для опубликованных портов контейнеров из другой сети. Без схемы и порта.'))}</div><div class="docker-connect-actions"><p>Настройки подключения сохраняются локально. Ручные маршруты меняются после «Применить». Автоматизация labels настраивается ниже.</p><span id="docker-connection-actions">${dockerConnectionActions()}</span></div><div id="docker-connection-error" class="error" role="status">${esc(translateError(dockerError))}</div></form><p class="docker-access-note">${icon('lock')}AmberGate читает Docker API. Сам socket даёт привилегированный доступ к Docker-хосту.</p></section>${dockerLabelsPanel()}<div id="docker-inventory">${dockerInventory()}</div><details class="docker-setup"><summary>${icon('code')} Как подключить docker.sock</summary><div><p>Запустите AmberGate с дополнительным Compose-файлом:</p><pre>docker compose -f compose.ghcr.yaml -f compose.docker.yaml up -d</pre><p>Для локальной сборки замените <code>compose.ghcr.yaml</code> на <code>compose.yaml</code>. Затем нажмите «Подключить Docker» выше.</p><p>Используйте общую сеть, например <code>ambergate</code>, или укажите IP Docker-хоста и выберите опубликованные TCP-порты. Список контейнеров сам по себе не меняет настройки сетей.</p><div class="docker-socket-note">${icon('lock')}<span>Docker socket даёт привилегированный доступ к хосту. AmberGate использует только чтение Docker API; монтирование <code>:ro</code> само по себе не ограничивает операции API.</span></div></div></details></div>`;
 }
 function dockerStatus() {
   if (!dockerData) return badge(t('Проверяем подключение'),'gray');
@@ -38,7 +96,8 @@ async function loadDockerPage(force=false) {
   if (!force && dockerData && Date.now()/1000-dockerData.checked_at<3) return;
   dockerLoading=true;
   try {
-    const data=await api('docker'+(force?'?refresh=1':''),undefined,{signal:AbortSignal.timeout(10000)});
+    const [data,labels]=await Promise.all([api('docker'+(force?'?refresh=1':''),undefined,{signal:AbortSignal.timeout(10000)}),api('docker/labels')]);
+    dockerLabelsData=labels;
     if (!csrf) return;
     const first=!dockerData; dockerData=data; dockerError='';
     if (!dockerDraft) dockerDraft={...data.settings};
@@ -55,6 +114,7 @@ function updateDockerPage() {
   $('#docker-connection-actions').innerHTML=dockerConnectionActions();
   $('#docker-connection-error').textContent=translateError(dockerError);
   $('#docker-inventory').innerHTML=dockerInventory();
+  updateDockerLabels();
 }
 function dockerSettingsFromForm() {
   return {enabled:dockerData?.settings.enabled || false, socket_path:$('#docker-settings [name=socket_path]').value.trim(), gateway_container:$('#docker-settings [name=gateway_container]').value.trim(), host_address:$('#docker-settings [name=host_address]').value.trim()};
@@ -189,6 +249,7 @@ document.addEventListener('input',event=>{
   if(event.target.id==='docker-host-address')dockerHostDraft=event.target.value;
 });
 document.addEventListener('change',event=>{
+  if(event.target.id==='docker-label-mode')dockerLabelMode=event.target.value;
   if(event.target.id==='docker-access-mode'){dockerPickerMode=event.target.value;renderDockerPicker();}
   if(event.target.id==='docker-network'){dockerNetwork=event.target.value;$('#docker-container-list').innerHTML=dockerContainerList();}
   if(event.target.name==='docker-ready'){dockerOnlyReady=event.target.checked;$('#docker-container-list').innerHTML=dockerContainerList();}
@@ -198,6 +259,9 @@ document.addEventListener('submit',event=>{if(event.target.id==='docker-settings
 document.addEventListener('click',event=>{
   const button=event.target.closest('[data-action]');if(!button||button.disabled)return;
   const action=button.dataset.action;
+  if(action==='labels-settings')runDockerLabels('settings');
+  if(action==='labels-scan')runDockerLabels('scan');
+  if(action==='labels-apply')runDockerLabels('apply');
   if(action==='docker-connect')saveDocker(true);
   if(action==='docker-disconnect')saveDocker(false);
   if(action==='docker-refresh')loadDockerPage(true);

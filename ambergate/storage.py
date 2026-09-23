@@ -214,7 +214,11 @@ class Store:
 
     def apply(self, revision):
         with self.lock:
-            config = self.expect_revision(revision)
+            return self.apply_config(self.expect_revision(revision))
+
+    def apply_config(self, config):
+        """Activate a candidate without promoting unrelated draft changes."""
+        with self.lock:
             old = self.active_id()
             generation = self.prepare(config)
             try:
@@ -284,6 +288,7 @@ class Store:
             status = self.status()
             meta = json.loads((self.active / "meta.json").read_text())
             configuration = dict(generation=self.active_id(), applied_at=meta["applied_at"],
+                                 revision=digest(self.draft_config()),
                                  pending=self.draft_config() != active, hosts=active["hosts"],
                                  settings=active["settings"])
         connections = None

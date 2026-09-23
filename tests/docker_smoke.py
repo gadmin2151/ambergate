@@ -42,10 +42,11 @@ def docker(*args, check=True):
     return result.stdout.strip()
 
 
-def backend(name, address, label, network=NETWORK):
+def backend(name, address, label, network=NETWORK, route_label=None):
+    extra = ["--label", "ambergate.route=" + route_label] if route_label else []
     identity = docker("run", "-d", "--name", name, "--network", network,
                       "--ip", address, "--expose", "8000", "--entrypoint", "python3",
-                      IMAGE, "-u", "-c", BACKEND, label)
+                      *extra, IMAGE, "-u", "-c", BACKEND, label)
     OWNED.append(identity)
     return identity
 
@@ -99,8 +100,8 @@ def main():
             with opener.open(req, timeout=12) as response:
                 return json.load(response)
 
-        def traffic():
-            req = urllib.request.Request(f"http://127.0.0.1:{public}/", headers={"Host": "docker.test"})
+        def traffic(host="docker.test", path="/"):
+            req = urllib.request.Request(f"http://127.0.0.1:{public}{path}", headers={"Host": host})
             with opener.open(req, timeout=6) as response:
                 return response.read().decode()
 
@@ -158,10 +159,74 @@ def main():
         eventually(lambda: traffic() == "backend-host-port")
         print("PASS: container in a different Docker network via host IP and published port")
 
+        # Labels are opt-in; preview changes first, then enable the background
+        # reconciler. These are additional disposable containers, not user apps.
+        label = "host=labels.test;path=/api;port=8000;strip=true;balance=least_conn"
+        replicas = [backend(PREFIX + "-label-" + str(i), str(subnet.network_address + 20 + i),
+                            "label-" + str(i), route_label=label) for i in range(2)]
+        policy = request("/api/docker/labels")
+        policy = request("/api/docker/labels", {"action": "settings", "mode": "preview", "revision": policy["revision"]})
+        preview = request("/api/docker/labels", {"action": "scan"})
+        assert not preview["errors"] and len(preview["changes"]) == 1, preview
+        assert request("/api/config")["revision"] == saved["revision"]
+        applied = request("/api/docker/labels", {"action": "apply", "token": preview["token"]})
+        assert not applied["errors"], applied
+        eventually(lambda: traffic("labels.test", "/api/") in {"label-0", "label-1"})
+        assert {traffic("labels.test", "/api/") for _ in range(20)} == {"label-0", "label-1"}
+        policy = request("/api/docker/labels", {"action": "settings", "mode": "auto", "revision": policy["revision"]})
+
+        def label_targets():
+            active = request("/api/dashboard")["configuration"]["hosts"]
+            return next(h for h in active if h["domain"] == "labels.test")["routes"][0]["docker"]["targets"]
+
+        # Save a draft and scale down: only label changes may reach live Nginx.
+        current = request("/api/config")
+        draft = current["config"]
+        draft["settings"]["body_mb"] = 321
+        request("/api/config", {"config": draft, "revision": current["revision"]})
+        docker("stop", "--time", "1", replicas[0])
+        eventually(lambda: len(label_targets()) == 1)
+        assert traffic("labels.test", "/api/") == "label-1"
+        assert request("/api/dashboard")["configuration"]["settings"]["body_mb"] != 321
+        assert request("/api/config")["config"]["settings"]["body_mb"] == 321
+        docker("stop", "--time", "1", replicas[1])
+        eventually(lambda: not label_targets())
+        try:
+            traffic("labels.test", "/api/")
+            raise AssertionError("Empty label route must return 503")
+        except urllib.error.HTTPError as exc:
+            assert exc.code == 503
+        docker("start", replicas[0])
+        eventually(lambda: len(label_targets()) == 1)
+        eventually(lambda: traffic("labels.test", "/api/") == "label-0")
+        assert traffic() == "backend-host-port"
+        print("PASS: compact labels, preview, live balancing, automatic stop/start, zero replicas and draft isolation")
+
+        # A label uses the container port, even when Docker publishes a random
+        # host port. Multiple named labels on one container are also supported.
+        host_labeled = docker("run", "-d", "--name", PREFIX + "-host-label", "--network", "bridge",
+            "-p", "0.0.0.0::8000", "--entrypoint", "python3",
+            "--label", "ambergate.route.host=host=host-label.test;port=8000;via=host",
+            "--label", "ambergate.route.group=group=app-api;port=8000;via=host;weight=2",
+            IMAGE, "-u", "-c", BACKEND, "host-label")
+        OWNED.append(host_labeled)
+        eventually(lambda: traffic("host-label.test") == "host-label")
+        current = request("/api/config")
+        group_cfg = current["config"]
+        manual = group_cfg["hosts"][0]["routes"][0]
+        manual["docker"] = dict(managed=False, group="app-api", targets=[])
+        saved_group = request("/api/config", {"config": group_cfg, "revision": current["revision"]})
+        request("/api/apply", {"revision": saved_group["revision"]})
+        eventually(lambda: len(request("/api/dashboard")["configuration"]["hosts"][0]["routes"][0]["docker"]["targets"]) == 1)
+        assert {traffic() for _ in range(20)} == {"backend-host-port", "host-label"}
+        print("PASS: named labels, via=host published port mapping and group membership alongside manual targets")
+
+        request("/api/docker/labels", {"action": "settings", "mode": "off", "revision": policy["revision"]})
+
         disconnected = request("/api/docker", {"revision": discovered["revision"],
             "settings": {**discovered["settings"], "enabled": False}})
         assert not disconnected["connected"]
-        assert traffic() == "backend-host-port"
+        assert traffic() in {"backend-host-port", "host-label"}
         print("PASS: disabling discovery does not stop configured traffic")
     except Exception:
         if gateway:

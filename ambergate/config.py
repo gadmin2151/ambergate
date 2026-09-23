@@ -72,6 +72,10 @@ def upstream_hostname(value, path):
         fail(path, "ожидается имя сервера или Docker-контейнера, без схемы и пути")
 
 
+def route_targets(route):
+    return route["targets"] + route.get("docker", {}).get("targets", [])
+
+
 def validate(config):
     obj(config, DEFAULT, "config")
     if type(config["version"]) is not int or config["version"] != 1:
@@ -111,7 +115,9 @@ def validate(config):
         paths = set()
         for ri, route in enumerate(host["routes"]):
             rp = f"{hp}.routes[{ri}]"
-            obj(route, ("id", "name", "path", "strip_prefix", "balance", "targets",
+            if not isinstance(route, dict):
+                fail(rp, "неверный набор полей")
+            obj({k: v for k, v in route.items() if k != "docker"}, ("id", "name", "path", "strip_prefix", "balance", "targets",
                         "cache", "cache_ttl", "websocket", "timeout", "body_mb",
                         "rate_rps", "rate_burst"), rp)
             check_id(route["id"], ids, rp)
@@ -133,8 +139,21 @@ def validate(config):
                                    ("body_mb", 0, 102400), ("rate_rps", 0, 100000),
                                    ("rate_burst", 0, 100000)):
                 integer(route[key], low, high, rp + "." + key)
-            sequence(route["targets"], 1, 32, rp + ".targets")
-            for target in route["targets"]:
+            if "docker" in route:
+                docker = route["docker"]
+                obj(docker, ("managed", "group", "targets"), rp + ".docker")
+                boolean(docker["managed"], rp + ".docker.managed")
+                if not isinstance(docker["group"], str) or not re.fullmatch(r"[a-zA-Z0-9_-]{0,64}", docker["group"]):
+                    fail(rp, "Docker group: 1–64 символа, буквы, цифры, _ или -")
+                if not docker["managed"] and not docker["group"]:
+                    fail(rp, "Укажите Docker group")
+                if docker["managed"] and (docker["group"] or route["targets"]):
+                    fail(rp, "Label-маршрут использует только обнаруженные серверы")
+                sequence(docker["targets"], 0, 32, rp + ".docker.targets")
+            sequence(route["targets"], 0 if "docker" in route else 1, 32, rp + ".targets")
+            targets = route_targets(route)
+            sequence(targets, 0 if "docker" in route else 1, 32, rp + ".targets")
+            for target in targets:
                 obj(target, ("address", "port", "weight", "backup"), rp + ".target")
                 address = target["address"]
                 try:
@@ -150,7 +169,7 @@ def validate(config):
                 boolean(target["backup"], rp + ".backup")
                 if target["backup"] and route["balance"] == "ip_hash":
                     fail(rp, "backup несовместим с IP hash")
-            if all(t["backup"] for t in route["targets"]):
+            if targets and all(t["backup"] for t in targets) and "docker" not in route:
                 fail(rp, "нужен хотя бы один основной сервер")
     return copy.deepcopy(config)
 

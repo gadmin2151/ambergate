@@ -1,4 +1,16 @@
 .docker-connect { padding: 24px; margin-bottom: 24px; }
+.docker-labels { padding: 24px; margin-bottom: 24px; }
+.label-example { padding: 16px; margin: 20px 0; border: 1px solid #ffaf3530; border-radius: 10px; background: #0a0a0b; color: #ffbf5e; overflow: auto; }
+.label-controls { display: flex; gap: 12px; align-items: end; margin-bottom: 14px; }
+.label-controls label { flex: 1; max-width: 370px; }
+.label-status { display: flex; align-items: center; gap: 12px; margin: 18px 0; }
+.label-status > span:last-child { color: var(--muted); font-size: 12px; }
+.label-changes { max-height: 300px; overflow: auto; margin: 16px 0; }
+.label-changes > div { padding: 14px 0; border-bottom: 1px solid var(--border); }
+.label-changes code { margin: 0 12px; color: #ffaf35; }
+.label-changes p { margin: 7px 0 0; overflow-wrap: anywhere; color: var(--muted); font-size: 12px; }
+.docker-managed-note { padding: 20px 26px; color: #ffbf5e; background: #ffaf3510; margin: 0; }
+@media (max-width: 600px) { .label-controls { align-items: stretch; flex-direction: column; } .docker-labels { padding: 18px; } }
 .docker-connect-title { display: flex; align-items: center; gap: 14px; margin-bottom: 25px; }
 .docker-symbol { display: grid; place-items: center; width: 48px; height: 48px; background: #ffaf3512; border: 1px solid #ffaf3545; border-radius: 13px; color: #ffaf35; flex-shrink: 0; }
 .docker-symbol svg { width: 28px; height: 28px; }

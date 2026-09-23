@@ -11,12 +11,15 @@ import tempfile
 import threading
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
 from ambergate.auth import Auth
 from ambergate.server import Server
 from ambergate.storage import ApplyError, ConflictError, Store, atomic_write
 from .helpers import config, route
+from .test_labels import snapshot as label_snapshot
+from ambergate.labels import LabelController
+from ambergate.nginx import digest
 
 NGINX = os.environ.get("TEST_NGINX") or shutil.which("nginx")
 MIME = os.environ.get("TEST_MIME_TYPES", "/etc/nginx/mime.types")
@@ -110,6 +113,69 @@ class GatewayIntegrationTests(unittest.TestCase):
     def setUp(self):
         self.config = config(self.backends[0].server_port)
         self.apply_config()
+
+    def test_labels_preview_reload_draft_isolation_scale_to_zero_and_recovery(self):
+        docker = Mock()
+        docker.snapshot.return_value = label_snapshot(port=self.backends[1].server_port)
+        labels = LabelController(self.store, docker)
+        labels.save("preview", labels.snapshot()["revision"])
+        try:
+            before = self.store.snapshot()
+            preview = labels.scan()
+            self.assertFalse(preview["errors"])
+            self.assertEqual(self.store.snapshot(), before)
+            self.assertEqual(len(preview["changes"]), 1)
+            # A saved unrelated edit must remain pending through every label reload.
+            draft = copy.deepcopy(before["config"])
+            draft["settings"]["body_mb"] = 123
+            self.store.save(draft, before["revision"])
+            with self.assertRaises(ConflictError):
+                labels.scan(apply=True, token=preview["token"])
+            result = labels.scan(apply=True, token=labels.scan()["token"])
+            self.assertFalse(result["errors"])
+            self.assertEqual(self.store.active_config()["settings"]["body_mb"], before["config"]["settings"]["body_mb"])
+            self.assertEqual(self.store.draft_config()["settings"]["body_mb"], 123)
+            self.assertTrue(self.store.snapshot()["pending"])
+            status, _, body = request(self.port, "/api/users", headers={"Host": "example.com"})
+            self.assertEqual(status, 200)
+            self.assertEqual(json.loads(body)["server"], self.backends[1].server_port)
+            generation = self.store.active_id()
+            labels.scan(apply=True)
+            self.assertEqual(self.store.active_id(), generation, "unchanged labels must not reload Nginx")
+            docker.snapshot.return_value["containers"][0]["state"] = "exited"
+            self.assertFalse(labels.scan(apply=True)["errors"])
+            for path in ("/api", "/api/users"):
+                self.assertEqual(request(self.port, path, headers={"Host": "example.com"})[0], 503)
+            self.assertEqual(request(self.port, "/api2", headers={"Host": "example.com"})[0], 404)
+            self.assertEqual(request(self.port)[0], 200)
+            docker.snapshot.return_value["containers"][0]["state"] = "running"
+            docker.snapshot.return_value["containers"][0]["route_labels"]["ambergate.route"] += ";backup=true"
+            self.assertFalse(labels.scan(apply=True)["errors"])
+            self.assertEqual(request(self.port, "/api", headers={"Host": "example.com"})[0], 200)
+        finally:
+            labels.file.unlink(missing_ok=True)
+
+    def test_labels_failure_preserves_active_and_draft(self):
+        docker = Mock()
+        data = label_snapshot(port=self.backends[0].server_port)
+        docker.snapshot.return_value = data
+        labels = LabelController(self.store, docker)
+        labels.save("preview", labels.snapshot()["revision"])
+        try:
+            before = self.store.snapshot()
+            with patch.object(self.store, "check", side_effect=ApplyError("invalid generated nginx")):
+                self.assertTrue(labels.scan(apply=True)["errors"])
+            self.assertEqual(self.store.snapshot(), before)
+            for key in ("connected", "truncated"):
+                data[key] = key == "truncated"
+                self.assertTrue(labels.scan(apply=True)["errors"])
+                self.assertEqual(self.store.snapshot(), before)
+                data[key] = key == "connected"
+            data["containers"][0]["route_labels"]["ambergate.route"] += ";unknown=1"
+            self.assertTrue(labels.scan(apply=True)["errors"])
+            self.assertEqual(self.store.snapshot(), before)
+        finally:
+            labels.file.unlink(missing_ok=True)
 
     def apply_config(self):
         snapshot = self.store.snapshot()
@@ -349,6 +415,7 @@ class GatewayIntegrationTests(unittest.TestCase):
         self.assertEqual(request(port, "/api/config")[0], 401)
         self.assertEqual(request(port, "/api/dashboard")[0], 401)
         self.assertEqual(request(port, "/api/docker")[0], 401)
+        self.assertEqual(request(port, "/api/docker/labels")[0], 401)
         self.assertEqual(request(port, "/healthz")[0], 200)
         self.assertEqual(request(port, "/")[0], 200)
         headers = {"Content-Type": "application/json"}
@@ -360,6 +427,11 @@ class GatewayIntegrationTests(unittest.TestCase):
         self.assertIn("SameSite=Strict", response_headers["Set-Cookie"])
         cookie = response_headers["Set-Cookie"].split(";")[0]
         headers["Cookie"] = cookie
+        status, _, labels = request(port, "/api/docker/labels", headers=headers)
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(labels)["mode"], "off")
+        label_body = json.dumps({"action": "scan"})
+        self.assertEqual(request(port, "/api/docker/labels", "POST", headers, label_body)[0], 403)
         self.assertEqual(request(port, "/api/export", headers=headers)[0], 200)
         status, _, dashboard = request(port, "/api/dashboard", headers=headers)
         self.assertEqual(status, 200)
@@ -374,6 +446,8 @@ class GatewayIntegrationTests(unittest.TestCase):
         body = json.dumps({"revision": self.store.snapshot()["revision"]})
         self.assertEqual(request(port, "/api/test", "POST", headers, body)[0], 403)
         headers["X-CSRF-Token"] = json.loads(data)["csrf"]
+        self.assertEqual(request(port, "/api/docker/labels", "POST", headers, label_body)[0], 200)
+        self.assertEqual(request(port, "/api/docker/labels", "POST", headers, '{"action":"apply"}')[0], 400)
         before = self.store.snapshot()
         status, _, docker = request(port, "/api/docker", "POST", headers, docker_body)
         self.assertEqual(status, 200)

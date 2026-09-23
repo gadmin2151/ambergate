@@ -11,6 +11,7 @@ from urllib.parse import urlsplit
 
 from .storage import ApplyError, ConflictError
 from .docker import Docker
+from .labels import LabelController
 from .events import DashboardEvents, event
 
 STATIC = Path(__file__).parent / "static"
@@ -25,15 +26,28 @@ class Server(ThreadingHTTPServer):
         self.store = store
         self.auth = auth
         self.docker = Docker(store.data)
-        self.events = DashboardEvents(store.dashboard)
+        self.labels = LabelController(store, self.docker)
+        self.events = DashboardEvents(self.dashboard)
         self.slots = threading.BoundedSemaphore(32)
         super().__init__(address, Handler)
 
+    def dashboard(self):
+        return {**self.store.dashboard(), "labels": self.labels.snapshot()}
+
+    def serve_forever(self, poll_interval=.5):
+        self.labels.start()
+        try:
+            super().serve_forever(poll_interval)
+        finally:
+            self.labels.stop()
+
     def shutdown(self):
+        self.labels.stop()
         self.events.stop()
         super().shutdown()
 
     def server_close(self):
+        self.labels.stop()
         self.events.stop()
         super().server_close()
 
@@ -156,11 +170,13 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/status":
                 return self.respond(200, self.server.store.status())
             if path == "/api/dashboard":
-                return self.respond(200, self.server.store.dashboard())
+                return self.respond(200, self.server.dashboard())
             if path == "/api/events":
                 return self.stream_dashboard()
             if path == "/api/docker":
                 return self.respond(200, self.server.docker.snapshot(force=urlsplit(self.path).query == "refresh=1"))
+            if path == "/api/docker/labels":
+                return self.respond(200, self.server.labels.snapshot())
             if path == "/api/export":
                 return self.respond(200, self.server.store.draft_config(), headers={"Content-Disposition": 'attachment; filename="ambergate-config.json"'})
             if path == "/api/active.conf":
@@ -208,6 +224,15 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(200, {"ok": True}, headers={"Set-Cookie": self.cookie("", 0)})
             if path == "/api/docker":
                 return self.respond(200, self.server.docker.save(body["settings"], body["revision"]))
+            if path == "/api/docker/labels":
+                action = body.get("action")
+                if action == "settings":
+                    return self.respond(200, self.server.labels.save(body["mode"], body["revision"]))
+                if action == "scan":
+                    return self.respond(200, self.server.labels.scan())
+                if action == "apply" and isinstance(body.get("token"), str) and body["token"]:
+                    return self.respond(200, self.server.labels.scan(apply=True, token=body["token"]))
+                raise ValueError("Expected label settings, scan or apply with a preview token")
             if path == "/api/config":
                 return self.respond(200, self.server.store.save(body["config"], body["revision"]))
             if path == "/api/preview":

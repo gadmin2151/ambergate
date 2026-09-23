@@ -212,7 +212,9 @@ class Docker:
                    service=str(labels.get("com.docker.compose.service", ""))[:100],
                    networks=sorted(nets), shared_networks=sorted(common), endpoints=[],
                    ports=sorted({p["PrivatePort"] for p in ports}), selectable=False, reason="",
-                   host_endpoints=[], host_reason="")
+                   host_endpoints=[], host_reason="", is_gateway=c.get("Id") == self_id,
+                   route_labels={k: str(v)[:4097] for k, v in sorted(labels.items())
+                                 if k == "ambergate.route" or k.startswith("ambergate.route.")})
         published, host_reason = published_targets(ports, host_address, native=mode == "host")
         if c.get("Id") == self_id:
             row["reason"] = "Это сам AmberGate"

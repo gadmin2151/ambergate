@@ -1,0 +1,62 @@
+# AmberGate Docker labels — runnable examples.
+# 1. Start AmberGate with compose.docker.yaml and enable Docker in its panel.
+# 2. Docker → Routes from Docker labels → Apply automatically → Save mode.
+# 3. docker compose -f examples/docker-labels.compose.yaml up -d --scale api=2
+# 4. curl -H 'Host: example.com' http://127.0.0.1/api/
+# Cleanup: docker compose -f examples/docker-labels.compose.yaml down
+# These example domains must reach your gateway (DNS or an explicit Host header).
+
+name: ambergate-label-examples
+services:
+  frontend:
+    image: nginx:alpine
+    labels: { ambergate.route: "host=example.com; port=80" }
+    networks: [ambergate]
+
+  # Replicas share host+path and route options. Each joins the same upstream.
+  # No container_name: Docker Compose must be able to scale this service.
+  api:
+    image: nginx:alpine
+    labels: { ambergate.route: "host=example.com; path=/api; port=80; strip=true; balance=least_conn" }
+    networks: [ambergate]
+
+  # Named labels: one container, multiple routes/domains.
+  # Enable: docker compose -f examples/docker-labels.compose.yaml --profile advanced up -d
+  assets:
+    image: nginx:alpine
+    profiles: [advanced]
+    labels:
+      ambergate.route.assets: "host=example.com; path=/assets; port=80; strip=true; cache=true; ttl=300"
+      ambergate.route.cdn: "host=cdn.example.com; port=80; cache=true; ttl=300; rate=50; burst=100; timeout=30; body=10; websocket=false"
+    networks: [ambergate]
+
+  # Existing manual route → Servers → Docker group = app-api → Save and Apply.
+  # Enable: docker compose -f examples/docker-labels.compose.yaml --profile group up -d
+  group-member:
+    image: nginx:alpine
+    profiles: [group]
+    labels: { ambergate.route: "group=app-api; port=80; weight=2" }
+    networks: [ambergate]
+
+  # Optional backup for the SAME manual group (incompatible with ip_hash).
+  group-backup:
+    image: nginx:alpine
+    profiles: [group]
+    labels: { ambergate.route: "group=app-api; port=80; backup=true" }
+    networks: [ambergate]
+
+  # Different network: configure Docker host IP in AmberGate first.
+  # port=80 is the container port; AmberGate discovers published port 18081.
+  # Enable: docker compose -f examples/docker-labels.compose.yaml --profile host up -d
+  other-network:
+    image: nginx:alpine
+    profiles: [host]
+    ports: ["18081:80"]
+    labels: { ambergate.route: "host=isolated.example.com; port=80; via=host" }
+    networks: [isolated]
+
+networks:
+  ambergate:
+    external: true
+    name: ambergate
+  isolated: {}

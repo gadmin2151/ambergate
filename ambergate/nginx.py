@@ -4,7 +4,7 @@ import ipaddress
 import json
 from pathlib import Path
 
-from .config import validate
+from .config import validate, route_targets
 
 
 def digest(value):
@@ -85,12 +85,18 @@ def render(config, generation, cache_dir="/cache", run_dir="/run/ambergate", por
             continue
         for route in host["routes"]:
             upstream = "up_" + digest([host["id"], route])
+            if not route_targets(route):
+                continue
             if route["rate_rps"]:
                 lines.append(f"    limit_req_zone $binary_remote_addr zone=rate_{upstream}:1m rate={route['rate_rps']}r/s;")
             lines += [f"    upstream {upstream} {{", f"        zone {upstream} 64k;"]
             if route["balance"] != "round_robin":
                 lines.append(f"        {route['balance']};")
-            for target in route["targets"]:
+            if all(t["backup"] for t in route_targets(route)):
+                # Keep Docker backup members usable while all primary replicas
+                # are stopped. The placeholder cannot receive any traffic.
+                lines.append("        server 127.0.0.1:1 down;")
+            for target in route_targets(route):
                 address = target["address"]
                 try:
                     ipaddress.ip_address(address)
@@ -113,6 +119,9 @@ def render(config, generation, cache_dir="/cache", run_dir="/run/ambergate", por
             locations = ["/"] if path == "/" else ["= " + path, "^~ " + path + "/"]
             for location in locations:
                 lines += [f"        location {location} {{"]
+                if not route_targets(route):
+                    lines += [f'            set $ambergate_route "{path}";', "            return 503;", "        }"]
+                    continue
                 if s["rate_rps"]:
                     burst = f" burst={s['rate_burst']} nodelay" if s["rate_burst"] else ""
                     lines.append(f"            limit_req zone=global_rate_{s['rate_rps']}{burst};")

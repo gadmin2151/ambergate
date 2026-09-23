@@ -32,6 +32,7 @@ jobs:
           node --check ambergate/static/dashboard.js
           node --check ambergate/static/docker.js
           node --test tests/*.test.js
+          docker compose -f examples/docker-labels.compose.yaml --profile advanced --profile group --profile host config --quiet
           docker compose config --quiet
           docker compose -f compose.yaml -f compose.docker.yaml config --quiet
           docker compose -f compose.ghcr.yaml -f compose.docker.yaml config --quiet

@@ -27,6 +27,8 @@ test('authored template text is translated while user data and escaping stay int
   assert.equal(f.run("translateError('hosts[0]: ожидается целое число 1–32')"),'hosts[0]: expected an integer in range 1–32');
   assert.equal(f.run("translateError('Неверный пароль')"),'Incorrect password');
   assert.equal(f.run("translateError('nginx: upstream example.com:8000')"),'nginx: upstream example.com:8000');
+  f.run("setLanguage('ru')");
+  assert.equal(f.run("translateError('backend-1 / ambergate.route: port is required')"),'backend-1 / ambergate.route: Параметр port обязателен');
 });
 function panelFixture() {
   const f=fixture();
@@ -46,6 +48,10 @@ test('pages, route settings and Docker diagnostics render in English',()=>{
   f.context.document.querySelector=()=>({dataset:{},addEventListener(){}});
   f.run("setModal=(...args)=>globalThis.modalText=args.slice(0,3).join(' '); updatePathPreview=()=>{}; editRoute('host',config.hosts[0].routes[0].id);");
   assert.doesNotMatch(f.run('modalText'),/[А-Яа-яЁё]/);
+  assert.doesNotThrow(()=>f.run('editHost()'));
+  assert.doesNotMatch(f.run('modalText'),/[А-Яа-яЁё]/);
+  f.run("dockerLabelsData={mode:'preview',errors:[],warnings:[],changes:[{host:'example.com',path:'/api',action:'create',targets:[]}],checked_at:1,token:'preview'};");
+  assert.doesNotMatch(f.run('dockerLabelsResults()'),/[А-Яа-яЁё]/);
   f.run("dockerData={settings:{enabled:true},connected:false,message:'Socket не найден. Смонтируйте docker.sock и проверьте путь.'};");
   assert.doesNotMatch(f.run('dockerInventory()'),/[А-Яа-яЁё]/);
 

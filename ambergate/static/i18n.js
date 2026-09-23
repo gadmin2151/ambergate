@@ -3,6 +3,31 @@
 // Only translate authored text: ui translates template segments, never interpolated data.
 // Russian source phrases are stable keys shared with server diagnostics.
 const translations = {
+  "Docker group: 1–64 символа, буквы, цифры, _ или -": "Docker group: 1–64 letters, digits, _ or -",
+  "Укажите Docker group": "Specify a Docker group",
+  "Label-маршрут использует только обнаруженные серверы": "Label routes use discovered servers only",
+  "Маршруты из Docker labels": "Routes from Docker labels",
+  "Одна строка в Compose — домен, маршрут и балансировщик.": "One line in Compose \u2014 a domain, route and load balancer.",
+  "Режим автоматизации": "Automation mode",
+  "Выключено": "Off",
+  "Предлагать изменения": "Preview changes",
+  "Применять автоматически": "Apply automatically",
+  "Сохранить режим": "Save mode",
+  "Проверка каждые 5 секунд. Перед reload выполняется nginx -t. Ручные настройки и черновики сохраняются отдельно.": "Checked every 5 seconds. Nginx validates every reload. Manual settings and drafts are preserved separately.",
+  "Labels выключены. Уже настроенные маршруты сохраняются.": "Labels are off. Existing routes are kept.",
+  "Изменения не применены. Исправьте ошибки labels.": "Changes were not applied. Fix the label errors.",
+  "Нет ожидающих изменений": "No pending changes",
+  "Проверить labels": "Check labels",
+  "Применить найденное": "Apply discovered changes",
+  "Режим labels сохранён": "Label mode saved",
+  "Нет серверов · HTTP 503": "No servers \u00b7 HTTP 503",
+  "Docker group": "Docker group",
+  "Контейнеры с group=app-api автоматически добавятся к этим серверам.": "Containers with group=app-api will automatically join these servers.",
+  "Серверы из labels": "Servers from labels",
+  "Этот маршрут управляется labels. Измените label в Docker; чтобы удалить маршрут, сначала удалите label.": "This route is managed by labels. Edit the Docker label; remove it before deleting the route.",
+  "Управляется Docker labels": "Managed by Docker labels",
+  "Настройки подключения сохраняются локально. Ручные маршруты меняются после «Применить». Автоматизация labels настраивается ниже.": "Connection settings are stored locally. Manual routes change after Apply. Configure label automation below.",
+
   "Закрыть уведомление": "Dismiss notification",
   "Сохранить": "Save",
   "НАСТРОЙКИ AMBERGATE": "AMBERGATE SETTINGS",
@@ -566,9 +591,34 @@ function ui(parts, ...values) {
 }
 // Server diagnostics can contain a field path or a numeric range around a message.
 const diagnosticKeys = ["Не удалось определить сети AmberGate. Укажите его имя или ID в настройках.", "Укажите доступный IPv4 или IPv6 Docker-хоста, без схемы и порта", "ожидается имя сервера или Docker-контейнера, без схемы и пути", "Не удалось подключиться к Docker. Проверьте daemon и socket.", "Socket не найден. Смонтируйте docker.sock и проверьте путь.", "Ответ Docker превышает 4 MiB. Уменьшите число контейнеров.", "Укажите абсолютный путь к Unix socket .sock (до 103 байт)", "Черновик изменился. Обновите страницу перед сохранением.", "Нет доступа к socket. Проверьте права процесса AmberGate.", "Локальный запуск: используйте опубликованные TCP-порты", "Nginx не запустился: проверьте логи и занятые порты", "Нет публикации для выбранной версии IP Docker-хоста", "Укажите имя или ID контейнера AmberGate в настройках", "Укажите IP Docker-хоста для опубликованных портов", "Порт опубликован только на localhost Docker-хоста", "Общая сеть Docker или опубликованные порты хоста", "Слишком много попыток. Повторите через 5 минут.", "Контейнер AmberGate: имя или ID, без схемы и пути", "Настройки Docker изменились. Обновите страницу.", "путь вида /, /api, /v1/api; без завершающего /", "Пароль должен содержать от 12 до 256 символов", ". Откат не подтверждён; проверьте контейнер.", "ожидается DNS-имя или IPv4, без схемы и пути", "Nginx не работает; перезапустите контейнер", "Неподдерживаемая версия Docker Engine API", "Ошибка сервера; проверьте логи контейнера", "У AmberGate нет подключённых сетей Docker", "Неверный CSRF-токен. Обновите страницу.", "Nginx не подтвердил новую конфигурацию", "Docker не ответил за отведённое время.", "Указанный путь не является Unix socket", "Неожиданный формат ответа Docker API.", "Не удалось получить состояние AmberGate", "IP Docker-хоста должен быть строкой", "Docker не вернул список контейнеров", "Transfer-Encoding не поддерживается", "нужен хотя бы один основной сервер", "Максимальный размер запроса: 1 MiB", "неизвестный алгоритм балансировки", "Docker вернул некорректный ответ", "Неверный набор настроек Docker", "enabled должен быть true/false", "Подключение к Docker выключено", "IPv6 zone ID не поддерживается", "Слишком много live-подключений", "Нет опубликованных TCP-портов", "backup несовместим с IP hash", "Cross-origin запрос запрещён", "Не удалось проверить Nginx:", "ожидается список, элементов", "Войдите в панель управления", "Ожидается application/json", "ID должен быть уникальным", "Нет общей сети с AmberGate", "Нет адреса в общей сети", "поддерживается версия 1", "название: 1–80 символов", "Текущий пароль неверен", "Docker API вернул HTTP", "ожидается целое число", "ожидается IP или CIDR", "Контейнер не запущен", "неверный набор полей", "ожидается true/false", "некорректное DNS-имя", "домен уже существует", "путь уже существует", "Версия не найдена", "Сессия завершена", "Защита и лимиты", "Сохранённый IP:", "Неверная версия", "Это сам AmberGate", "Неверный пароль", "История версий", "Обзор системы", "Сети AmberGate:", "ожидается IP", "Кеширование", "неверный ID", "запр/с"];
+const labelDiagnostics = {
+  "Label must contain 1–4096 characters": "Label должен содержать 1–4096 символов",
+  "Use unique key=value fields separated by semicolons": "Используйте неповторяющиеся поля key=value через точку с запятой",
+  "Unknown label option:": "Неизвестный параметр label:",
+  "port is required": "Параметр port обязателен",
+  "group must contain 1–64 letters, digits, _ or -": "group: 1–64 буквы, цифры, _ или -",
+  "group uses the existing route settings; omit host, path and route options": "Группа использует настройки маршрута; уберите host, path и параметры маршрута",
+  "host or group is required": "Укажите host или group",
+  "via must be network or host": "via должен быть network или host",
+  "must be true or false": "должен быть true или false",
+  "must be an integer": "должен быть целым числом",
+  "at most 16 route labels per container": "не более 16 маршрутных labels на контейнер",
+  "Invalid route label name": "Неверное имя маршрутного label",
+  "No reachable endpoint: use a shared Docker network, or via=host with a published port and Docker host IP": "Нет доступного адреса: используйте общую Docker-сеть или via=host с опубликованным портом и IP Docker-хоста",
+  "containers disagree on route options": "у контейнеров различаются настройки маршрута",
+  "manual route already exists; use group instead": "ручной маршрут уже существует; используйте group",
+  "Conflicting weight/backup for the same upstream endpoint": "Различные weight/backup для одного адреса сервера",
+  "Label mode must be off, preview or auto": "Режим labels должен быть off, preview или auto",
+  "Label settings changed. Refresh and try again.": "Настройки labels изменились. Обновите страницу и повторите.",
+  "Docker unavailable; routes kept unchanged": "Docker недоступен; маршруты сохранены без изменений",
+  "Docker inventory is incomplete (500 containers); routes kept unchanged": "Список Docker неполный (500 контейнеров); маршруты сохранены без изменений",
+  "No route uses group=": "Нет маршрута с group=",
+  "Label preview changed. Review the new preview and try again.": "Найденные изменения обновились. Проверьте новый список и повторите."
+};
+const labelDiagnosticPattern = new RegExp(Object.keys(labelDiagnostics).sort((a,b)=>b.length-a.length).map(key=>key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'g');
 function translateError(message) {
   const value = String(message);
-  if (language === 'ru') return value;
+  if (language === 'ru') return value.replace(labelDiagnosticPattern, key=>labelDiagnostics[key]);
   if (Object.hasOwn(translations, value)) return translations[value];
   // One replacement pass prevents translations from being translated again.
   return value.replace(diagnosticPattern, key => translations[key]);

@@ -70,6 +70,7 @@ function updateSaveState() {
   if (dock) {dock.innerHTML = saveDockContent(); dock.hidden = ['dashboard','docker'].includes(page) && !dirty && !state.pending;}
   document.querySelectorAll('[data-action="test"]').forEach(el => el.disabled = busy);
 }
+function routeTargets(route) { return [...route.targets, ...(route.docker?.targets || [])]; }
 function routes() { return config.hosts.flatMap(h => h.routes); }
 function btn(action, label, symbol, cls = '', attrs = '') { return `<button type="button" data-action="${action}" class="${cls}" ${attrs}>${symbol ? icon(symbol) : ''}${label}</button>`; }
 function badge(text, color='gray') { return `<span class="badge ${color}">${esc(text)}</span>`; }
@@ -130,6 +131,7 @@ function showLogin() {
   stopDashboardStream();
   config = null; health = null;
   dashboardData = null; dashboardError = '';
+  dockerLabelsData = null; dockerLabelMode = null;
   dockerData = null; dockerDraft = null; dockerError = ''; dockerHostDraft = null; dockerPickerMode = 'auto';
   if ($('#docker-picker').open) $('#docker-picker').close();
   if ($('#confirm-modal').open) $('#confirm-modal').close('cancel');
@@ -202,7 +204,7 @@ function routesPage() {
   const metrics = [
     ['globe',t('Домены'),config.hosts.length,ui`${config.hosts.filter(h=>h.enabled).length} включено`, 'green'],
     ['routes',t('Маршруты'),rs.length,t('правил проксирования'),'blue'],
-    ['server',t('Серверы'),rs.reduce((n,r)=>n+r.targets.length,0),t('upstream-подключений'),'violet'],
+    ['server',t('Серверы'),rs.reduce((n,r)=>n+routeTargets(r).length,0),t('upstream-подключений'),'violet'],
     ['shield',t('Лимит на IP'),config.settings.rate_rps || '∞',t('запросов в секунду'),'amber']
   ];
   return ui`<div class="metrics">${metrics.map(([symbol,label,value,note,tone])=>`<div class="metric"><div class="metric-top"><span>${label}</span><span class="metric-icon ${tone}">${icon(symbol)}</span></div><div class="metric-value">${value}</div><div class="metric-note">${note}</div></div>`).join('')}</div>
@@ -216,7 +218,7 @@ function filteredHosts() {
   const query = routeQuery.trim().toLocaleLowerCase();
   const filtered = config.hosts.filter(host=> {
     if (hostFilter === 'enabled' && !host.enabled || hostFilter === 'disabled' && host.enabled) return false;
-    return !query || [host.domain, ...host.routes.flatMap(r=>[r.name,r.path,...r.targets.map(t=>`${t.address}:${t.port}`)])].some(value=>value.toLocaleLowerCase().includes(query));
+    return !query || [host.domain, ...host.routes.flatMap(r=>[r.name,r.path,...routeTargets(r).map(t=>`${t.address}:${t.port}`)])].some(value=>value.toLocaleLowerCase().includes(query));
   });
   return filtered.length ? filtered.map(hostCard).join('') : ui`<div class="search-empty">${icon('search')}<h3>Ничего не найдено</h3><p>Попробуйте другое название или сбросьте фильтры.</p>${btn('reset-search',t('Сбросить фильтры'),'','small')}</div>`;
 }
@@ -228,16 +230,16 @@ function hostCard(host) {
     <div class="host-head"><div class="host-title"><div class="domain-icon">${icon('globe')}</div><div><div class="domain-heading"><h3>${esc(host.domain)}</h3>${badge(host.enabled ? t('Включён') : t('Выключен'),host.enabled ? 'green' : 'gray')}</div><p>${host.routes.length} ${plural(host.routes.length,t('маршрут'),t('маршрута'),t('маршрутов'))}<span>·</span>HTTP</p></div></div><div class="actions">${btn('add-route',t('Добавить маршрут'),'plus','small',`data-host="${host.id}"`)}${btn('edit-host','','sliders','ghost icon',ui`data-host="${host.id}" aria-label="Настройки домена ${esc(host.domain)}" title="Настройки домена"`)}</div></div>
     ${host.routes.length ? t('<div class="route-columns"><span>ВХОДЯЩИЙ МАРШРУТ</span><span></span><span>ЦЕЛЕВЫЕ СЕРВЕРЫ</span><span>ПРАВИЛА</span><span></span></div>') : ''}
     <div class="route-list">${host.routes.length ? host.routes.map(route => routeCard(host,route)).join('') : t('<div class="host-empty"><strong>У домена пока нет маршрутов</strong><p>Добавьте маршрут, чтобы направлять запросы к приложению. Домен без маршрутов отвечает 404.</p></div>')}</div>
-    <div class="host-foot"><span>${icon('shield')}${config.settings.block_dotfiles ? t('Защита скрытых файлов') : t('Скрытые файлы разрешены')}</span><span>${icon('server')}${host.routes.reduce((n,r)=>n+r.targets.length,0)} ${plural(host.routes.reduce((n,r)=>n+r.targets.length,0),t('сервер'),t('сервера'),t('серверов'))}</span></div>
+    <div class="host-foot"><span>${icon('shield')}${config.settings.block_dotfiles ? t('Защита скрытых файлов') : t('Скрытые файлы разрешены')}</span><span>${icon('server')}${host.routes.reduce((n,r)=>n+routeTargets(r).length,0)} ${plural(host.routes.reduce((n,r)=>n+routeTargets(r).length,0),t('сервер'),t('сервера'),t('серверов'))}</span></div>
   </article>`;
 }
 function plural(n, one, few, many) {if (language === 'en') return n === 1 ? one : many; return n%10===1 && n%100!==11 ? one : n%10>=2 && n%10<=4 && (n%100<12 || n%100>14) ? few : many;}
 function routeCard(host, route) {
   const tone = route.path==='/' ? 'green' : route.path.includes('s3') ? 'violet' : 'blue';
   return `<div class="route-row">
-    <div class="route-identity"><span class="route-icon ${tone}">${icon(route.path==='/' ? 'globe' : route.path.includes('s3') ? 'cache' : 'code')}</span><div><div class="route-name">${esc(route.name)}</div><div class="route-path"><code>${esc(route.path)}</code><span>${route.path==='/' ? t('корневой путь') : route.strip_prefix ? t('убрать префикс') : t('сохранить путь')}</span></div></div></div>
+    <div class="route-identity"><span class="route-icon ${tone}">${icon(route.path==='/' ? 'globe' : route.path.includes('s3') ? 'cache' : 'code')}</span><div><div class="route-name">${esc(route.name)} ${route.docker ? badge(route.docker.managed ? 'Docker labels' : 'group: ' + route.docker.group,'amber') : ''}</div><div class="route-path"><code>${esc(route.path)}</code><span>${route.path==='/' ? t('корневой путь') : route.strip_prefix ? t('убрать префикс') : t('сохранить путь')}</span></div></div></div>
     <span class="flow-arrow">${icon('arrow')}</span>
-    <div class="upstream-list">${route.targets.map(t=>`<div class="target-line"><span class="target-node">${icon('server')}</span><code>${esc(t.address)}<span class="target-port">:${t.port}</span></code>${t.backup ? badge('backup') : t.weight>1 ? badge('×'+t.weight) : ''}</div>`).join('')}<span class="balance-label">${icon('routes')}${esc(balanceLabels[route.balance])}</span></div>
+    <div class="upstream-list">${routeTargets(route).map(t=>`<div class="target-line"><span class="target-node">${icon('server')}</span><code>${esc(t.address)}<span class="target-port">:${t.port}</span></code>${t.backup ? badge('backup') : t.weight>1 ? badge('×'+t.weight) : ''}</div>`).join('')}${!routeTargets(route).length ? badge(t('Нет серверов · HTTP 503'),'amber') : ''}<span class="balance-label">${icon('routes')}${esc(balanceLabels[route.balance])}</span></div>
     <div class="route-rules"><span class="rule ${route.cache ? 'rule-enabled' : ''}">${icon('cache')}${route.cache ? ui`Кеш ${route.cache_ttl} сек` : t('Кеш выключен')}</span><span class="rule">${icon('shield')}${route.rate_rps ? route.rate_rps+' r/s' : config.settings.rate_rps ? t('Общий лимит') : t('Без лимита')}</span>${route.websocket ? '<span class="protocol-label">WebSocket</span>' : ''}</div>
     ${btn('edit-route','','edit','route-edit icon',ui`data-host="${host.id}" data-route="${route.id}" aria-label="Изменить маршрут ${esc(route.name)}" title="Изменить маршрут"`)}
   </div>`;
@@ -320,6 +322,8 @@ function editRoute(hostId, routeId) {
     <section data-route-panel="servers" id="panel-servers" role="tabpanel" aria-labelledby="tab-servers" hidden>
       <div class="form-intro docker-target-heading"><div><h3>Серверы приложения</h3><p>Добавьте несколько серверов, чтобы распределять нагрузку между ними.</p></div>${btn('docker-picker',t('Выбрать из Docker'),'docker','small')}</div>
       <div class="grid"><label>Алгоритм балансировки<select name="balance">${Object.entries(balanceLabels).map(([k,v])=>`<option value="${k}" ${route.balance===k ? 'selected' : ''}>${v}</option>`).join('')}</select><small>Round robin — по очереди; Least connections — по загрузке.</small></label>${field(t('Таймаут ответа, сек'),'timeout',route.timeout,'number','required min="1" max="3600"',t('Сколько ждать ответ приложения'))}</div>
+      ${field(t('Docker group'),'docker_group',route.docker?.group || '', 'text','maxlength="64" pattern="(?:[a-zA-Z0-9_]|-){1,64}" placeholder="app-api"',t('Контейнеры с group=app-api автоматически добавятся к этим серверам.'))}
+      ${route.docker?.targets.length ? `<div class="docker-info"><strong>${t('Серверы из labels')}</strong><p>${route.docker.targets.map(target=>esc(dockerAddress(target.address,target.port))).join(', ')}</p></div>` : ''}
       <div class="form-section"><div class="target-editor" id="target-editor">${route.targets.map(targetFields).join('')}</div>${btn('add-target',t('Добавить сервер'),'plus','add-target-button')}</div>
       <div class="inline-info">${icon('info')}<span>Адрес без http:// и пути. Резервный сервер используется, когда основные недоступны; резерв несовместим с IP hash.</span></div>
     </section>
@@ -333,10 +337,18 @@ function editRoute(hostId, routeId) {
       for(const key of ['timeout','cache_ttl','rate_rps','rate_burst','body_mb']) result[key]=Number(data.get(key));
       for(const key of ['strip_prefix','websocket','cache']) result[key]=data.has(key);
       result.targets=collectTargets();
+      const group=data.get('docker_group').trim();
+      if(group) result.docker={managed:false,group,targets:group===route.docker?.group ? route.docker.targets : []};
+      else delete result.docker;
       const candidate=structuredClone(config), dest=candidate.hosts.find(h=>h.id===hostId);
       if(existing) dest.routes[dest.routes.findIndex(r=>r.id===routeId)]=result; else dest.routes.push(result);
       await api('preview',{config:candidate});config=candidate;changed();
     });
+  if(route.docker?.managed) {
+    $('#modal-form').insertAdjacentHTML('afterbegin',`<p class="docker-managed-note">${t('Этот маршрут управляется labels. Измените label в Docker; чтобы удалить маршрут, сначала удалите label.')}</p>`);
+    $('#modal-form').querySelectorAll('input,select,button[type=submit],[data-action=add-target],[data-action=remove-target],[data-action=docker-picker]').forEach(el=>el.disabled=true);
+    $('#modal-form .form-actions .hint').textContent=t('Управляется Docker labels');
+  }
   if (!existing) $('#modal').dataset.replaceDockerTargets = 'true';
   $('#modal-form').addEventListener('input',updatePathPreview);
   updatePathPreview();
@@ -373,7 +385,7 @@ document.addEventListener('click', async event=>{
     if (action === 'add-route' || action === 'edit-route') editRoute(button.dataset.host,button.dataset.route);
     if (action === 'example') example();
     if (action === 'add-target') $('#target-editor').insertAdjacentHTML('beforeend',targetFields({address:'',port:8000,weight:1,backup:false}));
-    if (action === 'remove-target') {if(document.querySelectorAll('.target-fields').length > 1) button.closest('.target-fields').remove(); else notify(t('Нужен хотя бы один сервер'),true);}
+    if (action === 'remove-target') {if(document.querySelectorAll('.target-fields').length > 1 || $('#modal [name=docker_group]')?.value.trim()) button.closest('.target-fields').remove(); else notify(t('Нужен хотя бы один сервер'),true);}
     if (action === 'delete-host') {
       const host = config.hosts.find(h=>h.id === button.dataset.host);
       if (host && await confirmAction(t('Удалить домен?'), t('Будут удалены домен и все его маршруты.'), host.domain, t('Удалить домен'), true)) {
