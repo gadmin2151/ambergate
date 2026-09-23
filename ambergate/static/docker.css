@@ -6,7 +6,7 @@
 .label-status { display: flex; align-items: center; gap: 12px; margin: 18px 0; }
 .label-status > span:last-child { color: var(--muted); font-size: 12px; }
 .label-changes { max-height: 300px; overflow: auto; margin: 16px 0; }
-.label-changes > div { padding: 14px 0; border-bottom: 1px solid var(--border); }
+.label-changes > div { padding: 14px 0; border-bottom: 1px solid var(--line); }
 .label-changes code { margin: 0 12px; color: #ffaf35; }
 .label-changes p { margin: 7px 0 0; overflow-wrap: anywhere; color: var(--muted); font-size: 12px; }
 .docker-managed-note { padding: 20px 26px; color: #ffbf5e; background: #ffaf3510; margin: 0; }
@@ -111,3 +111,39 @@
 
 .docker-access-note { display: flex; align-items: flex-start; gap: 7px; padding-top: 15px; margin: 15px 0 0; border-top: 1px solid #38383d; color: #94949f; font-size: 10px; line-height: 1.7; }
 .docker-access-note svg { width: 13px; height: 13px; margin-top: 2px; }
+
+/* Remote machines share the same amber control-plane vocabulary. */
+.agents-page { display:grid; gap:24px; }
+.agent-intro { display:flex; align-items:center; justify-content:space-between; gap:24px; padding:28px; border:1px solid var(--line); border-radius:16px; background:linear-gradient(120deg,#ffaf350b,transparent 70%); }
+.agent-intro h2 { margin:10px 0; font-size:24px; letter-spacing:-.6px; }
+.agent-intro p,.agent-how p { color:var(--muted); line-height:1.7; max-width:760px; }
+.agent-intro button { flex-shrink:0; }
+.agents-page .stats-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px; }
+.agents-page .stat-card { padding:20px; border:1px solid var(--line); border-radius:14px; background:#151516; }
+.agents-page .stat-card strong { display:block; margin-top:16px; font-size:32px; }
+.agents-page .stat-head { display:flex; align-items:center; justify-content:space-between; color:var(--muted); gap:12px; }
+.agents-page .stat-head svg { width:20px; height:20px; color:#ffaf35; }
+#agent-list { display:grid; gap:16px; }
+.agent-card { padding:24px; border:1px solid var(--line); background:#151516; border-radius:14px; }
+.agent-heading { display:flex; align-items:center; gap:16px; }
+.agent-heading h3 { margin:0 0 5px; overflow-wrap:anywhere; }
+.agent-heading p { margin:0; color:var(--muted); font-size:12px; }
+.agent-heading>.badge { margin-left:auto; flex-shrink:0; }
+.agent-facts { display:flex; flex-wrap:wrap; gap:24px; margin:24px 0; color:var(--muted); font-size:13px; }
+.agent-facts span { display:flex; align-items:center; gap:8px; }
+.agent-facts svg { width:16px; height:16px; }
+.agent-actions { display:flex; flex-wrap:wrap; gap:8px; }
+.agent-error { white-space:pre-wrap; overflow-wrap:anywhere; }
+.agent-how { padding:24px; }
+.agent-flow { display:flex; flex-wrap:wrap; align-items:center; gap:14px; margin:24px 0; }
+.agent-flow span { padding:12px 16px; border:1px solid #ffaf3540; border-radius:8px; color:#ffaf35; font-family:ui-monospace, SFMono-Regular, Consolas, monospace; font-size:12px; }
+.agent-flow>svg { width:18px; height:18px; color:var(--muted); }
+.agent-token { font-family:ui-monospace, SFMono-Regular, Consolas, monospace; font-size:12px; }
+.agent-inventory article { padding:16px 0; border-bottom:1px solid var(--line); }
+.agent-inventory h3 { display:flex; align-items:center; flex-wrap:wrap; gap:12px; }
+.agent-inventory p { color:var(--muted); font-size:13px; overflow-wrap:anywhere; }
+.agent-inventory pre,#agent-setup pre { padding:14px; background:#080809; border:1px solid var(--line); border-radius:8px; overflow-x:auto; }
+#agent-setup .modal-body { display:grid; gap:16px; }
+#agent-setup .modal-body>p { margin:0; line-height:1.6; }
+@media(max-width:900px) { .agents-page .stats-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .agent-intro { flex-direction:column; align-items:flex-start; } }
+@media(max-width:540px) { .agent-card,.agent-intro { padding:16px; } .agent-heading { flex-wrap:wrap; } .agent-heading>.badge { margin-left:0; } .agent-facts { gap:12px; } }

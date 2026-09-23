@@ -19,6 +19,7 @@ node --check ambergate/static/i18n.js
 node --check ambergate/static/app.js
 node --check ambergate/static/dashboard.js
 node --check ambergate/static/docker.js
+node --check ambergate/static/agents.js
 node --test tests/*.test.js
 python3 -m unittest discover -v
 docker compose config --quiet
@@ -32,7 +33,7 @@ docker run --rm --entrypoint python3 -v "$PWD/tests:/app/tests:ro" \
   local/ambergate:latest -m unittest discover -v
 ```
 
-CI additionally verifies real Docker discovery, published host ports, load balancing and DNS changes after container recreation. It checks installation inside an isolated Debian container.
+CI additionally verifies real Docker discovery, published host ports, load balancing and DNS changes after container recreation. It checks installation inside an isolated Debian container. `tests/agent_docker_smoke.py` additionally runs private application containers and an agent through a verified TLS proxy, checking balancing, uploads, central restart, lease expiration and revocation. Build `ambergate:ci` and `ambergate-agent:ci` (`Dockerfile.agent`) before running it.
 
 ## Project layout
 
@@ -42,6 +43,7 @@ CI additionally verifies real Docker discovery, published host ports, load balan
 | `ambergate/storage.py` | Drafts, active versions, apply and rollback |
 | `ambergate/server.py`, `ambergate/auth.py` | Admin API, static files and authentication |
 | `ambergate/metrics.py`, `ambergate/events.py` | Metrics collection and SSE delivery |
+| `ambergate/agent.py`, `ambergate/agents.py`, `ambergate/tunnel*.py` | Remote discovery, agent identities and outbound traffic tunnels |
 | `ambergate/docker.py` | Docker discovery and reachable targets |
 | `ambergate/static/` | Dependency-free panel, styles and RU/EN catalog |
 | `first-start.sh` | Debian/Ubuntu first-start installer |

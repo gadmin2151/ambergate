@@ -114,15 +114,24 @@ def discover(snapshot):
     return entries, errors[:100]
 
 
-def reconcile(config, entries):
+def reconcile(config, entries, frozen_sources=()):
     """Only Docker-owned routes/targets change; empty routes remain as 503 guards."""
     result = copy.deepcopy(config)
     hosts = {h["domain"].lower(): h for h in result["hosts"]}
-    groups, options = {}, {}
+    groups, options, ownership = {}, {}, {}
     for host in result["hosts"]:
         for route in host["routes"]:
             if "docker" in route:
+                sources = route["docker"].get("sources", {"local": route["docker"]["targets"]})
+                ownership[route["id"]] = {k: [copy.deepcopy(t) for t in v if t not in route["targets"]]
+                                          for k, v in sources.items() if k in frozen_sources}
                 route["docker"]["targets"] = []
+                for targets in ownership[route["id"]].values():
+                    for target in targets:
+                        if target not in route["docker"]["targets"] and target not in route["targets"]:
+                            route["docker"]["targets"].append(target)
+                if route["docker"]["managed"] and route["docker"]["targets"]:
+                    options[host["domain"].lower(), route["path"]] = {k: route[k] for k in DEFAULTS}
                 if not route["docker"]["managed"]:
                     groups.setdefault(route["docker"]["group"], []).append(route)
     for entry in entries:
@@ -156,10 +165,18 @@ def reconcile(config, entries):
                 raise ValueError("Conflicting weight/backup for the same upstream endpoint")
             if not existing:
                 targets.append(copy.deepcopy(target))
+            if target not in route["targets"]:
+                members = ownership.setdefault(route["id"], {}).setdefault(entry.get("source", "local"), [])
+                if target not in members:
+                    members.append(copy.deepcopy(target))
     for host in result["hosts"]:
         for route in host["routes"]:
             if "docker" in route:
                 route["docker"]["targets"].sort(key=lambda t: (t["address"], t["port"]))
+                sources = ownership.get(route["id"], {})
+                if "sources" in route["docker"] or any(k != "local" for k in sources):
+                    route["docker"]["sources"] = {k: sorted(v, key=lambda t: (t["address"], t["port"]))
+                                                 for k, v in sorted(sources.items())}
     return validate(result)
 
 
@@ -173,8 +190,8 @@ def changes(before, after):
 class LabelController:
     interval = 5
 
-    def __init__(self, store, docker):
-        self.store, self.docker = store, docker
+    def __init__(self, store, docker, agents=None):
+        self.store, self.docker, self.agents = store, docker, agents
         self.file = store.data / "labels.json"
         self.lock = threading.RLock()
         self.stopping = threading.Event()
@@ -210,21 +227,29 @@ class LabelController:
             state = dict(checked_at=time.time(), errors=[], warnings=[], changes=[], token=None,
                          applied_at=self.state["applied_at"])
             try:
-                if not snapshot["connected"]:
+                remote, warnings, configured = self.agents.routing() if self.agents else ([], [], False)
+                frozen = ()
+                if not snapshot["connected"] and not configured:
                     raise ValueError("Docker unavailable; routes kept unchanged")
-                if snapshot["truncated"]:
+                if snapshot["truncated"] and not configured:
                     raise ValueError("Docker inventory is incomplete (500 containers); routes kept unchanged")
-                entries, state["errors"] = discover(snapshot)
+                if not snapshot["connected"] or snapshot["truncated"]:
+                    entries, frozen = [], ("local",)
+                    if snapshot.get("settings", {}).get("enabled"):
+                        warnings.append("Local Docker unavailable; local targets kept unchanged")
+                else:
+                    entries, state["errors"] = discover(snapshot)
                 if state["errors"]:
                     self.state = state
                     return self.snapshot()
+                entries += remote
                 with self.store.lock:
                     active, draft = self.store.active_config(), self.store.draft_config()
                     groups = {r.get("docker", {}).get("group") for c in (active, draft)
                               for h in c["hosts"] for r in h["routes"]}
-                    state["warnings"] = sorted({f"No route uses group={e['spec']['group']}"
+                    state["warnings"] = sorted(set(warnings) | {f"No route uses group={e['spec']['group']}"
                         for e in entries if e["spec"]["group"] and e["spec"]["group"] not in groups})[:100]
-                    candidate, next_draft = reconcile(active, entries), reconcile(draft, entries)
+                    candidate, next_draft = reconcile(active, entries, frozen), reconcile(draft, entries, frozen)
                     state["changes"] = changes(active, candidate)
                     state["token"] = digest([active, draft, candidate, next_draft])
                     if token is not None and token != state["token"]:

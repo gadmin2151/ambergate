@@ -1,0 +1,11 @@
+FROM python:3.13-alpine
+LABEL org.opencontainers.image.title="AmberGate Agent" \
+      org.opencontainers.image.description="Outbound Docker discovery and reverse tunnel for AmberGate." \
+      org.opencontainers.image.source="https://github.com/gadmin2151/ambergate"
+WORKDIR /app
+COPY ambergate /app/ambergate
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+HEALTHCHECK --interval=15s --timeout=3s --start-period=20s --retries=3 \
+    CMD ["python3", "-m", "ambergate.agent", "--healthcheck"]
+STOPSIGNAL SIGTERM
+ENTRYPOINT ["python3", "-m", "ambergate.agent"]

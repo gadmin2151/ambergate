@@ -141,7 +141,9 @@ def validate(config):
                 integer(route[key], low, high, rp + "." + key)
             if "docker" in route:
                 docker = route["docker"]
-                obj(docker, ("managed", "group", "targets"), rp + ".docker")
+                if not isinstance(docker, dict):
+                    fail(rp, "неверный набор полей")
+                obj({k: v for k, v in docker.items() if k != "sources"}, ("managed", "group", "targets"), rp + ".docker")
                 boolean(docker["managed"], rp + ".docker.managed")
                 if not isinstance(docker["group"], str) or not re.fullmatch(r"[a-zA-Z0-9_-]{0,64}", docker["group"]):
                     fail(rp, "Docker group: 1–64 символа, буквы, цифры, _ или -")
@@ -150,6 +152,22 @@ def validate(config):
                 if docker["managed"] and (docker["group"] or route["targets"]):
                     fail(rp, "Label-маршрут использует только обнаруженные серверы")
                 sequence(docker["targets"], 0, 32, rp + ".docker.targets")
+                if "sources" in docker:
+                    sources = docker["sources"]
+                    if not isinstance(sources, dict) or len(sources) > 33:
+                        fail(rp, "Invalid Docker sources")
+                    recorded = []
+                    for source, members in sources.items():
+                        if not re.fullmatch(r"local|agent_[a-f0-9]{32}", source):
+                            fail(rp, "Invalid Docker source ID")
+                        sequence(members, 0, 32, rp + ".docker.sources")
+                        for member in members:
+                            if member not in docker["targets"]:
+                                fail(rp, "Docker source target does not match route")
+                            if member not in recorded:
+                                recorded.append(member)
+                    if any(t not in recorded for t in docker["targets"]):
+                        fail(rp, "Docker target has no source")
             sequence(route["targets"], 0 if "docker" in route else 1, 32, rp + ".targets")
             targets = route_targets(route)
             sequence(targets, 0 if "docker" in route else 1, 32, rp + ".targets")

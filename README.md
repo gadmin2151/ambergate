@@ -26,6 +26,7 @@ TLS stays with your existing reverse proxy. The panel generates and validates `n
 | **Multiple domains** | Independent routes and upstreams per domain; enable/disable domains; search and filters |
 | **Path routing** | `/`, `/api`, `/s3`, nested paths; preserve or strip the path prefix; correct path boundaries |
 | **Load balancing** | Round robin, least connections, IP hash; server weights and backup targets |
+| **Remote agents** | Docker containers with outbound HTTPS/WSS tunnels; private app ports, unique tokens, multi-machine balancing |
 | **Docker labels** | One-line route definitions, automatic replica balancing, manual groups, preview and safe auto-apply |
 | **Docker discovery** | Select containers and HTTP ports using `docker.sock`; shared-network DNS or published ports through the host IP |
 | **Response caching** | Per-route TTL, shared disk budget, public GET/HEAD responses; private requests bypass cache |
@@ -225,7 +226,15 @@ labels:
 
 Discovery uses running containers; it does not perform active HTTP readiness checks or filter Docker HEALTHCHECK results. Stopped/removed containers leave the discovered upstream set. If a route has no remaining manual or discovered targets, it stays present and responds **503**, so requests cannot fall through to another application. To permanently delete a label route, remove its label (and recreate the container), then delete the retained route in the panel. Label-owned route settings are read-only in the editor.
 
-Invalid labels, conflicting options, incomplete Docker inventory or unavailable Docker pause the entire update and retain the last valid configuration. Limits: 16 route labels/container, 4096 characters/label, 32 total upstreams/route, 50 routes/domain and 100 domains. Inventories reaching 500 containers are treated as incomplete. All state is local: `/data/docker.json`, `/data/labels.json`, drafts and immutable configuration revisions. Disabling labels or Docker freezes existing routes. Only label containers you trust: anyone able to create labeled containers on this daemon can influence routing when automation is enabled.
+Invalid local labels or conflicting route options pause the update and retain the last valid configuration. Incomplete or unavailable local Docker retains its targets; remote inventory failures follow the agent lease policy. Limits: 16 route labels/container, 4096 characters/label, 32 total upstreams/route, 50 routes/domain and 100 domains. Inventories reaching 500 containers are treated as incomplete. All state is local: `/data/docker.json`, `/data/labels.json`, drafts and immutable configuration revisions. Disabling labels freezes existing routes. With remote agents configured, unavailable local Docker freezes only its local targets; agent leases continue to be reconciled. Only label containers you trust: anyone able to create labeled containers on a connected daemon can influence routing when automation is enabled.
+
+## Remote Docker machines
+
+Run **AmberGate Agent** as a Docker container on each machine, with access to its `docker.sock` and application networks. Agents report labels and container state, then carry upstream traffic over outbound HTTPS/WSS tunnels. Neither apps nor agents need published ports. Matching labels combine replicas from different machines into a single load balancer.
+
+Open **Agents → Add agent** to generate a token and download a ready-to-run Compose file. The panel shows connection state through SSE, container inventory and token controls. Your existing external TLS proxy serves the central panel over HTTPS.
+
+**[Agent setup guide →](docs/agents.md)** · **[Agent Compose →](compose.agent.yaml)** · **[Complete example →](examples/agent.compose.yaml)**
 
 ## Know what is happening
 

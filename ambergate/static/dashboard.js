@@ -68,6 +68,7 @@ function startDashboardStream(force = false) {
       dashboardStreamState = 'live'; dashboardRetryDelay = 1000;
       watch(); renderDashboardSnapshot();
       if (typeof receiveDockerLabels === 'function') receiveDockerLabels(data);
+      if (typeof receiveAgents === 'function') receiveAgents(data);
     } catch { retry('Не удалось прочитать обновление. Переподключаемся'); }
   });
   source.addEventListener('stream_error', () => {

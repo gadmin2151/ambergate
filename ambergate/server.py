@@ -12,6 +12,9 @@ from urllib.parse import urlsplit
 from .storage import ApplyError, ConflictError
 from .docker import Docker
 from .labels import LabelController
+from .agents import Agents, AgentUnauthorized
+from .tunnel_hub import TunnelHub
+from .tunnel import upgrade
 from .events import DashboardEvents, event
 
 STATIC = Path(__file__).parent / "static"
@@ -26,15 +29,24 @@ class Server(ThreadingHTTPServer):
         self.store = store
         self.auth = auth
         self.docker = Docker(store.data)
-        self.labels = LabelController(store, self.docker)
+        self.tunnels = TunnelHub(store.data)
+        self.agents = Agents(store.data, self.tunnels)
+        self.labels = LabelController(store, self.docker, self.agents)
         self.events = DashboardEvents(self.dashboard)
-        self.slots = threading.BoundedSemaphore(32)
-        super().__init__(address, Handler)
+        # 32 agent control channels + 128 data streams + 16 SSE clients,
+        # leaving room for short admin requests under the bounded socket pool.
+        self.slots = threading.BoundedSemaphore(192)
+        try:
+            super().__init__(address, Handler)
+        except BaseException:
+            self.tunnels.stop()
+            raise
 
     def dashboard(self):
-        return {**self.store.dashboard(), "labels": self.labels.snapshot()}
+        return {**self.store.dashboard(), "labels": self.labels.snapshot(), "agents": self.agents.snapshot()}
 
     def serve_forever(self, poll_interval=.5):
+        self.tunnels.start()
         self.labels.start()
         try:
             super().serve_forever(poll_interval)
@@ -43,11 +55,13 @@ class Server(ThreadingHTTPServer):
 
     def shutdown(self):
         self.labels.stop()
+        self.tunnels.stop()
         self.events.stop()
         super().shutdown()
 
     def server_close(self):
         self.labels.stop()
+        self.tunnels.stop()
         self.events.stop()
         super().server_close()
 
@@ -109,8 +123,41 @@ class Handler(BaseHTTPRequestHandler):
         secure = "; Secure" if setting("SECURE_COOKIE", "false").lower() == "true" else ""
         return f"ambergate_session={token}; HttpOnly; SameSite=Strict; Path=/; Max-Age={age}{secure}"
 
+    def agent_tunnel(self, path):
+        authorization = self.headers.get("Authorization", "")
+        ws = None
+        try:
+            # Attach/claim under the identity lock so revocation cannot race an
+            # authenticated connection into existence after it was disconnected.
+            with self.server.agents.lock:
+                identity = self.server.agents.authenticate(authorization)
+                if path == "/api/agents/connect":
+                    ws = upgrade(self)
+                    self.server.tunnels.attach(identity, ws)
+                    pending = None
+                else:
+                    pending = self.server.tunnels.claim(identity, path.removeprefix("/api/agents/tunnel/"))
+                    try:
+                        ws = upgrade(self)
+                    except BaseException:
+                        self.server.tunnels.finish(pending)
+                        raise
+            if pending is None:
+                self.server.tunnels.control(identity, ws)
+            else:
+                self.server.tunnels.data(pending, ws)
+        except AgentUnauthorized as exc:
+            if ws is None:
+                self.respond(401, {"error": str(exc)})
+        except (ValueError, OSError) as exc:
+            if ws is None:
+                self.respond(400, {"error": str(exc)})
+        finally:
+            if ws:
+                ws.close()
+
     def stream_dashboard(self):
-        # Reserve half the request slots for login, edits and health checks.
+        # SSE has a separate cap, leaving slots for tunnels and admin requests.
         events = self.server.events
         if not events.subscribe():
             return self.respond(503, {"error": "Слишком много live-подключений"}, headers={"Retry-After": "3"})
@@ -145,6 +192,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         try:
             path = urlsplit(self.path).path
+            if path == "/api/agents/connect" or path.startswith("/api/agents/tunnel/"):
+                return self.agent_tunnel(path)
             if path == "/healthz":
                 healthy = self.server.store.status()["healthy"]
                 return self.respond(200 if healthy else 503, {"healthy": healthy})
@@ -154,6 +203,7 @@ class Handler(BaseHTTPRequestHandler):
                      "/dashboard.js": ("dashboard.js", "text/javascript; charset=utf-8"),
                      "/dashboard.css": ("dashboard.css", "text/css; charset=utf-8"),
                      "/docker.js": ("docker.js", "text/javascript; charset=utf-8"),
+                     "/agents.js": ("agents.js", "text/javascript; charset=utf-8"),
                      "/docker.css": ("docker.css", "text/css; charset=utf-8"),
                      "/style.css": ("style.css", "text/css; charset=utf-8"),
                      "/favicon.svg": ("favicon.svg", "image/svg+xml")}
@@ -177,6 +227,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(200, self.server.docker.snapshot(force=urlsplit(self.path).query == "refresh=1"))
             if path == "/api/docker/labels":
                 return self.respond(200, self.server.labels.snapshot())
+            if path == "/api/agents" or path.startswith("/api/agents/"):
+                return self.respond(200, self.server.agents.snapshot(None if path == "/api/agents" else path.rsplit("/", 1)[-1]))
             if path == "/api/export":
                 return self.respond(200, self.server.store.draft_config(), headers={"Content-Disposition": 'attachment; filename="ambergate-config.json"'})
             if path == "/api/active.conf":
@@ -184,6 +236,8 @@ class Handler(BaseHTTPRequestHandler):
             self.respond(404, {"error": "Не найдено"})
         except (BrokenPipeError, ConnectionResetError):
             pass
+        except (ValueError, KeyError, TypeError) as exc:
+            self.respond(400, {"error": str(exc)})
         except Exception as exc:
             print(f"admin error: {type(exc).__name__}: {exc}", flush=True)
             self.respond(500, {"error": "Ошибка сервера; проверьте логи контейнера"})
@@ -202,7 +256,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(413, {"error": "Максимальный размер запроса: 1 MiB"})
             path = urlsplit(self.path).path
             session = self.server.auth.session(self.token())
-            if path != "/api/login":
+            if path == "/api/agents/report":
+                self.server.agents.authenticate(self.headers.get("Authorization", ""))
+            elif path != "/api/login":
                 if not session:
                     return self.respond(401, {"error": "Войдите в панель управления"})
                 if not hmac.compare_digest(self.headers.get("X-CSRF-Token", ""), session["csrf"]):
@@ -210,6 +266,10 @@ class Handler(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(size))
             if not isinstance(body, dict):
                 raise ValueError("Ожидается JSON-объект")
+            if path == "/api/agents/report":
+                return self.respond(200, self.server.agents.report(self.headers.get("Authorization", ""), body))
+            if path == "/api/agents":
+                return self.respond(200, self.server.agents.mutate(body))
             if path == "/api/login":
                 result = self.server.auth.login(body.get("password"), self.client_address[0])
                 if result is None:
@@ -244,10 +304,12 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/restore":
                 return self.respond(200, self.server.store.restore(body["generation"], body["revision"]))
             self.respond(404, {"error": "Не найдено"})
+        except AgentUnauthorized as exc:
+            self.respond(401, {"error": str(exc)})
         except ConflictError as exc:
             self.respond(409, {"error": str(exc)})
         except PermissionError as exc:
-            self.respond(429, {"error": str(exc)}, headers={"Retry-After": "300"})
+            self.respond(429, {"error": str(exc)}, headers={"Retry-After": "1" if urlsplit(self.path).path == "/api/agents/report" else "300"})
         except (ValueError, KeyError, TypeError) as exc:
             self.respond(400, {"error": str(exc)})
         except ApplyError as exc:

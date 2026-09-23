@@ -55,7 +55,7 @@ function receiveDockerLabels(data) {
   }
   // Refresh read-only pages on revision changes. Never replace an open editor
   // or unsaved form, even if it is opened while the fetch is in flight.
-  const safe=()=>csrf && !dirty && !busy && !document.querySelector('dialog[open]') && ['routes','history','dashboard'].includes(page);
+  const safe=()=>csrf && state && config && !dirty && !busy && !document.querySelector('dialog[open]') && ['routes','history','dashboard'].includes(page);
   if(data.configuration.revision && data.configuration.revision!==state?.revision && safe() && !dockerConfigSync) {
     dockerConfigSync=true;
     const session=csrf, revision=state.revision;

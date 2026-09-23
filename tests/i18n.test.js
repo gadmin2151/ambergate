@@ -32,7 +32,7 @@ test('authored template text is translated while user data and escaping stay int
 });
 function panelFixture() {
   const f=fixture();
-  for(const name of ['dashboard','docker','app']){
+  for(const name of ['dashboard','docker','agents','app']){
     let code=fs.readFileSync(`ambergate/static/${name}.js`,'utf8');
     if(name==='app')code=code.slice(0,code.lastIndexOf('(async()=>'));
     f.run(code);
@@ -42,7 +42,7 @@ function panelFixture() {
 }
 test('pages, route settings and Docker diagnostics render in English',()=>{
   const f=panelFixture();
-  for(const expression of ['routesPage()','settingsPage()','cachePage()','historyPage()','dockerPage()','dashboardContent()'])assert.doesNotMatch(f.run(expression),/[А-Яа-яЁё]/,expression);
+  for(const expression of ['routesPage()','settingsPage()','cachePage()','historyPage()','dockerPage()','agentsPage()','dashboardContent()'])assert.doesNotMatch(f.run(expression),/[А-Яа-яЁё]/,expression);
   f.run("config.hosts.push({id:'host',domain:'example.com',enabled:true,routes:[newRoute('/api','API','backend',8000)]});");
   for(const expression of ['routesPage()','cachePage()'])assert.doesNotMatch(f.run(expression),/[А-Яа-яЁё]/,expression);
   f.context.document.querySelector=()=>({dataset:{},addEventListener(){}});
@@ -71,4 +71,20 @@ test('old language preference survives the AmberGate rename',()=>{
   assert.equal(vm.runInContext('language',context),'ru');
   vm.runInContext("setLanguage('en')",context);
   assert.equal(f.storage.get('ambergate.language'),'en');
+});
+
+
+test('initial SSE inventory does not read a configuration that is still loading',()=>{
+  const f=panelFixture();
+  f.run('state=null; config=null;');
+  assert.doesNotThrow(()=>f.run("receiveDockerLabels({configuration:{revision:'new'}})"));
+  assert.equal(f.run('dockerConfigSync'),false);
+});
+test('agent setup uses private ports, quotes YAML values and translates status',()=>{
+  const f=panelFixture();
+  const compose=f.run('agentCompose("test-token","https://gateway.example.com","private-apps")');
+  assert.match(compose,/docker.sock:ro/);assert.match(compose,/ambergate-agent:latest/);assert.doesNotMatch(compose,/ports:/);
+  assert.equal(f.run("agentStatus('online')"),'Connected');
+  f.run("agentsData={agents:[{id:'a',name:'<img onerror=bad>',status:'offline',timeout:30,containers:1,running:1,routes:1,tunnel:false}]};");
+  const html=f.run('agentList()');assert.match(html,/&lt;img/);assert.doesNotMatch(html,/<img onerror/);assert.doesNotMatch(html,/[А-Яа-яЁё]/);
 });

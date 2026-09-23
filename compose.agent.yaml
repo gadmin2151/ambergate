@@ -1,0 +1,31 @@
+services:
+  ambergate-agent:
+    image: ghcr.io/gadmin2151/ambergate-agent:latest
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    environment:
+      AMBERGATE_SERVER_URL: ${AMBERGATE_SERVER_URL:?Set the central HTTPS URL}
+      AMBERGATE_AGENT_TOKEN: ${AMBERGATE_AGENT_TOKEN:?Create an agent token in AmberGate}
+    volumes:
+      - type: bind
+        source: ${DOCKER_SOCKET_PATH:-/var/run/docker.sock}
+        target: /var/run/docker.sock
+        read_only: true
+        bind:
+          create_host_path: false
+    networks:
+      - applications
+    stop_grace_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+networks:
+  applications:
+    external: true
+    name: ${AMBERGATE_AGENT_NETWORK:-ambergate-apps}
