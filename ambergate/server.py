@@ -3,6 +3,8 @@ from http.cookies import SimpleCookie, CookieError
 from .environment import setting
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import hmac
+import io
+import time
 import json
 import os
 from pathlib import Path
@@ -16,6 +18,7 @@ from .agents import Agents, AgentUnauthorized
 from .tunnel_hub import TunnelHub
 from .tunnel import upgrade
 from .settings import GeneralSettings, HttpConfirmationRequired
+from .http_security import Admission, DeadlineReader, TrustedProxies
 from .events import DashboardEvents, event
 from .certificates import Certificates
 
@@ -30,16 +33,16 @@ class Server(ThreadingHTTPServer):
     def __init__(self, address, store, auth):
         self.store = store
         self.auth = auth
+        self.trusted_proxies = TrustedProxies(setting("ADMIN_TRUSTED_PROXIES", ""))
         self.docker = Docker(store.data)
         self.settings = GeneralSettings(store.data)
-        self.tunnels = TunnelHub(store.data)
+        configs = [store.draft, *store.revisions.glob("*/config.json")] if hasattr(store, "revisions") else None
+        self.tunnels = TunnelHub(store.data, config_paths=configs)
         self.agents = Agents(store.data, self.tunnels)
         self.labels = LabelController(store, self.docker, self.agents)
         self.certificates = Certificates(store)
         self.events = DashboardEvents(self.dashboard)
-        # 32 agent control channels + 128 data streams + 16 SSE clients,
-        # leaving room for short admin requests under the bounded socket pool.
-        self.slots = threading.BoundedSemaphore(192)
+        self.admission = Admission(self.trusted_proxies)
         try:
             super().__init__(address, Handler)
         except BaseException:
@@ -74,33 +77,57 @@ class Server(ThreadingHTTPServer):
         super().server_close()
 
     def process_request(self, request, client_address):
-        if not self.slots.acquire(blocking=False):
+        if not self.admission.enter(request, client_address[0]):
             self.shutdown_request(request)
             return
         try:
             super().process_request(request, client_address)
         except Exception:
-            self.slots.release()
+            self.admission.leave(request)
             raise
 
     def process_request_thread(self, request, client_address):
         try:
             super().process_request_thread(request, client_address)
         finally:
-            self.slots.release()
+            self.admission.leave(request)
 
 
 class Handler(BaseHTTPRequestHandler):
     server_version = "AmberGate"
     sys_version = ""
 
+    header_timeout = 10
+    body_timeout = 30
+
     def setup(self):
         super().setup()
+        self.rfile.close()
+        started = self.server.admission.requests[self.connection][2]
+        self.reader = DeadlineReader(self.connection, started + self.header_timeout)
+        self.rfile = io.BufferedReader(self.reader)
         self.connection.settimeout(15)
+
+    def parse_request(self):
+        parsed = super().parse_request()
+        if parsed:
+            self.reader.deadline = None
+            self.connection.settimeout(15)
+            self.client_identity = self.server.trusted_proxies.client(self.client_address[0], self.headers)
+            if not self.server.admission.identify(self.connection, self.client_identity):
+                self.respond(503, {"error": "Too many pending requests from this client."}, headers={"Retry-After": "1"})
+                return False
+        return parsed
+
+    def admit(self, kind):
+        if self.server.admission.promote(self.connection, kind):
+            return True
+        self.respond(503, {"error": "Control plane is busy. Retry shortly."}, headers={"Retry-After": "1"})
+        return False
 
     def log_message(self, fmt, *args):
         # Request bodies/passwords and query strings never enter admin logs.
-        print(f"admin {self.client_address[0]} {self.command} {urlsplit(self.path).path} {args[1] if len(args) > 1 else ''}", flush=True)
+        print(f"admin {self.client_address[0]} {getattr(self, 'command', '-')} {urlsplit(getattr(self, 'path', '')).path} {args[1] if len(args) > 1 else ''}", flush=True)
 
     def respond(self, status, value, mime="application/json; charset=utf-8", headers=None):
         if isinstance(value, (dict, list)):
@@ -139,6 +166,8 @@ class Handler(BaseHTTPRequestHandler):
             # authenticated connection into existence after it was disconnected.
             with self.server.agents.lock:
                 identity = self.server.agents.authenticate(authorization)
+                if not self.admit("agent"):
+                    return
                 if path == "/api/agents/connect":
                     ws = upgrade(self)
                     self.server.tunnels.attach(identity, ws)
@@ -222,6 +251,8 @@ class Handler(BaseHTTPRequestHandler):
             session = self.server.auth.session(self.token())
             if not session:
                 return self.respond(401, {"error": "Войдите в панель управления"})
+            if not self.admit("admin"):
+                return
             if path == "/api/session":
                 return self.respond(200, {"csrf": session["csrf"]})
             if path == "/api/config":
@@ -245,6 +276,8 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/active.conf":
                 return self.respond(200, (self.server.store.active / "nginx.conf").read_text(), "text/plain; charset=utf-8")
             self.respond(404, {"error": "Не найдено"})
+        except TimeoutError:
+            self.close_connection = True
         except (BrokenPipeError, ConnectionResetError):
             pass
         except (ValueError, KeyError, TypeError) as exc:
@@ -269,12 +302,21 @@ class Handler(BaseHTTPRequestHandler):
             session = self.server.auth.session(self.token())
             if path == "/api/agents/report":
                 self.server.agents.authenticate(self.headers.get("Authorization", ""))
+                if not self.admit("report"):
+                    return
             elif path != "/api/login":
                 if not session:
                     return self.respond(401, {"error": "Войдите в панель управления"})
                 if not hmac.compare_digest(self.headers.get("X-CSRF-Token", ""), session["csrf"]):
                     return self.respond(403, {"error": "Неверный CSRF-токен. Обновите страницу."})
-            body = json.loads(self.rfile.read(size))
+                if not self.admit("admin"):
+                    return
+            self.reader.deadline = time.monotonic() + self.body_timeout
+            try:
+                body = json.loads(self.rfile.read(size))
+            finally:
+                self.reader.deadline = None
+                self.connection.settimeout(15)
             if not isinstance(body, dict):
                 raise ValueError("Ожидается JSON-объект")
             if path == "/api/agents/report":
@@ -287,7 +329,7 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/settings":
                 return self.respond(200, self.server.settings.save(body["settings"], body["revision"], body.get("confirm_http", False)))
             if path == "/api/login":
-                result = self.server.auth.login(body.get("password"), self.client_address[0])
+                result = self.server.auth.login(body.get("password"), self.client_identity)
                 if result is None:
                     return self.respond(401, {"error": "Неверный пароль"})
                 token, session = result
@@ -327,11 +369,13 @@ class Handler(BaseHTTPRequestHandler):
         except ConflictError as exc:
             self.respond(409, {"error": str(exc)})
         except PermissionError as exc:
-            self.respond(429, {"error": str(exc)}, headers={"Retry-After": "1" if urlsplit(self.path).path == "/api/agents/report" else "300"})
+            self.respond(429, {"error": str(exc)}, headers={"Retry-After": "1" if urlsplit(self.path).path == "/api/agents/report" else str(getattr(exc, "retry_after", 300))})
         except (ValueError, KeyError, TypeError) as exc:
             self.respond(400, {"error": str(exc)})
         except ApplyError as exc:
             self.respond(422, {"error": str(exc)})
+        except TimeoutError:
+            self.close_connection = True
         except (BrokenPipeError, ConnectionResetError):
             pass
         except Exception as exc:

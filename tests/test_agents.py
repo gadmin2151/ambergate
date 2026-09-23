@@ -62,6 +62,8 @@ class RegistryTests(unittest.TestCase):
     def test_lease_last_good_and_target_ownership(self):
         aid, auth = self.create()
         self.assertTrue(self.agents.report(auth, report())['ok'])
+        with self.agents.materialize(reconcile(config(), self.agents.routing()[0])):
+            pass
         entries, warnings, configured = self.agents.routing()
         self.assertTrue(configured)
         self.assertFalse(warnings)

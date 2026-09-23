@@ -22,6 +22,8 @@
 [![AmberGate live dashboard](docs/screenshots/dashboard.en.png)](docs/screenshots/dashboard.en.png)
 <p align="center"><sub>Actual AmberGate UI on an isolated demo instance. Example domains and locally generated test traffic; no production data.</sub></p>
 
+> **v0.2.0:** bounded admin requests, per-agent tunnel quotas and trusted-proxy login limits. [Upgrade notes](CHANGELOG.md#020--2026-09-23) · [Control-panel setup](docs/control-plane-security.md)
+
 ## What you can configure
 
 | Capability | What it does |

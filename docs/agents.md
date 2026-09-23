@@ -90,7 +90,7 @@ The route displays the agent, container and application port. Traffic uses a per
 
 **Existing agents need an image update for manual selection.** The picker detects older agents and explains this instead of generating an unusable route. For Compose, run `docker compose -f compose.agent.yaml pull` followed by `docker compose -f compose.agent.yaml up -d`. For Docker run, generate a **New token** in the agent card and recreate the old agent with the new installation command. Update central AmberGate first.
 
-Manual registrations are stored in `/data/agent-manual.json`, with stable ports in `/data/agent-ports.json`. Back up the entire `/data` directory with routes; route JSON alone cannot transfer these host-local tunnel mappings to another installation. Removing a route does not recycle its port, so history cannot silently point to another container. The shared limit is 1024 retained tunnel mappings.
+Manual registrations are stored in `/data/agent-manual.json`, with stable ports in `/data/agent-ports.json`. Back up the entire `/data` directory with routes; route JSON alone cannot transfer these host-local tunnel mappings to another installation. Removing a route does not recycle a port still referenced by retained history, a draft or manual selections, so history cannot silently point to another container. The shared limit is 1024 retained tunnel mappings.
 
 ## Compact labels, private container ports
 
@@ -130,6 +130,7 @@ location / {
     proxy_http_version 1.1;
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-For $remote_addr;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection "upgrade";
     proxy_read_timeout 90s;
@@ -149,7 +150,7 @@ For a private CA, mount its PEM bundle in the agent and set `AMBERGATE_AGENT_CA_
 - In **Auto** mode, expired agents are removed on the next reconciliation (up to 5 additional seconds). Other agents and manually configured targets remain. An empty managed route returns **503**.
 - **Preview** proposes configuration changes; **Off** leaves configuration unchanged. Tunnel disconnection still fails upstream connections immediately, allowing Nginx to try a remaining healthy target.
 - Disabling, deleting or rotating a token immediately disconnects that agent's tunnel and rejects the old token. Rotation requires updating and restarting the remote agent.
-- Agents reconnect automatically after a central restart. Stable local upstream mappings survive restarts and container recreation by name. They are never reassigned to another application, so old configuration history cannot accidentally route to an unrelated target.
+- Agents reconnect automatically after a central restart. Stable local upstream mappings survive restarts and container recreation by name. Mappings referenced by the saved draft, retained configuration history or manual selections are preserved, so an old revision cannot route to another application. Unreferenced mappings are removed at central startup.
 - Central stores token **hashes**, inventory, source ownership and port mappings under `/data`. Back up the complete data directory. Agent tokens must be saved separately on their remote machines.
 
 ## Settings and limits
@@ -169,3 +170,11 @@ For a private CA, mount its PEM bundle in the agent and set `AMBERGATE_AGENT_CA_
 Initial bounds: **32 agents**, **32 simultaneous upstream TCP streams per agent**, **128 total tunnel streams**, **500 containers per report**, **1 MiB per report**, and **1024 retained tunnel target mappings**. Normal route limits also apply (32 combined targets per route). Idle upstream keepalives expire after 5 seconds for routes using remote agents. Each active stream uses an outbound WebSocket; long-lived SSE and WebSocket application connections count toward the stream limit.
 
 The agent reads only Docker metadata needed for inventory and routing; environment variables, mounts and unrelated labels are not reported. Docker socket access still grants privileged host access at the API level: a `:ro` bind mount does not enforce read-only Docker operations. Run agents only on trusted machines and keep their tokens private.
+
+## v0.2.0 control-plane limits
+
+Container reports and label previews do not reserve new tunnel listeners. Applying accepted label changes or selecting a container manually reserves the required targets as one batch. The default quota is **128 persistent targets per agent**, configurable on the **central gateway** with `AMBERGATE_AGENT_TARGET_LIMIT=1..512`; the total remains 1024. Existing targets remain usable even if an upgraded installation is above its new quota. Quota errors affect that agent's new targets and still allow its manual inventory to refresh.
+
+At startup, central removes unreferenced old reservations. It preserves addresses found in the saved draft, all retained revisions and manual selections. Back up the full `/data` directory before upgrading. Existing routes still follow same-name container recreation when labels are Off.
+
+For correct login limits behind your HTTPS proxy, set **central** `AMBERGATE_ADMIN_TRUSTED_PROXIES` to the proxy's exact source IP/CIDR as seen by the admin listener. The example above overwrites `X-Forwarded-For` with the client address. Do not include untrusted client networks. This setting is separate from the application gateway's trusted-proxy settings. See [control-panel protection](control-plane-security.md).

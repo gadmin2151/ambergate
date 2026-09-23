@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.2.0 — 2026-09-23
+
+### Control-plane reliability and security
+
+- Absolute deadlines for reading admin HTTP headers and request bodies, bounded pending connections per source, and separate capacity for authenticated admin requests, agent reports and tunnel streams. SSE and WebSocket streams keep their own lifetime rules.
+- Container inventories and label previews no longer reserve tunnel ports. Accepted targets are allocated as a batch with rollback on failure and a default quota of 128 persistent targets per agent. Existing route addresses and retained history remain stable.
+- Explicit trusted admin proxies, independent client login budgets, accurate retry hints and bounded password verification that does not hold the session lock. Forwarded client IPs from untrusted connections are ignored.
+- Regression coverage for slow input, proxy attribution, resource quotas, upgrade state and long-lived connections.
+
+### Upgrade notes
+
+Back up `/data`, then update the gateway and agent images to `0.2.0`. The agent wire protocol remains compatible. Central startup removes reservations absent from the saved draft, retained revisions and manual selections; referenced addresses remain unchanged. Existing targets above the new quota still work.
+
+Set `AMBERGATE_ADMIN_TRUSTED_PROXIES` on the gateway when using a reverse proxy, and have that proxy overwrite `X-Forwarded-For` with the actual client address. Empty trust lists ignore forwarded IPs. Tune `AMBERGATE_AGENT_TARGET_LIMIT` on the gateway if needed (1–512; default 128; total 1024). The supplied Compose files pass both settings from `.env`. These changes do not enable TLS on admin port 8083; keep it private or behind a protected HTTPS proxy.
+
+[English setup](docs/control-plane-security.md) · [Настройка на русском](docs/control-plane-security.ru.md)
+
 ## 0.1.0 — 2026-09-23
 
 First public versioned release of AmberGate. This is an early project; test upgrades against your applications and keep a private backup of `/data`.

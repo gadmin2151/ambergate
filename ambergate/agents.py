@@ -1,5 +1,6 @@
 """Agent identities, bounded inventory and source-scoped routing leases."""
 import copy
+from contextlib import contextmanager
 import hashlib
 import hmac
 import ipaddress
@@ -149,7 +150,20 @@ class Agents:
         for agent in self.definitions:
             path = self.directory / (agent["id"] + ".json")
             if path.exists():
-                self.reports[agent["id"]] = json.loads(path.read_text())
+                report = json.loads(path.read_text())
+                if "routes" not in report:
+                    # Old preview-only reservations may have been pruned at startup.
+                    # Reconstruct logical targets, never reuse a now-unowned numeric port.
+                    routes = []
+                    for entry in report.get("entries", []):
+                        key = self.hub.key(agent["id"], entry["container"], entry["spec"]["port"])
+                        destination = report.get("destinations", {}).get(key)
+                        if destination:
+                            routes.append(dict(spec=entry["spec"], container=entry["container"], target_id=destination))
+                    report["routes"] = routes
+                    report.pop("entries", None)
+                    report.pop("destinations", None)
+                self.reports[agent["id"]] = report
 
     def revision(self):
         return digest(self.definitions)
@@ -240,18 +254,30 @@ class Agents:
             if len(self.manual) + len(additions) > 1024:
                 raise ValueError("Agent tunnel target limit reached (1024)")
             result = []
-            for target in selected:
-                _, port = self.hub.endpoint(target["id"], target["container"], target["port"])
-                result.append(dict(address="127.0.0.1", port=port, weight=1, backup=False, agent=target))
-            if additions:
-                write_json(self.manual_file, self.manual + additions)
-                self.manual += additions
-            self.refresh_targets(agent, report)
+            def retained():
+                saved = json.loads(self.manual_file.read_text()) if self.manual_file.exists() else []
+                return {self.hub.lookup(t["id"], t["container"], t["port"])[1] for t in saved}
+            with self.hub.reserve([(t["id"], t["container"], t["port"]) for t in selected], retain=retained) as ports:
+                for target in selected:
+                    port = ports[self.hub.key(target["id"], target["container"], target["port"])]
+                    result.append(dict(address="127.0.0.1", port=port, weight=1, backup=False, agent=target))
+                if additions:
+                    write_json(self.manual_file, self.manual + additions)
+                    self.manual += additions
+                self.refresh_targets(agent, report)
             return dict(targets=result)
 
     def refresh_targets(self, agent, report):
         now = self.clock()
-        destinations = dict(report.get("destinations", {})) if 0 <= now - report.get("valid_at", 0) < agent["timeout"] else {}
+        destinations = {}
+        if 0 <= now - report.get("valid_at", 0) < agent["timeout"]:
+            for route in report.get("routes", []):
+                key, port = self.hub.lookup(agent["id"], route["container"], route["spec"]["port"])
+                if port is not None:
+                    destinations[key] = route["target_id"]
+            # Upgrade compatibility: old reports already contain allocated destinations.
+            if "routes" not in report:
+                destinations.update(report.get("destinations", {}))
         raw = report.get("inventory", {})
         manual_live = (agent["enabled"] and report.get("manual_routing") and raw.get("connected")
                        and not raw.get("truncated") and 0 <= now - report.get("seen_at", 0) < agent["timeout"])
@@ -260,7 +286,9 @@ class Agents:
                     and reachable_container(c)}
             for target in self.manual:
                 if target["id"] == agent["id"] and target["container"] in rows:
-                    key, _ = self.hub.endpoint(agent["id"], target["container"], target["port"])
+                    key, port = self.hub.lookup(agent["id"], target["container"], target["port"])
+                    if port is None:
+                        continue
                     destinations[key] = f"docker:{rows[target['container']]['id']}:{target['port']}"
         if not agent["enabled"]:
             destinations = {}
@@ -284,16 +312,22 @@ class Agents:
                 errors = ["Agent inventory is incomplete (500 containers)"]
             elif not self.hub.connected(identity):
                 errors = ["Agent tunnel is not connected"]
+            if not errors:
+                try:
+                    self.hub.check_capacity([self.hub.key(identity, r["container"], r["spec"]["port"]) for r in routes])
+                except ValueError as exc:
+                    errors = [str(exc)]
+                    # A new target over quota must not expire working targets or
+                    # prevent their destination changing after container recreation.
+                    state.update(valid_at=now, routes=[r for r in routes if self.hub.lookup(
+                        identity, r["container"], r["spec"]["port"])[1] is not None])
             if errors:
                 state["error"] = "\n".join(errors)[:8000]
             else:
-                destinations, entries = {}, []
-                for route in routes:
-                    key, port = self.hub.endpoint(identity, route["container"], route["spec"]["port"])
-                    destinations[key] = route["target_id"]
-                    entries.append(dict(spec=route["spec"], container=route["container"], source="agent_" + identity,
-                                        target=dict(address="127.0.0.1", port=port, weight=route["spec"]["weight"], backup=route["spec"]["backup"])))
-                state.update(valid_at=now, entries=entries, destinations=destinations)
+                # Inventory is data, not authorization to allocate persistent listeners.
+                state.update(valid_at=now, routes=routes)
+                state.pop("entries", None)
+                state.pop("destinations", None)
             write_json(self.directory / (identity + ".json"), state)
             self.reports[identity] = state
             self.refresh_targets(self.find(identity), state)
@@ -318,7 +352,7 @@ class Agents:
                              docker_connected=report.get("inventory", {}).get("connected", False),
                              truncated=report.get("inventory", {}).get("truncated", False),
                              error=report.get("error", ""), containers=len(rows), running=sum(c["state"] == "running" for c in rows),
-                             routes=len(report.get("entries", [])), engine_version=report.get("inventory", {}).get("engine_version", ""))
+                             routes=len(report.get("routes", report.get("entries", []))), engine_version=report.get("inventory", {}).get("engine_version", ""))
                 if identity:
                     value["inventory"] = rows
                 agents.append(value)
@@ -332,8 +366,55 @@ class Agents:
                 report = self.reports.get(agent["id"], {})
                 age = now - report.get("valid_at", 0)
                 if agent["enabled"] and 0 <= age < agent["timeout"]:
-                    entries += copy.deepcopy(report.get("entries", []))
+                    if "routes" not in report:
+                        entries += copy.deepcopy(report.get("entries", []))
+                    for route in report.get("routes", []):
+                        key, port = self.hub.lookup(agent["id"], route["container"], route["spec"]["port"])
+                        address = "127.0.0.1" if port is not None else self.pending_address(key)
+                        entries.append(dict(spec=copy.deepcopy(route["spec"]), container=route["container"],
+                            source="agent_" + agent["id"], target=dict(address=address,
+                            port=port or route["spec"]["port"], weight=route["spec"]["weight"], backup=route["spec"]["backup"])))
                 self.refresh_targets(agent, report)
                 if agent["enabled"] and (report.get("error") or report and age >= agent["timeout"]):
                     warnings.append(agent["name"] + ": " + (report.get("error") or "Agent lease expired"))
             return entries, warnings, self.file.exists()
+
+    @staticmethod
+    def pending_address(key):
+        # Only appears in review output; materialize replaces it before saving/applying.
+        return "pending-" + hashlib.sha256(key.encode()).hexdigest()[:32] + ".invalid"
+
+    @contextmanager
+    def materialize(self, *configs, retain=None):
+        with self.lock:
+            pending = {}
+            for agent in self.definitions:
+                report = self.reports.get(agent["id"], {})
+                if not agent["enabled"] or not 0 <= self.clock() - report.get("valid_at", 0) < agent["timeout"]:
+                    continue
+                for route in report.get("routes", []):
+                    target = (agent["id"], route["container"], route["spec"]["port"])
+                    pending[self.pending_address(self.hub.key(*target))] = target
+            selected = {}
+            def visit(value, convert=False, ports=None):
+                if isinstance(value, dict):
+                    address = value.get("address", "")
+                    if isinstance(address, str) and address.startswith("pending-") and address.endswith(".invalid"):
+                        if address not in pending:
+                            raise ConflictError("Agent inventory changed. Review routes again.")
+                        selected[address] = pending[address]
+                        if convert:
+                            value["address"] = "127.0.0.1"
+                            value["port"] = ports[self.hub.key(*pending[address])]
+                    for child in value.values():
+                        visit(child, convert, ports)
+                elif isinstance(value, list):
+                    for child in value:
+                        visit(child, convert, ports)
+            result = copy.deepcopy(configs)
+            visit(list(result))
+            with self.hub.reserve(selected.values(), retain=retain) as ports:
+                visit(list(result), True, ports)
+                for agent in self.definitions:
+                    self.refresh_targets(agent, self.reports.get(agent["id"], {}))
+                yield result

@@ -1,5 +1,6 @@
 """Loopback-only Nginx upstreams backed by agent-initiated WebSockets."""
 import json
+from contextlib import contextmanager
 import secrets
 import selectors
 import socket
@@ -7,11 +8,18 @@ import threading
 import time
 
 from .storage import write_json
+from .environment import setting
 from .tunnel import bridge, close_tcp
 
 
 class TunnelHub:
-    def __init__(self, data):
+    capacity = 1024
+    agent_capacity = 128
+
+    def __init__(self, data, config_paths=None):
+        self.agent_capacity = int(setting("AGENT_TARGET_LIMIT", str(self.agent_capacity)))
+        if not 1 <= self.agent_capacity <= 512:
+            raise ValueError("AGENT_TARGET_LIMIT must be between 1 and 512")
         self.file = data / "agent-ports.json"
         self.lock = threading.RLock()
         self.selector = selectors.DefaultSelector()
@@ -27,10 +35,35 @@ class TunnelHub:
             for key, port in self.ports.items():
                 if not isinstance(key, str) or type(port) is not int or not 1024 <= port <= 65535:
                     raise ValueError("Invalid persisted agent port mapping")
+            if config_paths is not None:
+                self.prune_unreferenced(data, config_paths)
+            for key, port in self.ports.items():
                 self.listen(key, port)
         except BaseException:
             self.stop()
             raise
+
+    def prune_unreferenced(self, data, paths):
+        """Startup migration: preserve draft, every retained revision and manual selections."""
+        referenced = set()
+        def visit(value):
+            if isinstance(value, dict):
+                if value.get("address") == "127.0.0.1" and type(value.get("port")) is int:
+                    referenced.add(value["port"])
+                for child in value.values():
+                    visit(child)
+            elif isinstance(value, list):
+                for child in value:
+                    visit(child)
+        for path in paths:
+            visit(json.loads(path.read_text()))
+        manual_file = data / "agent-manual.json"
+        manual = json.loads(manual_file.read_text()) if manual_file.exists() else []
+        selected = {self.key(t["id"], t["container"], t["port"]) for t in manual}
+        kept = {key: port for key, port in self.ports.items() if port in referenced or key in selected}
+        if kept != self.ports:
+            write_json(self.file, kept)
+            self.ports = kept
 
     def listen(self, key, port):
         listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -46,23 +79,72 @@ class TunnelHub:
             listener.close()
             raise
 
-    def endpoint(self, agent_id, name, port):
-        # Stable across recreation of a Compose replica with the same name.
-        key = json.dumps([agent_id, name, port], separators=(",", ":"))
+    @staticmethod
+    def key(agent_id, name, port):
+        return json.dumps([agent_id, name, port], separators=(",", ":"))
+
+    def lookup(self, agent_id, name, port):
         with self.lock:
-            if key not in self.ports:
-                if len(self.ports) >= 1024:
-                    raise ValueError("Agent tunnel target limit reached (1024)")
-                assigned = self.listen(key, 0)
-                try:
-                    write_json(self.file, {**self.ports, key: assigned})
-                except BaseException:
+            key = self.key(agent_id, name, port)
+            return key, self.ports.get(key)
+
+    @contextmanager
+    def reserve(self, targets, retain=None):
+        """Preflight a complete authorized batch; failed operations leave no new ports."""
+        keys = list(dict.fromkeys(self.key(*target) for target in targets))
+        added = {}
+        with self.lock:
+            new = self.check_capacity(keys)
+            try:
+                for key in new:
+                    added[key] = self.listen(key, 0)
+                if added:
+                    write_json(self.file, {**self.ports, **added})
+                self.ports.update(added)
+            except BaseException:
+                for key in added:
                     listener = self.listeners.pop(key)
                     self.selector.unregister(listener)
                     listener.close()
-                    raise
-                self.ports[key] = assigned
-            return key, self.ports[key]
+                raise
+        try:
+            yield {key: self.ports[key] for key in keys}
+        except BaseException:
+            with self.lock:
+                # Callers serialize reservations through the agent registry lock.
+                try:
+                    keep = retain() if retain is not None else set()
+                except Exception:
+                    # Uncertain commit state: retain mappings rather than break routing.
+                    keep = set(added.values())
+                dropped = {k for k, port in added.items() if port not in keep}
+                remaining = {k: v for k, v in self.ports.items() if k not in dropped}
+                if dropped:
+                    write_json(self.file, remaining)
+                self.ports = remaining
+                for key in dropped:
+                    listener = self.listeners.pop(key)
+                    self.selector.unregister(listener)
+                    listener.close()
+                    for targets in self.destinations.values():
+                        targets.pop(key, None)
+            raise
+
+    def check_capacity(self, keys):
+        with self.lock:
+            new = set(keys) - self.ports.keys()
+            if new and len(self.ports) + len(new) > self.capacity:
+                raise ValueError(f"Agent tunnel target limit reached ({self.capacity})")
+            for identity in {json.loads(key)[0] for key in new}:
+                count = sum(json.loads(key)[0] == identity for key in list(self.ports) + list(new))
+                if count > self.agent_capacity:
+                    raise ValueError(f"Agent tunnel target quota reached ({self.agent_capacity} per agent)")
+            return sorted(new)
+
+    def endpoint(self, agent_id, name, port):
+        with self.reserve([(agent_id, name, port)]) as ports:
+            key = self.key(agent_id, name, port)
+            return key, ports[key]
 
     def targets(self, agent_id, destinations, ttl=None):
         with self.lock:

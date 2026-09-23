@@ -88,6 +88,23 @@ class Store:
     def draft_config(self):
         return validate(json.loads(self.draft.read_text()))
 
+    def referenced_agent_ports(self):
+        """Include partially committed generations when deciding allocation rollback."""
+        with self.lock:
+            ports = set()
+            def visit(value):
+                if isinstance(value, dict):
+                    if value.get("address") == "127.0.0.1" and type(value.get("port")) is int:
+                        ports.add(value["port"])
+                    for child in value.values():
+                        visit(child)
+                elif isinstance(value, list):
+                    for child in value:
+                        visit(child)
+            for path in [self.draft, self.active / "config.json", *self.revisions.glob("*/config.json")]:
+                visit(json.loads(path.read_text()))
+            return ports
+
     def prepare(self, config):
         config = validate(config)
         generation = uuid.uuid4().hex

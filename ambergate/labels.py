@@ -1,5 +1,6 @@
 """Bounded, read-only Docker label discovery and transactional Nginx updates."""
 import copy
+from contextlib import nullcontext
 import json
 import re
 import threading
@@ -258,13 +259,16 @@ class LabelController:
                         # Active settings and the saved draft are reconciled separately.
                         # Saving first gives a recoverable pending draft after a crash;
                         # failed validation/reload restores it exactly.
-                        write_json(self.store.draft, next_draft)
-                        try:
-                            if active != candidate:
-                                self.store.apply_config(candidate)
-                        except Exception:
-                            write_json(self.store.draft, draft)
-                            raise
+                        allocation = self.agents.materialize(candidate, next_draft,
+                            retain=self.store.referenced_agent_ports) if self.agents else nullcontext((candidate, next_draft))
+                        with allocation as (candidate, next_draft):
+                            write_json(self.store.draft, next_draft)
+                            try:
+                                if active != candidate:
+                                    self.store.apply_config(candidate)
+                            except Exception:
+                                write_json(self.store.draft, draft)
+                                raise
                         state["applied_at"] = time.time()
                         state["changes"] = []
                         state["token"] = None

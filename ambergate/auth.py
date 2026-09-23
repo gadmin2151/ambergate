@@ -2,12 +2,19 @@ from .environment import setting
 import hashlib
 import hmac
 import json
+import math
 import os
 import secrets
 import threading
 import time
 
 from .storage import write_json
+
+
+class LoginLimited(PermissionError):
+    def __init__(self, retry_after):
+        self.retry_after = max(1, math.ceil(retry_after))
+        super().__init__("Too many login attempts. Retry shortly.")
 
 
 def hash_password(password, salt):
@@ -20,6 +27,8 @@ class Auth:
         self.lock = threading.RLock()
         self.sessions = {}
         self.attempts = {}
+        self.login_slots = threading.BoundedSemaphore(4)
+        self.login_sources = set()
         if not self.path.exists():
             password = setting("ADMIN_PASSWORD") or secrets.token_urlsafe(20)
             self.set_password(password)
@@ -44,12 +53,28 @@ class Auth:
     def login(self, password, source):
         with self.lock:
             now = time.monotonic()
-            self.attempts = {k: v for k, v in self.attempts.items() if v[1] > now}
-            count, expires = self.attempts.get(source, (0, now + 300))
-            if count >= 10 or len(self.attempts) >= 10000:
-                raise PermissionError("Слишком много попыток. Повторите через 5 минут.")
-            self.attempts[source] = (count + 1, expires)
-            if not self.verify(password):
+            self.attempts = {k: v for k, v in self.attempts.items() if now - v[1] < 300}
+            credit, previous = self.attempts.get(source, (10, now))
+            credit = min(10, credit + (now - previous) / 30)
+            if credit < 1:
+                raise LoginLimited((1 - credit) * 30)
+            if source in self.login_sources or (source not in self.attempts and len(self.attempts) >= 10000):
+                raise LoginLimited(1)
+            if not self.login_slots.acquire(blocking=False):
+                raise LoginLimited(1)
+            self.login_sources.add(source)
+            self.attempts[source] = (credit - 1, now)
+            credentials = self.credentials
+        try:
+            # Expensive password work cannot block session checks, SSE or logout.
+            valid = isinstance(password, str) and len(password) <= 256 and hmac.compare_digest(
+                credentials["hash"], hash_password(password, credentials["salt"]))
+        finally:
+            with self.lock:
+                self.login_sources.discard(source)
+                self.login_slots.release()
+        with self.lock:
+            if not valid or credentials is not self.credentials:
                 return None
             self.attempts.pop(source, None)
             self.sessions = {k: v for k, v in self.sessions.items() if v["expires"] > now}
