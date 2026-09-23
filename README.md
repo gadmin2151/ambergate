@@ -236,6 +236,8 @@ Set the central address once in **General settings** (example: `embergate.exempl
 
 You can also select remote containers directly in **Routes → Choose from Docker → Container source**. Mix containers from different agents and local servers in one load balancer, without labels or published ports. The sidebar has independent scrolling and a persistent compact icon mode.
 
+**Extended access:** the optional namespace mode reaches private ports even in `network=none` containers or applications listening only on localhost. One agent container; no app network changes. See the setup guide for required Linux permissions.
+
 **[Agent setup guide →](docs/agents.md)** · **[Agent Compose →](compose.agent.yaml)** · **[Complete example →](examples/agent.compose.yaml)**
 
 ## Know what is happening
@@ -322,3 +324,7 @@ The workflow uses `GITHUB_TOKEN` with `packages: write`; no Docker Hub credentia
 - **Local administration:** password login, CSRF protection and expiring sessions. Expose the panel only through a trusted network or your secured external proxy.
 
 <p align="center"><br><img src="docs/logo.svg" width="38" alt="AmberGate logo"><br><sub>Small by design. Yours by default.</sub></p>
+
+### Response rewriting
+
+Enable **Keep the base path in responses** per route to keep redirects, cookie paths and HTML links under paths such as `/api5`. Additional literal HTML substitutions are configurable in the UI. This works with direct servers and agents without changing the upstream service. [Behavior and limits](docs/response-rewriting.md).

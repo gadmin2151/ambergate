@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from .config import validate, route_targets
+from .response_rewrite import directives as response_directives
 
 
 def digest(value):
@@ -122,6 +123,9 @@ def render(config, generation, cache_dir="/cache", run_dir="/run/ambergate", por
             locations = ["/"] if path == "/" else ["= " + path, "^~ " + path + "/"]
             for location in locations:
                 lines += [f"        location {location} {{"]
+                if "response_rewrite" in route and location.startswith("= "):
+                    lines += ["            absolute_redirect off;", f"            return 308 {path}/$is_args$args;", "        }"]
+                    continue
                 if not route_targets(route):
                     lines += [f'            set $ambergate_route "{path}";', "            return 503;", "        }"]
                     continue
@@ -144,6 +148,8 @@ def render(config, generation, cache_dir="/cache", run_dir="/run/ambergate", por
                           f"            proxy_send_timeout {route['timeout']}s;",
                           "            proxy_next_upstream error timeout http_502 http_503 http_504;",
                           "            proxy_next_upstream_tries 3;"]
+                if "response_rewrite" in route:
+                    lines += ["            " + line for line in response_directives(route, host["domain"], route_targets(route))]
                 if route["body_mb"]:
                     lines.append(f"            client_max_body_size {route['body_mb']}m;")
                 if route["websocket"]:

@@ -715,3 +715,9 @@ button.confirm-delete:hover { background: #ffbf5c; border-color: #ffcc7c; color:
 @media (max-width: 440px) {
   .topbar .status { display: none; }
 }
+
+.response-rule { display:grid; grid-template-columns:1fr 1fr auto; gap:10px; align-items:end; margin:12px 0; }
+.response-rule input { font-family:var(--mono,monospace); font-size:12px; }
+#response-rewrite-options details { padding:14px; border:1px solid var(--border); border-radius:10px; }
+#response-rewrite-options summary { cursor:pointer; font-size:13px; }
+@media(max-width:650px) { .response-rule { grid-template-columns:1fr auto; } .response-rule label { grid-column:1; } .response-rule button { grid-column:2; grid-row:1 / span 2; } }

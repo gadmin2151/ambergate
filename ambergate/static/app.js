@@ -350,6 +350,9 @@ function selectRouteTab(name) {
   document.querySelectorAll('[data-route-panel]').forEach(panel=>panel.hidden=panel.dataset.routePanel!==name);
   document.querySelectorAll('[data-action="route-tab"]').forEach(button=>{const selected=button.dataset.tab===name;button.classList.toggle('selected',selected);button.setAttribute('aria-selected',String(selected));button.tabIndex=selected ? 0 : -1;});
 }
+function responseRuleRow(rule={search:'',replace:''}) {
+  return `<div class="response-rule"><label>${at('Найти в HTML','Find in HTML')}<input name="response_search" maxlength="1024" value="${esc(rule.search)}" spellcheck="false"></label><label>${at('Заменить на','Replace with')}<input name="response_replace" maxlength="1024" value="${esc(rule.replace)}" spellcheck="false"></label><button type="button" class="ghost icon" data-remove-response-rule aria-label="${t('Удалить')}">${icon('trash')}</button></div>`;
+}
 function updatePathPreview() {
   const form = $('#modal-form');
   if (!form || !$('#path-preview')) return;
@@ -366,6 +369,8 @@ function editRoute(hostId, routeId) {
       <div class="form-intro"><h3>Куда приходит запрос</h3><p>Путь определяет, какие запросы попадут в этот маршрут.</p></div>
       <div class="grid">${field(t('Название маршрута'),'name',route.name,'text','required maxlength="80" placeholder="Backend API"')}${field(t('Путь на домене'),'path',route.path,'text','required placeholder="/api"')}</div>
       <div class="option-list">${check(t('<span><strong>Убирать префикс пути</strong><small>Передавать приложению путь без /api или другого префикса.</small></span>'),'strip_prefix',route.strip_prefix)}${check(t('<span><strong>Поддержка WebSocket</strong><small>Разрешить постоянные соединения с приложением.</small></span>'),'websocket',route.websocket)}</div><div class="path-preview" id="path-preview"></div>
+      <div class="option-list">${check(`<span><strong>${at('Сохранять базовый путь в ответах','Keep the base path in responses')}</strong><small>${at('Переписывать перенаправления, пути cookies и ссылки HTML под путь маршрута.','Rewrite redirects, cookie paths and HTML links under the route path.')}</small></span>`,'response_rewrite',Array.isArray(route.response_rewrite))}</div>
+      <div id="response-rewrite-options" ${Array.isArray(route.response_rewrite)?'':'hidden'}><p class="hint">${at('Префикс убирается из запросов к приложению и возвращается в его ответах. JavaScript и JSON API автоматически не изменяются.','The prefix is removed from application requests and restored in responses. JavaScript and JSON APIs are not automatically modified.')}</p><details><summary>${at('Дополнительные замены в HTML','Additional HTML substitutions')}</summary><p class="hint">${at('Для ссылок и встроенных настроек приложения. {prefix} — путь текущего маршрута. До 16 правил; без символа $.','For links and embedded application settings. {prefix} means the current route path. Up to 16 rules; no $ characters.')}</p><div id="response-rule-list">${(route.response_rewrite || []).map(responseRuleRow).join('')}</div><button type="button" class="small" id="add-response-rule">${icon('plus')}${at('Добавить замену','Add substitution')}</button></details></div>
       ${existing ? `<div class="danger-zone">${btn('delete-route',t('Удалить маршрут'),'trash','danger ghost small',`data-host="${hostId}" data-route="${routeId}"`)}</div>` : ''}
     </section>
     <section data-route-panel="servers" id="panel-servers" role="tabpanel" aria-labelledby="tab-servers" hidden>
@@ -386,6 +391,8 @@ function editRoute(hostId, routeId) {
       for(const key of ['timeout','cache_ttl','rate_rps','rate_burst','body_mb']) result[key]=Number(data.get(key));
       for(const key of ['strip_prefix','websocket','cache']) result[key]=data.has(key);
       result.targets=collectTargets();
+      if(data.has('response_rewrite')) result.response_rewrite=[...$('#response-rule-list').querySelectorAll('.response-rule')].map(row=>({search:$('[name=response_search]',row).value,replace:$('[name=response_replace]',row).value})).filter(r=>r.search || r.replace);
+      else delete result.response_rewrite;
       const group=data.get('docker_group').trim();
       if(group) result.docker=group===route.docker?.group ? structuredClone(route.docker) : {managed:false,group,targets:[]};
       else delete result.docker;
@@ -393,6 +400,17 @@ function editRoute(hostId, routeId) {
       if(existing) dest.routes[dest.routes.findIndex(r=>r.id===routeId)]=result; else dest.routes.push(result);
       await api('preview',{config:candidate});config=candidate;changed();
     });
+  $('[name=response_rewrite]',$('#modal-form')).addEventListener('change',event=>{
+    $('#response-rewrite-options').hidden=!event.target.checked;
+    if(event.target.checked)$('[name=strip_prefix]',$('#modal-form')).checked=true;
+    updatePathPreview();
+  });
+  $('#add-response-rule').addEventListener('click',()=>{
+    if($('#response-rule-list').children.length<16)$('#response-rule-list').insertAdjacentHTML('beforeend',responseRuleRow());
+  });
+  $('#response-rule-list').addEventListener('click',event=>{
+    if(event.target.closest('[data-remove-response-rule]'))event.target.closest('.response-rule').remove();
+  });
   if(route.docker?.managed) {
     $('#modal-form').insertAdjacentHTML('afterbegin',`<p class="docker-managed-note">${t('Этот маршрут управляется labels. Измените label в Docker; чтобы удалить маршрут, сначала удалите label.')}</p>`);
     $('#modal-form').querySelectorAll('input,select,button[type=submit],[data-action=add-target],[data-action=remove-target],[data-action=docker-picker]').forEach(el=>el.disabled=true);

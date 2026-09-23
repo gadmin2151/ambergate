@@ -67,6 +67,9 @@ def inventory(raw):
                     raise ValueError("IPv6 zone IDs are unsupported")
             elif endpoint["kind"] == "dns":
                 upstream_hostname(endpoint["address"], "endpoint")
+            elif endpoint["kind"] == "namespace":
+                if endpoint["address"] != c["id"] or c["is_gateway"] or c["state"] != "running":
+                    raise ValueError("Invalid namespace endpoint")
             else:
                 raise ValueError("Agent endpoints must belong to a shared Docker network")
         if not isinstance(c["route_labels"], dict) or len(c["route_labels"]) > 16:
@@ -79,7 +82,11 @@ def inventory(raw):
     return copy.deepcopy(raw)
 
 
-def wire_snapshot(snapshot):
+def reachable_container(row):
+    return bool(row["endpoints"] and (row["shared_networks"] or row["endpoints"][0]["kind"] == "namespace"))
+
+
+def wire_snapshot(snapshot, namespace=False):
     """Allow-list metadata; never send Docker env, mounts or unrelated labels."""
     rows = []
     for row in snapshot["containers"]:
@@ -90,6 +97,8 @@ def wire_snapshot(snapshot):
         clean["shared_networks"] = row.get("reachable_networks", row["shared_networks"])
         clean["endpoints"] = [{"address": e["address"], "kind": e["kind"]} for e in row["endpoints"]
                               if e["kind"] in ("dns", "ip")]
+        if namespace and row["state"] == "running" and not row["is_gateway"]:
+            clean["endpoints"] = [dict(address=row["id"], kind="namespace")]
         rows.append(clean)
     return inventory(dict(version=1, connected=snapshot["connected"], truncated=snapshot["truncated"],
                           engine_version=snapshot["engine_version"] or "", message=snapshot["message"][:512], containers=rows))
@@ -222,7 +231,7 @@ class Agents:
                 obj(target, ("container_id", "port"), "agent target")
                 integer(target["port"], 1, 65535, "container port")
                 row = next((c for c in report["inventory"]["containers"] if c["id"] == target["container_id"]), None)
-                if not row or row["state"] != "running" or row["is_gateway"] or not row["endpoints"] or not row["shared_networks"]:
+                if not row or row["state"] != "running" or row["is_gateway"] or not reachable_container(row):
                     raise ValueError("Container is unavailable or has no shared network with its agent.")
                 value = dict(id=agent["id"], container=row["name"], port=target["port"])
                 if value not in selected:
@@ -248,7 +257,7 @@ class Agents:
                        and not raw.get("truncated") and 0 <= now - report.get("seen_at", 0) < agent["timeout"])
         if manual_live:
             rows = {c["name"]: c for c in raw["containers"] if c["state"] == "running" and not c["is_gateway"]
-                    and c["endpoints"] and c["shared_networks"]}
+                    and reachable_container(c)}
             for target in self.manual:
                 if target["id"] == agent["id"] and target["container"] in rows:
                     key, _ = self.hub.endpoint(agent["id"], target["container"], target["port"])

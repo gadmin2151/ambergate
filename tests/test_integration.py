@@ -53,6 +53,16 @@ class Upstream(BaseHTTPRequestHandler):
             self.end_headers()
             self.close_connection = True
             return
+        if self.path.startswith('/response-test'):
+            from urllib.parse import urlparse, parse_qs
+            args=parse_qs(urlparse(self.path).query)
+            data=args.get('html',['<base href="/"><a href="/login">login</a>'])[0].encode()
+            self.send_response(302 if 'to' in args else 200)
+            if 'to' in args:self.send_header('Location',args['to'][0])
+            self.send_header('Set-Cookie','session=x; Path=/; HttpOnly; SameSite=Lax')
+            self.send_header('Content-Type','text/html')
+            self.send_header('Content-Length',str(len(data)))
+            self.end_headers();self.wfile.write(data);return
         data = json.dumps({"server": self.server.server_port, "path": self.path,
                            "count": self.server.count, "headers": dict(self.headers)}).encode()
         self.send_response(200)
@@ -195,6 +205,25 @@ class GatewayIntegrationTests(unittest.TestCase):
             self.assertEqual(data["server"], self.backends[backend].server_port)
             self.assertEqual(data["headers"]["Host"], "gateway.test")
         self.assertEqual(request(self.port, headers={"Host": "unknown.test"})[0], 404)
+
+    def test_response_prefix_rewrites_redirects_cookies_html_and_custom_rules(self):
+        from urllib.parse import urlencode
+        api=route('/api5',self.backends[0].server_port,'response_prefix')
+        api.update(strip_prefix=True,response_rewrite=[{'search':'"basePath":""','replace':'"basePath":"{prefix}"'}])
+        self.config['hosts'][0]['routes'].append(api);self.apply_config()
+        self.assertEqual(request(self.port,'/api5?x=1')[0],308)
+        self.assertEqual(request(self.port,'/api5?x=1')[1]['Location'],'/api5/?x=1')
+        for original, expected in [('/', '/api5/'),('/login?next=1','/api5/login?next=1'),('/api5/login','/api5/login'),('//other.test/login','//other.test/login'),('https://other.test/login','https://other.test/login'),('http://gateway.test/login','/api5/login')]:
+            status,headers,_=request(self.port,'/api5/response-test?'+urlencode({'to':original}))
+            self.assertEqual(status,302);self.assertEqual(headers['Location'],expected)
+            self.assertIn('Path=/api5/',headers['Set-Cookie'])
+        html='<base href="/"><a href="/login">a</a><img src="//cdn.test/a"><a href="/api5/login">b</a><a href="https://other.test">c</a><script>{"basePath":""}</script>'
+        status,_,body=request(self.port,'/api5/response-test?'+urlencode({'html':html}))
+        self.assertEqual(status,200)
+        self.assertIn(b'<base href="/api5/">',body);self.assertIn(b'href="/api5/login"',body)
+        self.assertIn(b'src="//cdn.test/a"',body);self.assertNotIn(b'/api5/api5/',body)
+        self.assertIn(b'"basePath":"/api5"',body)
+        self.assertEqual(request(self.port,'/response-test?'+urlencode({'to':'/login'}))[1]['Location'],'/login')
 
     def test_multiple_domains_have_independent_routes(self):
         first = self.config["hosts"][0]

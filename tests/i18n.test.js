@@ -45,7 +45,7 @@ test('pages, route settings and Docker diagnostics render in English',()=>{
   for(const expression of ['routesPage()','settingsPage()','cachePage()','historyPage()','dockerPage()','agentsPage()','generalPage()','dashboardContent()'])assert.doesNotMatch(f.run(expression),/[А-Яа-яЁё]/,expression);
   f.run("config.hosts.push({id:'host',domain:'example.com',enabled:true,routes:[newRoute('/api','API','backend',8000)]});");
   for(const expression of ['routesPage()','cachePage()'])assert.doesNotMatch(f.run(expression),/[А-Яа-яЁё]/,expression);
-  f.context.document.querySelector=()=>({dataset:{},addEventListener(){}});
+  const domNode={dataset:{},addEventListener(){},querySelector:()=>domNode};f.context.document.querySelector=()=>domNode;
   f.run("setModal=(...args)=>globalThis.modalText=args.slice(0,3).join(' '); updatePathPreview=()=>{}; editRoute('host',config.hosts[0].routes[0].id);");
   assert.doesNotMatch(f.run('modalText'),/[А-Яа-яЁё]/);
   assert.doesNotThrow(()=>f.run('editHost()'));
@@ -135,4 +135,15 @@ test('agent SSE refreshes the open installation wizard with the received status'
   f.run("globalThis.wizardStatus='waiting'; agentWizard={refresh:()=>{globalThis.wizardStatus=agentsData.agents[0].status;}};");
   f.run("receiveAgents({agents:{agents:[{id:'agent-test',status:'online'}]}})");
   assert.equal(f.run('wizardStatus'),'online');
+});
+
+test('extended agent setup grants only selected namespace capabilities',()=>{
+ const f=panelFixture();
+ const command=f.run('agentDockerRun("token","https://embergate.exemple.com","host",false,true)');
+ assert.match(command,/--pid host --cap-add SYS_ADMIN --cap-add SYS_PTRACE/);
+ assert.match(command,/AMBERGATE_AGENT_NAMESPACE=true/);assert.doesNotMatch(command,/--privileged|seccomp=unconfined/);
+ const yaml=f.run('agentCompose("token","https://embergate.exemple.com","host",false,true)');
+ assert.match(yaml,/pid: host/);assert.match(yaml,/cap_add: \[SYS_ADMIN, SYS_PTRACE\]/);
+ assert.match(yaml,/AMBERGATE_AGENT_NAMESPACE: "true"/);
+ assert.throws(()=>f.run('agentCompose("token","https://embergate.exemple.com","apps",false,true)'));
 });

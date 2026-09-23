@@ -7,12 +7,15 @@ import re
 import signal
 import socket
 import ssl
+import subprocess
 import threading
 import time
 import urllib.error
 import urllib.request
 
-from .agents import TOKEN, MANUAL_TARGET, agent_routes, wire_snapshot
+from .agents import TOKEN, MANUAL_TARGET, agent_routes, wire_snapshot, reachable_container
+from .agent_network import NamespaceConnector
+from .docker import DockerError
 from .docker import Docker, settings
 from .storage import write_json
 from .tunnel import bridge, close_tcp, connect, server_url
@@ -24,7 +27,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 class Agent:
-    def __init__(self, origin, token, docker, ca_file=None, allow_http=False, interval=5, health=None):
+    def __init__(self, origin, token, docker, ca_file=None, allow_http=False, interval=5, health=None, namespace=False):
         server_url(origin, allow_http)
         if not TOKEN.fullmatch(token):
             raise ValueError("Invalid AMBERGATE_AGENT_TOKEN")
@@ -33,6 +36,7 @@ class Agent:
         self.origin, self.token, self.docker = origin.rstrip("/"), token, docker
         self.ca_file, self.allow_http, self.interval = ca_file, allow_http, interval
         self.health = health
+        self.network = NamespaceConnector(docker) if namespace else None
         self.lock = threading.RLock()
         self.stopping = threading.Event()
         self.control, self.targets, self.streams = None, {}, {}
@@ -58,7 +62,7 @@ class Agent:
 
     def collect(self):
         try:
-            snapshot = wire_snapshot(self.docker.snapshot(force=True))
+            snapshot = wire_snapshot(self.docker.snapshot(force=True), namespace=self.network is not None)
         except (OSError, ValueError, KeyError, TypeError):
             snapshot = dict(version=1, connected=False, truncated=False, engine_version="",
                             message="Invalid Docker inventory", containers=[])
@@ -66,7 +70,7 @@ class Agent:
         with self.lock:
             self.targets = {r["target_id"]: (r["address"], r["spec"]["port"]) for r in routes}
             self.containers = {c["id"]: c["endpoints"][0]["address"] for c in snapshot["containers"]
-                               if c["state"] == "running" and not c["is_gateway"] and c["endpoints"] and c["shared_networks"]}
+                               if c["state"] == "running" and not c["is_gateway"] and reachable_container(c)}
             if not snapshot["connected"] or snapshot["truncated"]:
                 self.containers = {}
         return snapshot
@@ -86,14 +90,14 @@ class Agent:
                 destination = self.destination(target)
             if not destination or control is not self.control or self.stopping.is_set():
                 raise ValueError("Agent target is unavailable")
-            connection = socket.create_connection(destination, timeout=5)
+            connection = self.network.connect(*destination) if self.network else socket.create_connection(destination, timeout=5)
             ws = connect(self.origin, "/api/agents/tunnel/" + identity, self.token, self.ca_file, self.allow_http)
             with self.lock:
                 if control is not self.control or control.closed.is_set() or self.stopping.is_set():
                     raise OSError("Agent disconnected")
                 self.streams[identity] = (ws, connection)
             bridge(ws, connection)
-        except (OSError, ValueError, EOFError):
+        except (OSError, ValueError, EOFError, DockerError, subprocess.SubprocessError):
             try:
                 control.send_json({"type": "failed", "id": identity})
             except OSError:
@@ -192,7 +196,10 @@ def main():
     agent = Agent(os.environ.get("AMBERGATE_SERVER_URL", ""), token, docker,
         ca_file=os.environ.get("AMBERGATE_AGENT_CA_FILE") or None,
         allow_http=os.environ.get("AMBERGATE_AGENT_ALLOW_HTTP", "false").lower() == "true",
-        interval=int(os.environ.get("AMBERGATE_AGENT_INTERVAL", "5")), health=health)
+        interval=int(os.environ.get("AMBERGATE_AGENT_INTERVAL", "5")), health=health,
+        namespace=os.environ.get("AMBERGATE_AGENT_NAMESPACE", "false").lower() == "true")
+    if agent.network:
+        agent.network.check()
     for sig in (signal.SIGTERM, signal.SIGINT):
         signal.signal(sig, lambda *_: agent.stop())
     agent.run()

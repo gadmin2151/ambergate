@@ -117,7 +117,7 @@ def validate(config):
             rp = f"{hp}.routes[{ri}]"
             if not isinstance(route, dict):
                 fail(rp, "неверный набор полей")
-            obj({k: v for k, v in route.items() if k != "docker"}, ("id", "name", "path", "strip_prefix", "balance", "targets",
+            obj({k: v for k, v in route.items() if k not in ("docker", "response_rewrite")}, ("id", "name", "path", "strip_prefix", "balance", "targets",
                         "cache", "cache_ttl", "websocket", "timeout", "body_mb",
                         "rate_rps", "rate_burst"), rp)
             check_id(route["id"], ids, rp)
@@ -133,6 +133,20 @@ def validate(config):
             paths.add(path)
             for key in ("strip_prefix", "cache", "websocket"):
                 boolean(route[key], rp + "." + key)
+            if "response_rewrite" in route:
+                if path == "/" or not route["strip_prefix"]:
+                    fail(rp, "Response rewriting requires a non-root path with prefix stripping")
+                sequence(route["response_rewrite"], 0, 16, rp + ".response_rewrite")
+                seen = set()
+                for rule in route["response_rewrite"]:
+                    obj(rule, ("search", "replace"), rp + ".response_rewrite")
+                    for key in ("search", "replace"):
+                        value = rule[key]
+                        if not isinstance(value, str) or len(value) > 1024 or "$" in value or any(ord(c) < 32 for c in value):
+                            fail(rp, "Response rules must be single-line strings without dollar signs (max 1024 characters)")
+                    if not rule["search"] or rule["search"].lower() in seen:
+                        fail(rp, "Response searches must be non-empty and unique")
+                    seen.add(rule["search"].lower())
             if route["balance"] not in ("round_robin", "least_conn", "ip_hash"):
                 fail(rp, "неизвестный алгоритм балансировки")
             for key, low, high in (("cache_ttl", 1, 604800), ("timeout", 1, 3600),

@@ -64,6 +64,20 @@ docker compose -f compose.agent.yaml up -d
 
 The image is `ghcr.io/gadmin2151/ambergate-agent:latest` for amd64 and arm64. Agent and central images are built from the same revision; prefer matching versions.
 
+## Extended namespace access (Linux)
+
+In the installation wizard, choose **Extended access · namespace (Linux)**. The generated Docker command or Compose file adds `--pid host`, `SYS_ADMIN`, `SYS_PTRACE` and `AMBERGATE_AGENT_NAMESPACE=true`. The standalone [compose.agent.namespace.yaml](../compose.agent.namespace.yaml) works with the same private `.env` as the normal agent:
+
+```bash
+docker compose -f compose.agent.namespace.yaml up -d
+```
+
+The agent discovers all running containers from its local Docker daemon. When a selected route needs a connection, a short-lived helper enters that container's network namespace, opens its private application port, returns the connected socket to the agent and exits. Even `127.0.0.1` listeners and `network=none` applications can be reached. The agent remains one container, the outbound TLS tunnel stays in its original network, and application networks, images and ports are not modified.
+
+This explicitly grants broad namespace access and is intended for trusted, native rootful Linux Docker hosts. Full `--privileged` and disabling seccomp are not required by the generated installer. Host security policies can still restrict namespace entry. Startup checks fail clearly if access is missing. Only locally discovered running container IDs are accepted; the center cannot supply a PID, namespace path or arbitrary destination address. Stopped/recreated containers are rechecked before opening a connection; the agent cannot select itself.
+
+Update central AmberGate first, then recreate the agent with the new command. Existing host/shared-network agents keep working. Restarting an old container alone does not add the new capabilities. Labels and manual container selection both support this mode; private HTTP ports still need to be specified.
+
 ## Select remote containers in a route
 
 Open **Routes → Add/edit route → Choose from Docker** and change **Container source** from **Local Docker** to your agent. Select running containers, choose their private HTTP ports (or enter a port manually), then **Add selected → Save route → Apply**. Labels, local Docker socket access on central AmberGate and published application ports are not required.
@@ -145,6 +159,7 @@ For a private CA, mount its PEM bundle in the agent and set `AMBERGATE_AGENT_CA_
 | `AMBERGATE_AGENT_TOKEN_FILE` | Optional mounted secret file; takes precedence over the environment token |
 | `AMBERGATE_DOCKER_SOCKET` | `/var/run/docker.sock` |
 | `AMBERGATE_DOCKER_CONTAINER` | `ambergate-agent` in generated installers; own container name/ID. Update this variable if you rename the container |
+| `AMBERGATE_AGENT_NAMESPACE` | `false`; opt-in namespace connector with the required host permissions |
 | `AMBERGATE_AGENT_CA_FILE` | Optional PEM CA bundle |
 | `AMBERGATE_AGENT_INTERVAL` | 5 seconds; allowed 2–30, keep below the configured lease timeout |
 | `AMBERGATE_AGENT_ALLOW_HTTP` | `false`; enabled by generated installers only after explicit HTTP risk confirmation |

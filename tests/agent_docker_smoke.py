@@ -55,7 +55,7 @@ class Handler(BaseHTTPRequestHandler):
  def do_POST(self):
   data=hashlib.sha256(self.rfile.read(int(self.headers['Content-Length']))).hexdigest().encode();self.send_response(200);self.send_header('Content-Length',str(len(data)));self.end_headers();self.wfile.write(data)
  def log_message(self,*args): pass
-ThreadingHTTPServer(('0.0.0.0',8000),Handler).serve_forever()
+ThreadingHTTPServer((sys.argv[2] if len(sys.argv)>2 else '0.0.0.0',8000),Handler).serve_forever()
 '''
 
 
@@ -173,6 +173,28 @@ proxy_set_header Connection "upgrade"; proxy_read_timeout 90s; proxy_buffering o
             assert set(inspect(apps[0])['NetworkSettings']['Networks']).isdisjoint(inspect(apps[1])['NetworkSettings']['Networks'])
             wait(lambda:inspect(agent)['State']['Health']['Status']=='healthy')
             print('PASS: host-mode agent reaches two separate bridge networks over verified TLS without published app ports')
+            # Namespace mode reaches loopback-only applications without any network.
+            hidden=run(PREFIX+'-hidden','--network','none','--label',
+                'ambergate.route=host=agent.test;path=/hidden;port=8000;strip=true',
+                '--entrypoint','python3',IMAGE,'-u','-c',BACKEND,'hidden','127.0.0.1')
+            docker('rm','-f',agent)
+            run(agent,'--network','host','--pid','host','--cap-add','SYS_ADMIN','--cap-add','SYS_PTRACE',
+                '--init','--read-only','--tmpfs','/tmp:size=16m,mode=1777',
+                '-v','/var/run/docker.sock:/var/run/docker.sock:ro','-v',f'{root}/cert.pem:/ca.pem:ro',
+                '-e','AMBERGATE_DOCKER_CONTAINER='+agent,'-e','AMBERGATE_AGENT_NAMESPACE=true',
+                '-e','AMBERGATE_SERVER_URL=https://127.0.0.1:'+tls_port,'-e','AMBERGATE_AGENT_TOKEN='+token,
+                '-e','AMBERGATE_AGENT_CA_FILE=/ca.pem','-e','AMBERGATE_AGENT_INTERVAL=2',AGENT)
+            wait(lambda:traffic('/hidden/check')==b'hidden:/check')
+            wait(lambda:traffic('/manual/check')==b'recreated:/check')
+            assert {traffic() for _ in range(12)}=={b'app-0:/check',b'app-1:/check'}
+            hidden_targets=api('agents/targets',dict(agent_id=aid,targets=[dict(container_id=inspect(hidden)['Id'],port=8000)]))['targets']
+            assert hidden_targets[0]['agent']['container']==hidden
+            assert traffic('/hidden/upload',upload).decode()==hashlib.sha256(upload).hexdigest()
+            assert inspect(hidden)['HostConfig']['NetworkMode']=='none'
+            assert not inspect(agent)['HostConfig']['Privileged']
+            check='import os; from ambergate.agent_network import NamespaceConnector; from ambergate.docker import Docker; d=Docker("/tmp/unused"); d.defaults["gateway_container"]=os.environ["AMBERGATE_DOCKER_CONTAINER"]; n=NamespaceConnector(d); n.check(); print("namespace verified")'
+            assert docker('exec',agent,'python3','-c',check)=='namespace verified'
+            print('PASS: namespace agent accesses network=none / localhost, labels, manual selection, uploads, and other bridge networks')
             docker('stop',agent)
             wait(lambda:api('agents')['agents'][0]['status']=='offline')
             def empty_route():

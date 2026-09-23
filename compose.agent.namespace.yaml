@@ -1,0 +1,34 @@
+# Extended namespace access on native, rootful Linux Docker.
+# Applications need no shared network and no published ports.
+services:
+  ambergate-agent:
+    image: ghcr.io/gadmin2151/ambergate-agent:latest
+    pull_policy: always
+    container_name: ambergate-agent
+    network_mode: host
+    pid: host
+    cap_add: [SYS_ADMIN, SYS_PTRACE]
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    environment:
+      AMBERGATE_AGENT_NAMESPACE: "true"
+      AMBERGATE_DOCKER_CONTAINER: ambergate-agent
+      AMBERGATE_SERVER_URL: ${AMBERGATE_SERVER_URL:?Set the central address from General settings}
+      AMBERGATE_AGENT_TOKEN: ${AMBERGATE_AGENT_TOKEN:?Create an agent token in AmberGate}
+      AMBERGATE_AGENT_ALLOW_HTTP: ${AMBERGATE_AGENT_ALLOW_HTTP:-false}
+    volumes:
+      - type: bind
+        source: ${DOCKER_SOCKET_PATH:-/var/run/docker.sock}
+        target: /var/run/docker.sock
+        read_only: true
+        bind:
+          create_host_path: false
+    stop_grace_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"

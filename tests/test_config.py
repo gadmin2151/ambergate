@@ -10,6 +10,20 @@ class ConfigurationTests(unittest.TestCase):
         self.assertEqual(validate(default_config()), default_config())
         self.assertEqual(validate(config()), config())
 
+    def test_response_substitution_limits_and_directive_escaping(self):
+        c=config();r=c['hosts'][0]['routes'][0];r.update(path='/app',strip_prefix=True,response_rewrite=[])
+        self.assertEqual(validate(c),c)
+        for rules in ([{'search':'','replace':'x'}],[{'search':'x','replace':'$request_uri'}],
+                      [{'search':'x','replace':'bad\nvalue'}],[{'search':'x','replace':'a'}]*17,
+                      [{'search':'x','replace':'a'},{'search':'X','replace':'b'}]):
+            r['response_rewrite']=rules
+            with self.subTest(rules=rules),self.assertRaises(ValidationError):validate(c)
+        r['response_rewrite']=[{'search':'"; return 200; #','replace':'"; include /tmp/anything; #'}]
+        result=render(c,'response-test')
+        self.assertIn('sub_filter "\\"; return 200; #" "\\"; include /tmp/anything; #";',result)
+        r['strip_prefix']=False
+        with self.assertRaises(ValidationError):validate(c)
+
     def test_reject_directive_injection(self):
         cases = [lambda c: c["hosts"][0].update(domain="x; include /etc/passwd;"),
                  lambda c: c["hosts"][0]["routes"][0].update(path='/x" { return 200; }'),
