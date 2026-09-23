@@ -19,7 +19,7 @@ Nginx still controls hosts, paths, balancing, caching and limits. The agent stre
 
 ## Quick setup: copy one command
 
-1. Open **General settings** and save the address of central AmberGate **once**. A domain such as `embergate.exemple.com` becomes `https://embergate.exemple.com`. Your TLS proxy must forward that address to the central **admin listener on port 8083**, not the application listener on port 80.
+1. Open **General settings** and save the address of central AmberGate **once**. A domain such as `ambergate.exemple.com` becomes `https://ambergate.exemple.com`. Your TLS proxy must forward that address to the central **admin listener on port 8083**, not the application listener on port 80.
 2. Open **Agents → Add agent**, give the machine a name and create it.
 3. Keep **Host network · local bridge networks (Linux)** selected; no network needs creating or naming. The **Docker run** tab shows a complete **single-line command**, with your saved address and the new agent token already inserted. Click **Copy command** and run it on the Docker machine.
 4. Keep the wizard open: **Agent connected** appears automatically through SSE when the agent reports successfully. The **Docker Compose** tab offers a ready-to-run file and `docker compose -f compose.agent.yaml up -d` instead.
@@ -28,7 +28,7 @@ Nginx still controls hosts, paths, balancing, caching and limits. The agent stre
 Example command (the wizard fills in your real address and token):
 
 ```bash
-docker run -d --pull always --name ambergate-agent --restart unless-stopped --init --read-only --tmpfs /tmp:size=16m,mode=1777 --network host -e AMBERGATE_DOCKER_CONTAINER=ambergate-agent --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock,readonly -e AMBERGATE_SERVER_URL=https://embergate.exemple.com -e AMBERGATE_AGENT_TOKEN='<AGENT_TOKEN>' ghcr.io/gadmin2151/ambergate-agent:latest
+docker run -d --pull always --name ambergate-agent --restart unless-stopped --init --read-only --tmpfs /tmp:size=16m,mode=1777 --network host -e AMBERGATE_DOCKER_CONTAINER=ambergate-agent --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock,readonly -e AMBERGATE_SERVER_URL=https://ambergate.exemple.com -e AMBERGATE_AGENT_TOKEN='<AGENT_TOKEN>' ghcr.io/gadmin2151/ambergate-agent:latest
 ```
 
 The default is **`--network host`** (Compose: **`network_mode: host`**). On native Linux Docker Engine, the agent reaches private container IPs across local bridge networks, including networks created by separate Compose projects. There is no need to create `ambergate-apps`, move your applications or publish their ports. The agent opens no inbound listener and never changes Docker networks. Both manual container selection and labels use this access; Docker IP changes are picked up on the next report.
@@ -50,7 +50,7 @@ Changing the shared address affects new installation commands, not agents that a
 Alternatively, use [compose.agent.yaml](../compose.agent.yaml) with a private `.env` file:
 
 ```dotenv
-AMBERGATE_SERVER_URL=https://embergate.exemple.com
+AMBERGATE_SERVER_URL=https://ambergate.exemple.com
 AMBERGATE_AGENT_TOKEN=REPLACE_WITH_YOUR_AGENT_TOKEN
 AMBERGATE_AGENT_NETWORK=host
 AMBERGATE_AGENT_ALLOW_HTTP=false

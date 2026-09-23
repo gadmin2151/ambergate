@@ -157,7 +157,7 @@ Docker socket access grants host privileges at the API level; a `:ro` mount does
 
 One **AmberGate Agent** container on each machine discovers local containers and carries their traffic over an outbound tunnel. Applications and agents need **no published ports**. Central Nginx still controls routing, balancing, caching and limits.
 
-1. Save the central address in **General settings**, for example `embergate.exemple.com`.
+1. Save the central address in **General settings**, for example `ambergate.exemple.com`.
 2. Open **Agents → Add agent** and choose the connection mode.
 3. Copy the ready-to-run **single-line `docker run` command**, or download **Docker Compose**.
 4. Run it on the remote Docker machine. The wizard shows the connection through SSE.

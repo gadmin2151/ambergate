@@ -33,9 +33,9 @@ jobs:
           node --check ambergate/static/docker.js
           node --check ambergate/static/agents.js
           node --check ambergate/static/general.js
-          AMBERGATE_SERVER_URL=https://embergate.exemple.com AMBERGATE_AGENT_TOKEN=ci-placeholder docker compose -f compose.agent.yaml config --quiet
-          AMBERGATE_SERVER_URL=https://embergate.exemple.com AMBERGATE_AGENT_TOKEN=ci-placeholder docker compose -f examples/agent.compose.yaml config --quiet
-          AMBERGATE_SERVER_URL=https://embergate.exemple.com AMBERGATE_AGENT_TOKEN=ci-placeholder docker compose -f compose.agent.namespace.yaml config --quiet
+          AMBERGATE_SERVER_URL=https://ambergate.exemple.com AMBERGATE_AGENT_TOKEN=ci-placeholder docker compose -f compose.agent.yaml config --quiet
+          AMBERGATE_SERVER_URL=https://ambergate.exemple.com AMBERGATE_AGENT_TOKEN=ci-placeholder docker compose -f examples/agent.compose.yaml config --quiet
+          AMBERGATE_SERVER_URL=https://ambergate.exemple.com AMBERGATE_AGENT_TOKEN=ci-placeholder docker compose -f compose.agent.namespace.yaml config --quiet
           node --test tests/*.test.js
           docker compose -f examples/docker-labels.compose.yaml --profile advanced --profile group --profile host config --quiet
           docker compose config --quiet

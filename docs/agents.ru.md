@@ -8,7 +8,7 @@
 
 ## Быстрое подключение: одна команда
 
-1. В разделе **Общие настройки** один раз сохраните адрес центрального AmberGate. Домен `embergate.exemple.com` превратится в `https://embergate.exemple.com`. Ваш TLS-прокси должен направлять его на панель **8083**, а не на порт приложений 80.
+1. В разделе **Общие настройки** один раз сохраните адрес центрального AmberGate. Домен `ambergate.exemple.com` превратится в `https://ambergate.exemple.com`. Ваш TLS-прокси должен направлять его на панель **8083**, а не на порт приложений 80.
 2. Откройте **Агенты → Добавить агента**, задайте название машины и создайте агента.
 3. Оставьте **Сеть хоста · локальные bridge-сети (Linux)** — создавать или указывать сеть не нужно. На вкладке **Docker run** уже будет **готовая команда в одну строку** с адресом центра и новым токеном. Нажмите **Копировать команду** и выполните её на Docker-машине.
 4. Не закрывайте мастер: статус **Агент подключён** появится автоматически через SSE после успешного отчёта. На вкладке **Docker Compose** можно скачать готовый файл и запустить его командой `docker compose -f compose.agent.yaml up -d`.
@@ -17,7 +17,7 @@
 Пример команды — мастер сам подставляет ваш адрес и персональный токен:
 
 ```bash
-docker run -d --pull always --name ambergate-agent --restart unless-stopped --init --read-only --tmpfs /tmp:size=16m,mode=1777 --network host -e AMBERGATE_DOCKER_CONTAINER=ambergate-agent --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock,readonly -e AMBERGATE_SERVER_URL=https://embergate.exemple.com -e AMBERGATE_AGENT_TOKEN='<AGENT_TOKEN>' ghcr.io/gadmin2151/ambergate-agent:latest
+docker run -d --pull always --name ambergate-agent --restart unless-stopped --init --read-only --tmpfs /tmp:size=16m,mode=1777 --network host -e AMBERGATE_DOCKER_CONTAINER=ambergate-agent --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock,readonly -e AMBERGATE_SERVER_URL=https://ambergate.exemple.com -e AMBERGATE_AGENT_TOKEN='<AGENT_TOKEN>' ghcr.io/gadmin2151/ambergate-agent:latest
 ```
 
 По умолчанию используется **`--network host`** (в Compose — **`network_mode: host`**). На обычном Docker Engine под Linux агент получает доступ к внутренним IP контейнеров из разных локальных bridge-сетей, в том числе сетей отдельных Compose-проектов. Создавать `ambergate-apps`, подключать к ней приложения или публиковать их порты не нужно. Агент не открывает входящий порт и не меняет сети Docker. Ручной выбор контейнеров и labels работают одинаково; IP обновляются из Docker при очередном отчёте.
@@ -39,7 +39,7 @@ Host-режим использует внутренние IP, а не Docker DNS
 Можно использовать [Compose из репозитория](../compose.agent.yaml) и приватный `.env`:
 
 ```dotenv
-AMBERGATE_SERVER_URL=https://embergate.exemple.com
+AMBERGATE_SERVER_URL=https://ambergate.exemple.com
 AMBERGATE_AGENT_TOKEN=REPLACE_WITH_YOUR_AGENT_TOKEN
 AMBERGATE_AGENT_NETWORK=host
 AMBERGATE_AGENT_ALLOW_HTTP=false

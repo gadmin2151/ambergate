@@ -9,9 +9,9 @@ from ambergate.storage import ConflictError
 class SettingsTests(unittest.TestCase):
     def test_domains_use_https_and_plain_ips_use_direct_admin_http(self):
         cases = {
-            'embergate.exemple.com': 'https://embergate.exemple.com',
-            ' EMbergate.Exemple.com:8443 ': 'https://embergate.exemple.com:8443',
-            'https://embergate.exemple.com:443/': 'https://embergate.exemple.com',
+            'ambergate.exemple.com': 'https://ambergate.exemple.com',
+            ' AMbergate.Exemple.com:8443 ': 'https://ambergate.exemple.com:8443',
+            'https://ambergate.exemple.com:443/': 'https://ambergate.exemple.com',
             '10.169.2.14': 'http://10.169.2.14:8083',
             '10.169.2.14:9000': 'http://10.169.2.14:9000',
             '10.169.2.14:80': 'http://10.169.2.14',
@@ -47,7 +47,7 @@ class SettingsTests(unittest.TestCase):
             settings=GeneralSettings(Path(tmp));self.assertEqual(settings.snapshot(),allowed)
             self.assertEqual(settings.save({'public_url':'10.169.2.14'},allowed['revision']),allowed)
             with self.assertRaises(HttpConfirmationRequired):settings.save({'public_url':'10.169.2.15'},allowed['revision'])
-            secure=settings.save({'public_url':'embergate.exemple.com'},allowed['revision'])
+            secure=settings.save({'public_url':'ambergate.exemple.com'},allowed['revision'])
             self.assertFalse(secure['settings']['allow_http'])
             with self.assertRaises(ConflictError):settings.save({'public_url':'10.169.2.14'},allowed['revision'],True)
             with self.assertRaises(HttpConfirmationRequired):settings.save({'public_url':'10.169.2.14'},secure['revision'])

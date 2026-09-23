@@ -82,7 +82,7 @@ test('initial SSE inventory does not read a configuration that is still loading'
 });
 test('agent setup uses private ports, quotes YAML values and translates status',()=>{
   const f=panelFixture();
-  const compose=f.run('agentCompose("test-token","https://embergate.exemple.com","private-apps")');
+  const compose=f.run('agentCompose("test-token","https://ambergate.exemple.com","private-apps")');
   assert.match(compose,/target: \/var\/run\/docker.sock/);assert.match(compose,/read_only: true/);assert.match(compose,/ambergate-agent:latest/);assert.doesNotMatch(compose,/ports:/);
   assert.equal(f.run("agentStatus('online')"),'Connected');
   f.run("agentsData={agents:[{id:'a',name:'<img onerror=bad>',status:'offline',timeout:30,containers:1,running:1,routes:1,tunnel:false}]};");
@@ -92,31 +92,31 @@ test('agent setup uses private ports, quotes YAML values and translates status',
 
 test('agent one-liner embeds saved origin, quotes secrets and gates HTTP explicitly',()=>{
   const f=panelFixture();
-  const run=f.run('agentDockerRun("test-token","https://embergate.exemple.com","my-app_default")');
+  const run=f.run('agentDockerRun("test-token","https://ambergate.exemple.com","my-app_default")');
   assert.match(run,/^docker run -d /);assert.doesNotMatch(run,/\n| -p |ALLOW_HTTP/);
-  assert.match(run,/--network 'my-app_default'/);assert.match(run,/AMBERGATE_SERVER_URL=https:\/\/embergate.exemple.com/);
+  assert.match(run,/--network 'my-app_default'/);assert.match(run,/AMBERGATE_SERVER_URL=https:\/\/ambergate.exemple.com/);
   assert.match(run,/docker.sock.*readonly/);assert.match(run,/TOKEN=test-token/);
   assert.throws(()=>f.run('agentDockerRun("token","http://10.0.0.10:8083","apps")'));
   assert.throws(()=>f.run('agentCompose("token","http://10.0.0.10:8083","apps")'));
   assert.match(f.run('agentDockerRun("token","http://10.0.0.10:8083","apps",true)'),/AMBERGATE_AGENT_ALLOW_HTTP=true/);
   assert.match(f.run('agentCompose("token","http://10.0.0.10:8083","apps",true)'),/AMBERGATE_AGENT_ALLOW_HTTP: "true"/);
-  assert.throws(()=>f.run('agentDockerRun("token","https://embergate.exemple.com","apps;touch x")'));
+  assert.throws(()=>f.run('agentDockerRun("token","https://ambergate.exemple.com","apps;touch x")'));
   f.context.secret="tok'$(id)";
-  const weird=f.run('agentDockerRun(secret,"https://embergate.exemple.com","apps")');
+  const weird=f.run('agentDockerRun(secret,"https://ambergate.exemple.com","apps")');
   assert.ok(weird.includes("'\"'\"'"));
 });
 test('agent defaults to host networking without an external network dependency',()=>{
   const f=panelFixture();
-  const command=f.run('agentDockerRun("test-token","https://embergate.exemple.com")');
+  const command=f.run('agentDockerRun("test-token","https://ambergate.exemple.com")');
   assert.match(command,/--network 'host'/);
   assert.match(command,/AMBERGATE_DOCKER_CONTAINER=ambergate-agent/);
   assert.doesNotMatch(command,/ambergate-apps| -p |--privileged/);
-  const compose=f.run('agentCompose("test-token","https://embergate.exemple.com")');
+  const compose=f.run('agentCompose("test-token","https://ambergate.exemple.com")');
   assert.match(compose,/network_mode: host/);
   assert.match(compose,/container_name: ambergate-agent/);
   assert.match(compose,/AMBERGATE_DOCKER_CONTAINER: ambergate-agent/);
   assert.doesNotMatch(compose,/networks:|external:|ports:/);
-  const specific=f.run('agentCompose("test-token","https://embergate.exemple.com","my-app_default")');
+  const specific=f.run('agentCompose("test-token","https://ambergate.exemple.com","my-app_default")');
   assert.match(specific,/external: true/);
   assert.match(specific,/name: "my-app_default"/);
   assert.doesNotMatch(specific,/network_mode:/);
@@ -139,11 +139,11 @@ test('agent SSE refreshes the open installation wizard with the received status'
 
 test('extended agent setup grants only selected namespace capabilities',()=>{
  const f=panelFixture();
- const command=f.run('agentDockerRun("token","https://embergate.exemple.com","host",false,true)');
+ const command=f.run('agentDockerRun("token","https://ambergate.exemple.com","host",false,true)');
  assert.match(command,/--pid host --cap-add SYS_ADMIN --cap-add SYS_PTRACE/);
  assert.match(command,/AMBERGATE_AGENT_NAMESPACE=true/);assert.doesNotMatch(command,/--privileged|seccomp=unconfined/);
- const yaml=f.run('agentCompose("token","https://embergate.exemple.com","host",false,true)');
+ const yaml=f.run('agentCompose("token","https://ambergate.exemple.com","host",false,true)');
  assert.match(yaml,/pid: host/);assert.match(yaml,/cap_add: \[SYS_ADMIN, SYS_PTRACE\]/);
  assert.match(yaml,/AMBERGATE_AGENT_NAMESPACE: "true"/);
- assert.throws(()=>f.run('agentCompose("token","https://embergate.exemple.com","apps",false,true)'));
+ assert.throws(()=>f.run('agentCompose("token","https://ambergate.exemple.com","apps",false,true)'));
 });
