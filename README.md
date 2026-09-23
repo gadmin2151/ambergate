@@ -11,7 +11,7 @@
 
 <h3 align="center">Your domains. Your applications. One gateway.</h3>
 <p align="center">Manage Nginx from a web interface. Connect Docker machines, route and balance traffic, and see what is happening — with configuration stored on your own server.</p>
-<p align="center"><a href="#quick-start">Quick start</a> · <a href="#what-you-can-configure">Features</a> · <a href="#service-map">Service map</a> · <a href="#remote-docker-machines">Agents</a> · <a href="#response-rewriting">Response rewriting</a> · <a href="#documentation">Documentation</a></p>
+<p align="center"><a href="#quick-start">Quick start</a> · <a href="#what-you-can-configure">Features</a> · <a href="#service-map">Service map</a> · <a href="#remote-agents">Agents</a> · <a href="#response-rewriting">Response rewriting</a> · <a href="#documentation">Documentation</a></p>
 
 **AmberGate** is a self-hosted HTTP gateway built with Nginx, a Python control plane and vanilla JavaScript. The central gateway and panel run in **one Docker container**. Add one optional agent container per remote Docker machine. No external database or metrics service is required; keep your existing TLS proxy or enable per-domain Let’s Encrypt SSL.
 
@@ -32,7 +32,7 @@
 | **Load balancing** | Round robin, least connections, IP hash, weights and backup servers |
 | **Response rewriting** | Keep an app under `/workspace`: rewrite redirects, cookie paths and HTML links; add custom HTML substitutions |
 | **Local Docker** | Discover containers through `docker.sock`; select shared-network targets or published ports via the host IP |
-| **Remote agents** | Outbound HTTPS/WSS tunnels, manual container selection and balancing across machines; no agent or app ports to publish |
+| **[Remote agents](#remote-agents)** | Outbound HTTPS/WSS tunnels, manual container selection and balancing across machines; no agent or app ports to publish |
 | **Extended agent access** | Optional Linux namespace mode for private ports, localhost listeners and `network=none` containers |
 | **One-line labels** | Automatic routes and replica balancing, existing route groups, preview or automatic apply |
 | **Cache & limits** | Public GET/HEAD caching per route, a shared disk budget, per-source-IP rates, bursts and concurrent request limits |
@@ -181,9 +181,42 @@ See how the external TLS proxy, central AmberGate, local applications and remote
 
 These are diagrams of an example deployment, not a live map of a particular server. **[Connections, ports and vector versions →](docs/architecture.md)**
 
-## Remote Docker machines
+<a id="remote-docker-machines"></a>
+
+## Remote agents
 
 One **AmberGate Agent** container on each machine discovers local containers and carries their traffic over an outbound tunnel. Applications and agents need **no published ports**. Central Nginx still controls routing, balancing, caching and limits.
+
+### How it works
+
+1. The agent reads the local **`docker.sock`** to discover containers, their state, private ports, networks and routing labels. It reports a fresh inventory to the center every **5 seconds** by default. Environment variables, mounts and unrelated labels are excluded from reports.
+2. The agent **initiates the connection to the center** over HTTPS/WSS using its own token. The remote machine needs no inbound agent port, only access to the central address and selected applications. Central AmberGate needs no direct access to that machine's Docker socket or IP address.
+3. Select containers for a route in the panel, or enable automation through **`ambergate.route`** labels. The center generates and validates the Nginx configuration; the agent provides the connection to the application.
+4. When a request arrives, Nginx selects a target container and the agent delivers the request through the tunnel. The response returns along the same path. Streaming uploads, SSE and application WebSockets are supported.
+
+```text
+Client → central Nginx → WSS tunnel → agent → container HTTP port
+Client ← central Nginx ← WSS tunnel ← agent ← application response
+```
+
+The agent opens the tunnel, even though application requests travel from the center to the application. An external TLS proxy in front of panel port **8083** terminates HTTPS for agents; application-domain SSL is configured separately.
+
+### Why use agents?
+
+| Benefit | In practice |
+|:--|:--|
+| **Works behind NAT** | Connect machines in an office, home network or another data center. This tunnel needs no port forwarding or separate VPN as long as the agent can reach the center |
+| **Private application ports** | A backend can listen only inside Docker, without publishing ports such as `3000` or `8080` on its host |
+| **One panel for every machine** | Remote containers appear in the same route editor as local ones; manage domains, caching and limits centrally |
+| **Balancing across servers** | Combine containers from different agents and local targets in one route, with weights, balancing algorithms and backup servers |
+| **Less manual maintenance** | Labels can add new replicas to the balancer. When a manually selected container is recreated with the same name, its address updates after the next report |
+| **Access across Docker networks** | Choose host networking or extended namespace access to match application isolation; modes and required permissions are explained below |
+
+**Example:** two machines behind NAT, each running an agent and a backend on private port `3000`. Give both backends the same label, `ambergate.route: "host=example.com; path=/api; port=3000; strip=true"`, and enable **Apply automatically**. AmberGate creates one `/api` route with two targets on different machines, without publishing port `3000`.
+
+If the connection drops, the agent reconnects automatically and the panel shows its state. Existing connections end when the tunnel disconnects. For routes with multiple targets, Nginx may try another target according to its retry settings; the tunnel does not replace application readiness checks.
+
+### Connect in a few steps
 
 1. Save the central address in **General settings**, for example `ambergate.exemple.com`.
 2. Open **Agents → Add agent** and choose the connection mode.
