@@ -85,6 +85,9 @@ def wire_snapshot(snapshot):
     for row in snapshot["containers"]:
         clean = {key: row[key] for key in ("id", "name", "image", "state", "status", "project", "service",
                  "networks", "shared_networks", "ports", "route_labels", "is_gateway")}
+        # Protocol v1 keeps the shared_networks key for reachable private
+        # networks, including host-mode bridges. Older centers remain compatible.
+        clean["shared_networks"] = row.get("reachable_networks", row["shared_networks"])
         clean["endpoints"] = [{"address": e["address"], "kind": e["kind"]} for e in row["endpoints"]
                               if e["kind"] in ("dns", "ip")]
         rows.append(clean)
@@ -107,7 +110,7 @@ def agent_routes(snapshot):
                 if spec["via"] != "network":
                     raise ValueError("Agent tunnel routes use private container ports; omit via or use via=network")
                 if not row["endpoints"]:
-                    raise ValueError("Connect the agent and application to a shared Docker network")
+                    raise ValueError("Use host networking on Linux or connect the agent to the application network")
                 entries.append(dict(spec=spec, container=row["name"], address=row["endpoints"][0]["address"],
                                     target_id=target_id(row["id"], spec["port"])))
             except ValueError as exc:

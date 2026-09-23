@@ -31,6 +31,11 @@ class FakeDockerHandler(BaseHTTPRequestHandler):
             payload = self.server.containers
         elif self.path == "/v1.48/containers/gateway-self/json":
             payload = self.server.own
+        elif self.path == "/v1.48/networks":
+            if self.server.networks is None:
+                self.send_error(503)
+                return
+            payload = self.server.networks
         else:
             self.send_error(404)
             return
@@ -52,6 +57,8 @@ class DockerTests(unittest.TestCase):
         self.path = str(self.root / "docker.sock")
         self.server = socketserver.UnixStreamServer(self.path, FakeDockerHandler)
         self.server.calls = []
+        self.server.networks = [dict(Name=n, Id=n + "-id", Driver="bridge", Scope="local")
+                                for n in ("applications", "other")]
         self.server.containers = [container(), container("gateway-self", "a" * 64),
                                   container("stopped", "c" * 64, "exited"),
                                   container("isolated", "d" * 64, network="other")]
@@ -90,6 +97,45 @@ class DockerTests(unittest.TestCase):
         Path(self.value["socket_path"]).write_text("not a socket")
         self.assertIn("не является Unix socket", self.docker.snapshot(force=True)["message"])
         self.assertEqual(self.server.calls, [])
+
+    def test_host_network_discovers_private_ips_across_local_bridges(self):
+        from ambergate.agents import wire_snapshot, agent_routes
+        self.server.own["HostConfig"] = {"NetworkMode": "host"}
+        self.server.own["NetworkSettings"]["Networks"] = {"host": {"NetworkID": "host-id"}}
+        self.server.containers[0]["Labels"]["ambergate.route"] = "host=example.com;port=8000"
+        data = self.connect()
+        self.assertTrue(data["connected"])
+        self.assertEqual(data["mode"], "host-network")
+        rows = {c["name"]: c for c in data["containers"]}
+        for name, net in (("backend_1", "applications"), ("isolated", "other")):
+            self.assertTrue(rows[name]["selectable"])
+            self.assertEqual(rows[name]["shared_networks"], [])
+            self.assertEqual(rows[name]["reachable_networks"], [net])
+            self.assertEqual(rows[name]["endpoints"], [dict(address="172.30.0.12", kind="ip", network=net)])
+        self.assertFalse(rows["gateway-self"]["selectable"])
+        self.assertFalse(rows["stopped"]["selectable"])
+        self.assertEqual(self.server.calls[-1], ("GET", "/v1.48/networks"))
+        wire = wire_snapshot(data)
+        self.assertEqual(wire["containers"][0]["shared_networks"], ["applications"])
+        routes, errors = agent_routes(wire)
+        self.assertEqual(errors, [])
+        self.assertEqual(routes[0]["address"], "172.30.0.12")
+
+    def test_host_network_excludes_unsupported_drivers_unknown_ids_and_missing_ips(self):
+        self.server.own["HostConfig"] = {"NetworkMode": "host"}
+        self.server.containers = [container(network=n) for n in ("macvlan", "overlay", "none", "host", "unknown", "noip", "mismatch")]
+        self.server.networks = [dict(Name=n, Id=n+"-id", Driver=n, Scope="local") for n in ("macvlan", "overlay", "none", "host")]
+        self.server.networks += [dict(Name=n, Id=n+"-id", Driver="bridge", Scope="local") for n in ("noip", "mismatch")]
+        self.server.containers[-1]["NetworkSettings"]["Networks"]["mismatch"]["NetworkID"] = "old-id"
+        self.server.containers[-2]["NetworkSettings"]["Networks"]["noip"]["IPAddress"] = ""
+        self.assertFalse(any(c["selectable"] for c in self.connect()["containers"]))
+
+    def test_host_network_discovery_fails_closed_when_network_list_is_unavailable(self):
+        self.server.own["HostConfig"] = {"NetworkMode": "host"}
+        self.server.networks = None
+        data = self.connect()
+        self.assertFalse(data["connected"])
+        self.assertEqual(data["containers"], [])
 
     def test_settings_persist_conflicts_are_rejected_and_disable_preserves_path(self):
         revision = digest(self.docker.read())

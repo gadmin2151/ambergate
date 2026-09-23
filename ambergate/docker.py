@@ -178,7 +178,7 @@ class Docker:
         containers = self.get(path, prefix + "/containers/json?all=1&limit=500")
         if not isinstance(containers, list):
             raise DockerError("Docker не вернул список контейнеров")
-        shared, self_id, network_message = {}, "", ""
+        shared, reachable, self_id, network_message = {}, {}, "", ""
         if result["mode"] == "container":
             identifier = value["gateway_container"] or socket.gethostname()
             if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}", identifier):
@@ -187,18 +187,31 @@ class Docker:
                 own = self.get(path, prefix + "/containers/" + identifier + "/json")
                 shared = own.get("NetworkSettings", {}).get("Networks", {})
                 self_id = own["Id"]
+                if own.get("HostConfig", {}).get("NetworkMode") == "host":
+                    result["mode"] = "host-network"
             except DockerError:
                 network_message = "Не удалось определить сети AmberGate. Укажите его имя или ID в настройках."
-        rows = [self.container(c, shared, self_id, result["mode"], value["host_address"]) for c in containers[:500]]
+        if result["mode"] == "host-network":
+            # Host networking on native Linux can reach local bridge IPs, but
+            # does not provide Docker's embedded DNS or access to every driver.
+            networks = self.get(path, prefix + "/networks")
+            if not isinstance(networks, list):
+                raise DockerError("Docker не вернул список сетей")
+            reachable = {n["Name"]: {"NetworkID": n["Id"]} for n in networks
+                         if n.get("Driver") == "bridge" and n.get("Scope") == "local"
+                         and n.get("Name") and n.get("Id")}
+        rows = [self.container(c, shared, self_id, result["mode"], value["host_address"], reachable)
+                for c in containers[:500]]
         result.update(connected=True, engine_version=str(version.get("Version", ""))[:80],
                       gateway_networks=sorted(shared), truncated=len(containers) >= 500,
-                      message=network_message or ("Общая сеть Docker или опубликованные порты хоста" if shared else
+                      message=network_message or ("Host network: доступ к внутренним IP локальных bridge-сетей" if result["mode"] == "host-network" else
+                              "Общая сеть Docker или опубликованные порты хоста" if shared else
                               "Локальный запуск: используйте опубликованные TCP-порты" if result["mode"] == "host" else
                               "У AmberGate нет подключённых сетей Docker"))
         result["containers"] = sorted(rows, key=lambda c: (not c["selectable"], c["name"]))
         result["networks"] = sorted({n for c in rows for n in c["networks"]})
 
-    def container(self, c, shared, self_id, mode, host_address=""):
+    def container(self, c, shared, self_id, mode, host_address="", reachable=None):
         name = str((c.get("Names") or [str(c.get("Id", ""))[:12]])[0]).lstrip("/")[:253]
         labels = c.get("Labels") or {}
         nets = c.get("NetworkSettings", {}).get("Networks", {})
@@ -206,16 +219,18 @@ class Docker:
                  and type(p.get("PrivatePort")) is int and 1 <= p["PrivatePort"] <= 65535]
         common = [n for n, v in nets.items() if n in shared and v.get("NetworkID")
                   and v.get("NetworkID") == shared[n].get("NetworkID")]
+        available = [n for n, v in nets.items() if n in (reachable or {}) and v.get("NetworkID")
+                     and v.get("NetworkID") == reachable[n].get("NetworkID")] if mode == "host-network" else common
         row = dict(id=str(c.get("Id", ""))[:64], name=name, image=str(c.get("Image", ""))[:300],
                    state=str(c.get("State", "unknown"))[:30], status=str(c.get("Status", ""))[:150],
                    project=str(labels.get("com.docker.compose.project", ""))[:100],
                    service=str(labels.get("com.docker.compose.service", ""))[:100],
-                   networks=sorted(nets), shared_networks=sorted(common), endpoints=[],
+                   networks=sorted(nets), shared_networks=sorted(common), reachable_networks=sorted(available), endpoints=[],
                    ports=sorted({p["PrivatePort"] for p in ports}), selectable=False, reason="",
                    host_endpoints=[], host_reason="", is_gateway=c.get("Id") == self_id,
                    route_labels={k: str(v)[:4097] for k, v in sorted(labels.items())
                                  if k == "ambergate.route" or k.startswith("ambergate.route.")})
-        published, host_reason = published_targets(ports, host_address, native=mode == "host")
+        published, host_reason = published_targets(ports, host_address, native=mode in ("host", "host-network"))
         if c.get("Id") == self_id:
             row["reason"] = "Это сам AmberGate"
         elif c.get("State") != "running":
@@ -223,10 +238,10 @@ class Docker:
         elif mode == "host":
             row["endpoints"] = published
             row["reason"] = host_reason if not published else ""
-        elif not common:
-            row["reason"] = "Нет общей сети с AmberGate"
+        elif not available:
+            row["reason"] = "Нет доступной локальной bridge-сети" if mode == "host-network" else "Нет общей сети с AmberGate"
         else:
-            dns = any(n not in ("bridge", "host", "none") and nets[n].get("IPAddress") for n in common)
+            dns = mode != "host-network" and any(n not in ("bridge", "host", "none") and nets[n].get("IPAddress") for n in available)
             try:
                 upstream_hostname(name, "Docker container")
             except ValidationError:
@@ -234,10 +249,13 @@ class Docker:
             if dns:
                 row["endpoints"].append(dict(address=name, kind="dns"))
             else:
-                for n in common:
+                for n in available:
                     for key in ("IPAddress", "GlobalIPv6Address"):
                         try:
-                            address = str(ipaddress.ip_address(nets[n].get(key, "")))
+                            ip = ipaddress.ip_address(nets[n].get(key, ""))
+                            if ip.is_unspecified or ip.is_loopback or ip.is_multicast or ip.is_link_local:
+                                continue
+                            address = str(ip)
                         except ValueError:
                             continue
                         row["endpoints"].append(dict(address=address, kind="ip", network=n))

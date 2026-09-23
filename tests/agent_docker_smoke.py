@@ -92,14 +92,14 @@ def main():
             token=created['token']; aid=created['agent_id']
             data=api('docker/labels'); api('docker/labels',dict(action='settings',mode='auto',revision=data['revision']))
             subprocess.run(['openssl','req','-x509','-newkey','rsa:2048','-nodes','-days','1','-keyout',str(root/'key.pem'),
-                '-out',str(root/'cert.pem'),'-subj','/CN=agent-edge','-addext','subjectAltName=DNS:agent-edge'],check=True,capture_output=True)
+                '-out',str(root/'cert.pem'),'-subj','/CN=agent-edge','-addext','subjectAltName=DNS:agent-edge,IP:127.0.0.1'],check=True,capture_output=True)
             (root/'nginx.conf').write_text('''events {}\nhttp { access_log off; server { listen 443 ssl;
 ssl_certificate /tls/cert.pem; ssl_certificate_key /tls/key.pem;
 location / { proxy_pass http://agent-central:8083; proxy_http_version 1.1;
 proxy_set_header Host $host; proxy_set_header Upgrade $http_upgrade;
 proxy_set_header Connection "upgrade"; proxy_read_timeout 90s; proxy_buffering off; }
 } }''')
-            run(PREFIX+'-tls','--network',edge_net,'--network-alias','agent-edge',
+            tls=run(PREFIX+'-tls','--network',edge_net,'--network-alias','agent-edge','-p','127.0.0.1::443',
                 '-v',f'{root}:/tls:ro','--entrypoint','nginx',IMAGE,'-c','/tls/nginx.conf','-g','daemon off;')
             # Start agent initially on the app network, then attach outbound connectivity.
             agent=run(PREFIX+'-agent','--network',private,'--read-only','--tmpfs','/tmp:size=16m,mode=1777',
@@ -149,6 +149,30 @@ proxy_set_header Connection "upgrade"; proxy_read_timeout 90s; proxy_buffering o
             csrf=wait(login)['csrf']
             wait(lambda:traffic().startswith(b'app-'))
             wait(lambda:traffic('/manual/check')==b'recreated:/check')
+            # Host-mode one-command installation: the agent joins no app network,
+            # yet reaches private ports on two different local bridges via IP.
+            other=PREFIX+'-other';docker('network','create',other);networks.append(other)
+            docker('network','connect',other,apps[1])
+            docker('network','disconnect',private,apps[1])
+            docker('rm','-f',agent)
+            tls_port=inspect(tls)['NetworkSettings']['Ports']['443/tcp'][0]['HostPort']
+            run(agent,'--network','host','--init','--read-only','--tmpfs','/tmp:size=16m,mode=1777',
+                '-v','/var/run/docker.sock:/var/run/docker.sock:ro','-v',f'{root}/cert.pem:/ca.pem:ro',
+                '-e','AMBERGATE_DOCKER_CONTAINER='+agent,
+                '-e','AMBERGATE_SERVER_URL=https://127.0.0.1:'+tls_port,'-e','AMBERGATE_AGENT_TOKEN='+token,
+                '-e','AMBERGATE_AGENT_CA_FILE=/ca.pem','-e','AMBERGATE_AGENT_INTERVAL=2',AGENT)
+            def host_inventory():
+                detail=api('agents/'+aid)['agents'][0]
+                rows={c['name']:c for c in detail['inventory']}
+                return all(rows.get(app,{}).get('endpoints') and rows[app]['endpoints'][0]['kind']=='ip' for app in apps)
+            wait(host_inventory)
+            assert {traffic() for _ in range(12)}=={b'app-0:/check',b'app-1:/check'}
+            assert traffic('/manual/check')==b'recreated:/check'
+            assert inspect(agent)['HostConfig']['NetworkMode']=='host'
+            assert not inspect(agent)['HostConfig'].get('PortBindings')
+            assert set(inspect(apps[0])['NetworkSettings']['Networks']).isdisjoint(inspect(apps[1])['NetworkSettings']['Networks'])
+            wait(lambda:inspect(agent)['State']['Health']['Status']=='healthy')
+            print('PASS: host-mode agent reaches two separate bridge networks over verified TLS without published app ports')
             docker('stop',agent)
             wait(lambda:api('agents')['agents'][0]['status']=='offline')
             def empty_route():

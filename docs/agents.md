@@ -2,7 +2,7 @@
 
 [Русский](agents.ru.md) · [Back to README](../README.md)
 
-Run one **Docker container per remote machine**, with access to its Docker socket and application networks. The agent discovers containers and `ambergate.route` labels, then opens outbound HTTPS/WSS connections to central AmberGate. Applications and the agent need **no published ports**.
+Run one **Docker container per remote machine**, with access to its Docker socket and private application addresses. The agent discovers containers and `ambergate.route` labels, then opens outbound HTTPS/WSS connections to central AmberGate. Applications and the agent need **no published ports**.
 
 ```mermaid
 flowchart LR
@@ -21,17 +21,21 @@ Nginx still controls hosts, paths, balancing, caching and limits. The agent stre
 
 1. Open **General settings** and save the address of central AmberGate **once**. A domain such as `embergate.exemple.com` becomes `https://embergate.exemple.com`. Your TLS proxy must forward that address to the central **admin listener on port 8083**, not the application listener on port 80.
 2. Open **Agents → Add agent**, give the machine a name and create it.
-3. Enter the existing application Docker network on that machine. The **Docker run** tab shows a complete **single-line command**, with your saved address and the new agent token already inserted. Click **Copy command** and run it on the Docker machine.
+3. Keep **Host network · local bridge networks (Linux)** selected; no network needs creating or naming. The **Docker run** tab shows a complete **single-line command**, with your saved address and the new agent token already inserted. Click **Copy command** and run it on the Docker machine.
 4. Keep the wizard open: **Agent connected** appears automatically through SSE when the agent reports successfully. The **Docker Compose** tab offers a ready-to-run file and `docker compose -f compose.agent.yaml up -d` instead.
 5. Configure routes manually using the container picker below, or add route labels to your applications. For labels, select **Preview** or **Apply automatically** in the automation card. The same label policy controls local Docker and all agents; the default is **Off**.
 
 Example command (the wizard fills in your real address and token):
 
 ```bash
-docker run -d --name ambergate-agent --restart unless-stopped --init --read-only --tmpfs /tmp:size=16m,mode=1777 --network ambergate-apps --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock,readonly -e AMBERGATE_SERVER_URL=https://embergate.exemple.com -e AMBERGATE_AGENT_TOKEN='<AGENT_TOKEN>' ghcr.io/gadmin2151/ambergate-agent:latest
+docker run -d --pull always --name ambergate-agent --restart unless-stopped --init --read-only --tmpfs /tmp:size=16m,mode=1777 --network host -e AMBERGATE_DOCKER_CONTAINER=ambergate-agent --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock,readonly -e AMBERGATE_SERVER_URL=https://embergate.exemple.com -e AMBERGATE_AGENT_TOKEN='<AGENT_TOKEN>' ghcr.io/gadmin2151/ambergate-agent:latest
 ```
 
-The network must already exist and contain your applications. If it is `internal: true`, attach the agent to another network with outbound access to the central server. One agent can join several application networks. No agent or application `ports:` publication is needed.
+The default is **`--network host`** (Compose: **`network_mode: host`**). On native Linux Docker Engine, the agent reaches private container IPs across local bridge networks, including networks created by separate Compose projects. There is no need to create `ambergate-apps`, move your applications or publish their ports. The agent opens no inbound listener and never changes Docker networks. Both manual container selection and labels use this access; Docker IP changes are picked up on the next report.
+
+For Docker Desktop, rootless Docker or access restricted to a specific network, choose **Specific Docker network** in the wizard and enter an existing name such as `my-app_default`. With the repository Compose file, set `AMBERGATE_AGENT_NETWORK=my-app_default`. Attach additional networks with `docker network connect <network> ambergate-agent` if required. An `internal: true` network needs an additional network with outbound connectivity to central AmberGate.
+
+Host mode uses private IPs, not Docker DNS. Automatic reachability targets local **bridge** networks on native, rootful Linux Docker Engine; macvlan, ipvlan, overlay, containers in `none`/`host` mode and custom firewall rules are outside this guarantee. Host mode shares the host network namespace. [Docker host networking](https://docs.docker.com/engine/network/drivers/host/) · [Bridge networking](https://docs.docker.com/engine/network/drivers/bridge/).
 
 Tokens are shown only in the installation wizard. The command and Compose file contain a secret: keep your copy private and do not commit it. For a downloaded file, `chmod 600 compose.agent.yaml` restricts access. If you close the wizard without saving a token, use **New token**; this revokes the previous token. To rotate an existing Docker-run installation, remove its old `ambergate-agent` container before running the new command; for Compose, replace the file and run `up -d`.
 
@@ -48,7 +52,7 @@ Alternatively, use [compose.agent.yaml](../compose.agent.yaml) with a private `.
 ```dotenv
 AMBERGATE_SERVER_URL=https://embergate.exemple.com
 AMBERGATE_AGENT_TOKEN=REPLACE_WITH_YOUR_AGENT_TOKEN
-AMBERGATE_AGENT_NETWORK=ambergate-apps
+AMBERGATE_AGENT_NETWORK=host
 AMBERGATE_AGENT_ALLOW_HTTP=false
 ```
 
@@ -84,9 +88,7 @@ services:
     # No ports: block required. 3000 is the application's private HTTP port.
 
 networks:
-  applications:
-    external: true
-    name: ambergate-apps
+  applications: {}
 ```
 
 Run replicas with the **same host, path and route options** on several machines. Central AmberGate combines their tunnel targets in a single Nginx upstream. `weight`, `backup` and the supported balancing algorithms work as with local labels.
@@ -98,7 +100,7 @@ labels:
   ambergate.route: "group=app-api; port=3000; weight=2"
 ```
 
-[All label options and examples](../README.md#label-reference) also apply, except `via=host`: remote agents use private Docker network endpoints. Omit `via`, or set `via=network`. Connect the agent to every network that contains a labelled application; it cannot join networks or publish ports by itself.
+[All label options and examples](../README.md#label-reference) also apply, except `via=host`: remote agents use private Docker network endpoints. Omit `via`, or set `via=network`. Host mode reaches local bridge networks automatically. In specific-network mode, connect the agent to every application network; the agent never joins networks or publishes ports by itself.
 
 [Complete application + agent Compose example](../examples/agent.compose.yaml).
 
@@ -127,7 +129,7 @@ For a private CA, mount its PEM bundle in the agent and set `AMBERGATE_AGENT_CA_
 ## State, revocation and failures
 
 - Inventory is reported every 5 seconds. The panel receives agent status through its existing **SSE stream**. Container details show the latest received inventory when opened.
-- Running, labelled containers with a shared network become targets. Application responses are monitored by Nginx; Docker health-check status does not independently remove a running container. Invalid labels, an incomplete inventory or loss of Docker access preserve that agent's last valid report until its lease expires.
+- Running, labelled containers with a reachable private endpoint (host mode or a shared network) become targets. Application responses are monitored by Nginx; Docker health-check status does not independently remove a running container. Invalid labels, an incomplete inventory or loss of Docker access preserve that agent's last valid report until its lease expires.
 - In **Auto** mode, expired agents are removed on the next reconciliation (up to 5 additional seconds). Other agents and manually configured targets remain. An empty managed route returns **503**.
 - **Preview** proposes configuration changes; **Off** leaves configuration unchanged. Tunnel disconnection still fails upstream connections immediately, allowing Nginx to try a remaining healthy target.
 - Disabling, deleting or rotating a token immediately disconnects that agent's tunnel and rejects the old token. Rotation requires updating and restarting the remote agent.
@@ -142,7 +144,7 @@ For a private CA, mount its PEM bundle in the agent and set `AMBERGATE_AGENT_CA_
 | `AMBERGATE_AGENT_TOKEN` | Per-agent token generated in the panel |
 | `AMBERGATE_AGENT_TOKEN_FILE` | Optional mounted secret file; takes precedence over the environment token |
 | `AMBERGATE_DOCKER_SOCKET` | `/var/run/docker.sock` |
-| `AMBERGATE_DOCKER_CONTAINER` | Optional own container name/ID if automatic hostname detection is unavailable |
+| `AMBERGATE_DOCKER_CONTAINER` | `ambergate-agent` in generated installers; own container name/ID. Update this variable if you rename the container |
 | `AMBERGATE_AGENT_CA_FILE` | Optional PEM CA bundle |
 | `AMBERGATE_AGENT_INTERVAL` | 5 seconds; allowed 2–30, keep below the configured lease timeout |
 | `AMBERGATE_AGENT_ALLOW_HTTP` | `false`; enabled by generated installers only after explicit HTTP risk confirmation |

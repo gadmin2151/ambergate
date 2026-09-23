@@ -105,6 +105,22 @@ test('agent one-liner embeds saved origin, quotes secrets and gates HTTP explici
   const weird=f.run('agentDockerRun(secret,"https://embergate.exemple.com","apps")');
   assert.ok(weird.includes("'\"'\"'"));
 });
+test('agent defaults to host networking without an external network dependency',()=>{
+  const f=panelFixture();
+  const command=f.run('agentDockerRun("test-token","https://embergate.exemple.com")');
+  assert.match(command,/--network 'host'/);
+  assert.match(command,/AMBERGATE_DOCKER_CONTAINER=ambergate-agent/);
+  assert.doesNotMatch(command,/ambergate-apps| -p |--privileged/);
+  const compose=f.run('agentCompose("test-token","https://embergate.exemple.com")');
+  assert.match(compose,/network_mode: host/);
+  assert.match(compose,/container_name: ambergate-agent/);
+  assert.match(compose,/AMBERGATE_DOCKER_CONTAINER: ambergate-agent/);
+  assert.doesNotMatch(compose,/networks:|external:|ports:/);
+  const specific=f.run('agentCompose("test-token","https://embergate.exemple.com","my-app_default")');
+  assert.match(specific,/external: true/);
+  assert.match(specific,/name: "my-app_default"/);
+  assert.doesNotMatch(specific,/network_mode:/);
+});
 test('general settings SSE preserves an unsaved address and exposes the saved transport',()=>{
   const f=panelFixture();
   f.run("generalDraft='10.0.0.11'; receiveGeneral({general:{settings:{public_url:'http://10.0.0.10:8083',allow_http:true},revision:'new'}});");

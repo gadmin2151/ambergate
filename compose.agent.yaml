@@ -1,12 +1,18 @@
+# Native Linux: host mode reaches local bridge IPs without creating a network.
+# For an existing network instead, set AMBERGATE_AGENT_NETWORK to its name.
 services:
   ambergate-agent:
     image: ghcr.io/gadmin2151/ambergate-agent:latest
+    pull_policy: always
+    container_name: ambergate-agent
+    network_mode: ${AMBERGATE_AGENT_NETWORK:-host}
     restart: unless-stopped
     init: true
     read_only: true
     tmpfs:
       - /tmp:size=16m,mode=1777
     environment:
+      AMBERGATE_DOCKER_CONTAINER: ambergate-agent
       AMBERGATE_SERVER_URL: ${AMBERGATE_SERVER_URL:?Set the central address from General settings}
       AMBERGATE_AGENT_TOKEN: ${AMBERGATE_AGENT_TOKEN:?Create an agent token in AmberGate}
       AMBERGATE_AGENT_ALLOW_HTTP: ${AMBERGATE_AGENT_ALLOW_HTTP:-false}
@@ -17,16 +23,9 @@ services:
         read_only: true
         bind:
           create_host_path: false
-    networks:
-      - applications
     stop_grace_period: 15s
     logging:
       driver: json-file
       options:
         max-size: 10m
         max-file: "3"
-
-networks:
-  applications:
-    external: true
-    name: ${AMBERGATE_AGENT_NETWORK:-ambergate-apps}

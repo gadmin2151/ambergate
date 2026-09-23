@@ -1,20 +1,23 @@
-# Run on each remote Docker machine. No app or agent ports are published.
+# Run on each native Linux Docker machine; apps stay in separate bridge networks. No app or agent ports are published.
 # Set AMBERGATE_SERVER_URL and AMBERGATE_AGENT_TOKEN in a private .env file.
 services:
   agent:
     image: ghcr.io/gadmin2151/ambergate-agent:latest
+    pull_policy: always
+    container_name: ambergate-agent
+    network_mode: host
     restart: unless-stopped
     init: true
     read_only: true
     tmpfs:
       - /tmp:size=16m,mode=1777
     environment:
+      AMBERGATE_DOCKER_CONTAINER: ambergate-agent
       AMBERGATE_SERVER_URL: ${AMBERGATE_SERVER_URL:?Set the central address from General settings}
       AMBERGATE_AGENT_TOKEN: ${AMBERGATE_AGENT_TOKEN:?Create token in Agents}
       AMBERGATE_AGENT_ALLOW_HTTP: ${AMBERGATE_AGENT_ALLOW_HTTP:-false}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-    networks: [applications]
   app:
     image: nginx:alpine
     restart: unless-stopped
@@ -23,5 +26,12 @@ services:
       ambergate.route: "host=example.com; path=/; port=80; balance=least_conn"
     # Scale on one machine: docker compose -f examples/agent.compose.yaml up -d --scale app=2
     # Use identical route labels on another machine to join the same upstream.
+  api:
+    image: nginx:alpine
+    restart: unless-stopped
+    networks: [backend]
+    labels:
+      ambergate.route: "host=example.com; path=/api; port=80; strip=true"
 networks:
   applications: {}
+  backend: {}
