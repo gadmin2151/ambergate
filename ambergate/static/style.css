@@ -290,11 +290,14 @@ dialog::backdrop { background: #161826ac; backdrop-filter: blur(5px); }
 .login-art h1>span { color: #b5b8cb; }
 .login-art .eyebrow { color: #71779c; }
 .login-art p { max-width: 350px; font-size: 12px; line-height: 1.9; color: #8489aa; margin-top: 24px; }
-.login-flow { display: flex; align-items: center; margin-top: 42px; max-width: 380px; }
+.login-flow { --flow-branch: clamp(24px, 6vw, 76px); --flow-line: #ffaf35; --flow-node-height: 30px; display: flex; align-items: center; margin-top: 42px; max-width: 380px; }
 .login-flow>span { padding: 14px 20px; font: 11px monospace; border: 1px solid #52598955; background: #272b4266; border-radius: 8px; color: #b1b4c8; }
-.login-flow i { flex: 1; height: 1px; background: #58609466; min-width: 20px; }
-.login-flow>div { display: flex; flex-direction: column; gap: 9px; }
-.login-flow code { border: 1px solid #484f7966; border-radius: 6px; padding: 7px 23px; color: #8186a7; background: #212436; font-size: 11px; }
+.login-flow i { flex: 1; height: 1px; background: var(--flow-line); min-width: calc(var(--flow-branch) + 8px); }
+.login-flow>div { position: relative; display: flex; flex-direction: column; gap: 9px; }
+/* The spine begins and ends at the centers of the outer route labels. */
+.login-flow>div::before { content: ""; position: absolute; right: calc(100% + var(--flow-branch)); top: calc(var(--flow-node-height) / 2); bottom: calc(var(--flow-node-height) / 2); width: 1px; background: var(--flow-line); pointer-events: none; }
+.login-flow code { position: relative; display: flex; align-items: center; height: var(--flow-node-height); border: 1px solid #484f7966; border-radius: 6px; padding: 0 23px; color: #8186a7; background: #212436; font-size: 11px; }
+.login-flow code::before { content: ""; position: absolute; right: 100%; top: calc(50% - .5px); width: calc(var(--flow-branch) + 1px); height: 1px; background: var(--flow-line); pointer-events: none; }
 .login-form-wrap { display: flex; justify-content: center; align-items: center; padding: 40px; }
 .login-form { width: 100%; max-width: 345px; }
 .login-form .eyebrow { color: #8c91af; font-size: 9px; }
@@ -652,7 +655,7 @@ pre { background: #131314; color: #c6b89f; font-size: 12px; }
 .login-art .eyebrow { color: #bb8739; }
 .login-art p { color: #b0a28b; }
 .login-flow>span { background: #6d4b2140; border-color: #a87b3b; color: #ffd392; }
-.login-flow i { background: #ffaf35; box-shadow: 0 0 10px #ffaf3522; }
+.login-flow i { box-shadow: 0 0 10px #ffaf3522; }
 .login-flow code { background: #392c1c; border-color: #9b6e34; color: #ffc975; }
 .login-form .eyebrow { color: #c99345; }
 .login-form>p { color: #9999a5; }
