@@ -1,6 +1,7 @@
 FROM nginx:1.28-alpine
 
-LABEL org.opencontainers.image.title="AmberGate" \
+LABEL org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.title="AmberGate" \
       org.opencontainers.image.description="A self-hosted Nginx gateway with a web UI, multi-domain routing, load balancing and cache." \
       org.opencontainers.image.source="https://github.com/gadmin2151/ambergate" \
       org.opencontainers.image.url="https://github.com/gadmin2151/ambergate"
@@ -10,6 +11,7 @@ RUN apk add --no-cache python3 tini certbot openssl \
     && mkdir -p /app /data /cache /run/ambergate
 WORKDIR /app
 COPY ambergate /app/ambergate
+COPY LICENSE /usr/share/doc/ambergate/LICENSE
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 EXPOSE 80 443 8083

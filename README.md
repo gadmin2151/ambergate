@@ -6,6 +6,7 @@
   <a href="https://github.com/gadmin2151/ambergate/actions/workflows/docker.yml"><img src="https://github.com/gadmin2151/ambergate/actions/workflows/docker.yml/badge.svg" alt="Build and publish"></a>
   <a href="https://github.com/gadmin2151/ambergate/pkgs/container/ambergate"><img src="https://img.shields.io/badge/GHCR-amd64%20%7C%20arm64-ffaf35?style=flat-square&logo=docker&logoColor=ffaf35&labelColor=151516" alt="Docker images for amd64 and arm64"></a>
   <img src="https://img.shields.io/badge/UI-RU%20%2F%20EN-ffaf35?style=flat-square&labelColor=151516" alt="Russian and English interface">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-ffaf35?style=flat-square" alt="MIT license"></a>
 </p>
 
 <h3 align="center">Your domains. Your applications. One gateway.</h3>
@@ -292,5 +293,13 @@ Pushes to `main` publish `latest` and `sha-<full-commit-SHA>`. Version tags publ
 | [Screenshot notes](docs/screenshots/README.md) | Demo environment and image provenance |
 
 **Scope:** HTTP applications and WebSocket upgrades. Optional Let’s Encrypt SSL uses HTTP-01; wildcard certificates, IP certificates, DNS-01, upstream HTTPS, gRPC, raw TCP forwarding and a full WAF are not provided. `nginx.conf` is generated from validated fields, not edited as arbitrary directives. Configure trusted proxy IPs/CIDRs for correct client-IP limits, and keep administration on a trusted network or secured external proxy.
+
+## Community & contributing
+
+AmberGate is an early project released under the [MIT license](LICENSE). Start with a test deployment, share your use case and help make the setup and behavior clearer.
+
+[Ask a question](https://github.com/gadmin2151/ambergate/discussions) · [Report a bug](https://github.com/gadmin2151/ambergate/issues/new/choose) · [Contribute](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md)
+
+Good first contributions include testing Compose examples, improving RU/EN translations, documentation and reproducible routing tests. If AmberGate is useful to you, a GitHub star helps other people discover it.
 
 <p align="center"><br><img src="docs/logo.svg" width="38" alt="AmberGate logo"><br><sub>Your server. Your traffic. Your rules.</sub></p>

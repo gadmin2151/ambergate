@@ -1,6 +1,22 @@
 name: Bug report / Ошибка
 description: Report a reproducible problem with the gateway.
 body:
+  - type: markdown
+    attributes:
+      value: "For setup questions, use Discussions. Report vulnerabilities privately through the Security tab. / Вопросы по настройке — в Discussions; уязвимости — приватно через Security."
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component / Компонент
+      options:
+        - Routing / Маршруты
+        - SSL / Let’s Encrypt
+        - Docker discovery / Docker labels
+        - Remote agent / Удалённый агент
+        - Dashboard / Web UI
+        - Installer / Docker image
+    validations:
+      required: true
   - type: textarea
     id: behavior
     attributes:

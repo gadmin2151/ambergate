@@ -6,6 +6,7 @@
   <a href="https://github.com/gadmin2151/ambergate/actions/workflows/docker.yml"><img src="https://github.com/gadmin2151/ambergate/actions/workflows/docker.yml/badge.svg" alt="Сборка и публикация"></a>
   <a href="https://github.com/gadmin2151/ambergate/pkgs/container/ambergate"><img src="https://img.shields.io/badge/GHCR-amd64%20%7C%20arm64-ffaf35?style=flat-square&logo=docker&logoColor=ffaf35&labelColor=151516" alt="Docker-образы для amd64 и arm64"></a>
   <img src="https://img.shields.io/badge/UI-RU%20%2F%20EN-ffaf35?style=flat-square&labelColor=151516" alt="Русский и английский интерфейс">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-ffaf35?style=flat-square" alt="MIT license"></a>
 </p>
 
 <h3 align="center">Ваши домены. Ваши приложения. Один gateway.</h3>
@@ -291,5 +292,13 @@ Push в `main` публикует `latest` и `sha-<полный-commit-SHA>`. �
 | [О скриншотах](docs/screenshots/README.md) | Демонстрационный стенд и происхождение изображений |
 
 **Границы возможностей:** HTTP-приложения и WebSocket upgrade. Необязательный SSL от Let’s Encrypt использует HTTP-01; wildcard, сертификаты для IP, DNS-01, upstream HTTPS, gRPC, произвольный TCP и полноценный WAF не реализованы. `nginx.conf` формируется из проверенных полей, произвольного редактирования директив нет. Укажите доверенные IP/CIDR прокси для корректных лимитов по клиентскому IP; администрирование размещайте в доверенной сети или за защищённым внешним прокси.
+
+## Сообщество и участие
+
+AmberGate — молодой проект под [лицензией MIT](LICENSE). Начните с тестового развёртывания, расскажите о своём сценарии и помогите сделать инструкции и поведение понятнее.
+
+[Задать вопрос](https://github.com/gadmin2151/ambergate/discussions) · [Сообщить об ошибке](https://github.com/gadmin2151/ambergate/issues/new/choose) · [Участвовать](CONTRIBUTING.md) · [История изменений](CHANGELOG.md) · [Безопасность](SECURITY.md)
+
+Для первого вклада подойдут проверка Compose-примеров, улучшения перевода RU/EN, документация и воспроизводимые тесты маршрутизации. Если AmberGate оказался полезен, звезда на GitHub поможет другим найти проект.
 
 <p align="center"><br><img src="docs/logo.svg" width="38" alt="Логотип AmberGate"><br><sub>Ваш сервер. Ваш трафик. Ваши правила.</sub></p>

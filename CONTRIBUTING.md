@@ -63,3 +63,14 @@ Check both languages, keyboard navigation, mobile layout, unsaved forms and SSE 
 Include steps, expected and actual behavior, image tag/commit and relevant sanitized logs. Replace private domains and addresses with examples. Never post passwords, cookies, tokens, `/data/admin.json` or an unredacted backup. For a security concern, use the repository's private vulnerability reporting option if available instead of publishing exploit details in an issue.
 
 Keep changes focused. Describe the user-visible result and relevant validation in the pull request.
+
+## Where to start
+
+- Ask setup questions or discuss a proposal in [Discussions](https://github.com/gadmin2151/ambergate/discussions).
+- Use the [issue forms](https://github.com/gadmin2151/ambergate/issues/new/choose) for reproducible bugs or concrete feature requests. Include the gateway/agent image digest and network mode when relevant.
+- Small contributions are welcome: clarify an installation step, test a Compose example, improve RU/EN text or add a regression test. Discuss larger changes before investing in an implementation.
+- Never attach real passwords, agent tokens, certificate keys or private configuration. Report vulnerabilities through [SECURITY.md](SECURITY.md).
+
+For certificate changes, run `python3 tests/acme_smoke.py` on a Docker host after building `ambergate:ci`. It uses disposable Pebble and gateway containers, actual HTTP-01 validation and verified HTTPS; it never contacts a public CA.
+
+By submitting a contribution, you agree that it is provided under the repository's [MIT license](LICENSE). Follow the [community guidelines](CODE_OF_CONDUCT.md). Contributions and questions in Russian or English are welcome.

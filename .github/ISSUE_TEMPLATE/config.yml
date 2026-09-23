@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions & setup help / Вопросы и настройка
+    url: https://github.com/gadmin2151/ambergate/discussions
+    about: Ask about deployment, routing, SSL or agents. / Обсудить установку, маршруты, SSL и агентов.
+  - name: Documentation / Документация
+    url: https://github.com/gadmin2151/ambergate#documentation
+    about: Start with the guides, examples and service connection map. / Инструкции, примеры и карта сервисов.
+  - name: Report a security vulnerability privately / Уязвимость
+    url: https://github.com/gadmin2151/ambergate/security/advisories/new
+    about: Do not post credentials or exploitable vulnerabilities publicly. / Не публикуйте пароли и уязвимости открыто.
