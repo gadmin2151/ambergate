@@ -165,7 +165,7 @@ function render() {
   $('#app').innerHTML = ui`
     <div class="shell ${page === 'dashboard' ? 'dashboard-shell' : ''}">
       <aside class="sidebar">
-        <div class="brand"><img src="/favicon.svg?v=3" alt=""><div>Amber<span class="brand-accent">Gate</span><small>NGINX GATEWAY</small></div></div>
+        <button type="button" class="brand brand-home" data-action="navigate" data-page="dashboard" aria-label="AmberGate — ${t('Обзор системы')}" title="${t('Обзор системы')}"><img src="/favicon.svg?v=3" alt=""><span class="brand-name">Amber<span class="brand-accent">Gate</span><small>NGINX GATEWAY</small></span></button>
         <div class="workspace-switch"><span class="workspace-symbol">${icon('server')}</span><div><strong>Мой AmberGate</strong><small>${t('Self-hosted workspace')}</small></div><span class="workspace-dot"></span></div>
         <div class="nav-caption">ПРОСТРАНСТВО</div>
         <nav aria-label="Главное меню">${nav.map(([key,label]) => btn('navigate',`<span>${t(label)}</span>${key === 'routes' ? `<span class="nav-count">${config.hosts.length}</span>` : ''}`,key,page === key ? 'active' : '',`data-page="${key}" aria-label="${t(label)}" title="${t(label)}" ${page === key ? 'aria-current="page"' : ''}`)).join('')}</nav>

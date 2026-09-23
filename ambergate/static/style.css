@@ -54,6 +54,9 @@ code { font-size: 12px; }
 .brand img { width: 37px; height: 37px; border-radius: 10px; }
 .brand-period { color: #b8bbcd; }
 .brand small { display: block; font-size: 6px; font-weight: 500; letter-spacing: .85px; color: #8a8ead; margin-top: 4px; white-space: nowrap; }
+button.brand-home { flex-shrink: 0; justify-content: flex-start; min-height: 44px; padding-block: 0; border: 0; background: transparent; box-shadow: none; text-align: left; line-height: normal; user-select: none; }
+.brand-home:hover img { filter: brightness(1.15); }
+.brand-home:focus-visible { outline: 2px solid #ffaf35; outline-offset: 5px; }
 .workspace-switch { display: flex; gap: 10px; align-items: center; margin: 34px 5px 0; padding: 12px 11px; border: 1px solid #2c2f48; border-radius: 9px; background: #1e2132; }
 .workspace-symbol { display: grid; place-items: center; width: 30px; height: 32px; color: #b2b5c9; border-radius: 7px; background: #2a2d45; }
 .workspace-switch strong { display: block; font-size: 11px; font-weight: 500; color: #e3e4ec; }
@@ -334,7 +337,7 @@ dialog::backdrop { background: #161826ac; backdrop-filter: blur(5px); }
   :root { --sidebar: 76px; }
   .sidebar { padding: 25px 11px 18px; align-items: center; }
   .brand { padding: 0; }
-  .brand>div, .workspace-switch, .nav-caption, .side-card, .side-account>div, .side-account .avatar { display: none; }
+  .brand>div, .brand-name, .workspace-switch, .nav-caption, .side-card, .side-account>div, .side-account .avatar { display: none; }
   .sidebar nav { margin-top: 43px; width: 100%; gap: 10px; }
   .sidebar nav button { justify-content: center; height: 45px; padding: 12px; }
   .sidebar nav button>span { display: none; }
@@ -349,7 +352,7 @@ dialog::backdrop { background: #161826ac; backdrop-filter: blur(5px); }
   :root { --sidebar: 0px; }
   .sidebar { position: static; width: 100%; display: block; padding: 17px 19px 12px; }
   .sidebar .brand { font-size: 21px; gap: 9px; }
-  .sidebar .brand>div { display: block; }
+  .sidebar .brand>div, .sidebar .brand-name { display: block; }
   .sidebar .brand img { width: 30px; height: 30px; }
   .sidebar .brand small { display: none; }
   .sidebar nav { flex-direction: row; margin-top: 17px; gap: 5px; overflow-x: auto; scrollbar-width: none; }
