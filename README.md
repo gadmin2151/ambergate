@@ -1,50 +1,51 @@
 <p align="center"><strong>English</strong> · <a href="README.ru.md">Русский</a></p>
 
-<p align="center"><img src="docs/banner.svg" alt="AmberGate — one entry point for all your applications" width="100%"></p>
+<p align="center"><img src="docs/banner.svg" alt="AmberGate — your traffic, your rules" width="100%"></p>
 
 <p align="center">
   <a href="https://github.com/gadmin2151/ambergate/actions/workflows/docker.yml"><img src="https://github.com/gadmin2151/ambergate/actions/workflows/docker.yml/badge.svg" alt="Build and publish"></a>
-  <a href="https://github.com/gadmin2151/ambergate/pkgs/container/ambergate"><img src="https://img.shields.io/badge/GHCR-amd64%20%7C%20arm64-ffaf35?style=flat-square&logo=docker&logoColor=ffaf35&labelColor=151516" alt="GHCR: amd64 and arm64"></a>
-  <img src="https://img.shields.io/badge/UI-RU%20%2F%20EN-ffaf35?style=flat-square&labelColor=151516" alt="Russian and English UI">
-  <img src="https://img.shields.io/badge/runtime-one%20container-ffaf35?style=flat-square&labelColor=151516" alt="One container">
+  <a href="https://github.com/gadmin2151/ambergate/pkgs/container/ambergate"><img src="https://img.shields.io/badge/GHCR-amd64%20%7C%20arm64-ffaf35?style=flat-square&logo=docker&logoColor=ffaf35&labelColor=151516" alt="Docker images for amd64 and arm64"></a>
+  <img src="https://img.shields.io/badge/UI-RU%20%2F%20EN-ffaf35?style=flat-square&labelColor=151516" alt="Russian and English interface">
 </p>
 
 <h3 align="center">Your domains. Your applications. One gateway.</h3>
-<p align="center">Configure Nginx from a web interface. Route traffic, balance backends, control caching and follow live traffic — with everything stored on your own server.</p>
-<p align="center"><a href="#quick-start">Quick start</a> · <a href="#what-you-can-configure">Features</a> · <a href="#docker-container-discovery">Docker discovery</a> · <a href="README.ru.md">Russian guide</a> · <a href="CONTRIBUTING.md">Contributing</a></p>
+<p align="center">Manage Nginx from a web interface. Connect Docker machines, route and balance traffic, and see what is happening — with configuration stored on your own server.</p>
+<p align="center"><a href="#quick-start">Quick start</a> · <a href="#what-you-can-configure">Features</a> · <a href="#remote-docker-machines">Agents</a> · <a href="#response-rewriting">Response rewriting</a> · <a href="#documentation">Documentation</a></p>
 
----
+**AmberGate** is a self-hosted HTTP gateway built with Nginx, Python's standard library and vanilla JavaScript. The central gateway and panel run in **one Docker container**. Add one optional agent container per remote Docker machine. No external database or metrics service is required; TLS remains with your existing reverse proxy.
 
-**AmberGate** is a small, self-hosted HTTP gateway built with Nginx, Python's standard library and vanilla JavaScript. One Docker container serves application traffic on **port 80** and the control panel on **port 8083**. Configuration lives on disk. No external database or metrics service is required.
+| Application traffic | Control panel | Configuration | Images |
+|:--|:--|:--|:--|
+| HTTP · **80** | **8083** · RU / EN | Local files in **`/data`** | **amd64 / arm64** |
 
-TLS stays with your existing reverse proxy. The panel generates and validates `nginx.conf` from structured settings, then reloads Nginx without stopping applications.
+[![AmberGate live dashboard](docs/screenshots/dashboard.en.png)](docs/screenshots/dashboard.en.png)
+<p align="center"><sub>Actual AmberGate UI on an isolated demo instance. Example domains and locally generated test traffic; no production data.</sub></p>
 
 ## What you can configure
 
-| Capability | Included |
+| Capability | What it does |
 |:--|:--|
-| **Multiple domains** | Independent routes and upstreams per domain; enable/disable domains; search and filters |
-| **Path routing** | `/`, `/api`, `/s3`, nested paths; preserve or strip the path prefix; correct path boundaries |
-| **Load balancing** | Round robin, least connections, IP hash; server weights and backup targets |
-| **Remote agents** | Docker containers with outbound HTTPS/WSS tunnels; private app ports, unique tokens, multi-machine balancing |
-| **Docker labels** | One-line route definitions, automatic replica balancing, manual groups, preview and safe auto-apply |
-| **Docker discovery** | Select containers and HTTP ports using `docker.sock`; shared-network DNS or published ports through the host IP |
-| **Response caching** | Per-route TTL, shared disk budget, public GET/HEAD responses; private requests bypass cache |
-| **Traffic limits** | Global per-source-IP request rate and burst, concurrent requests, additional per-route rate limits |
-| **HTTP protection** | Body size limits, timeouts, hidden-file protection, security headers and restricted methods |
-| **External TLS proxy** | Trusted proxy IP/CIDR, real client addresses and forwarded scheme |
-| **WebSocket** | Upgrade handling per route |
-| **Live dashboard** | SSE updates, traffic charts, response codes, errors, cache hits, connections and domain statistics |
-| **Safe changes** | Drafts, `nginx -t`, graceful reload, active-version verification and rollback on failed apply |
-| **Local history** | Last 20 applied versions, restore to draft, JSON import/export |
-| **RU / EN interface** | Instant language switch, remembered locally; localized help, dialogs, errors, dates and numbers |
-| **Deployment** | First-start installer; one container; GHCR images for amd64 and arm64; built-in health check |
+| **Domains & routes** | Independent hosts and paths, nested prefixes, route search and domain enable/disable |
+| **Load balancing** | Round robin, least connections, IP hash, weights and backup servers |
+| **Response rewriting** | Keep an app under `/workspace`: rewrite redirects, cookie paths and HTML links; add custom HTML substitutions |
+| **Local Docker** | Discover containers through `docker.sock`; select shared-network targets or published ports via the host IP |
+| **Remote agents** | Outbound HTTPS/WSS tunnels, manual container selection and balancing across machines; no agent or app ports to publish |
+| **Extended agent access** | Optional Linux namespace mode for private ports, localhost listeners and `network=none` containers |
+| **One-line labels** | Automatic routes and replica balancing, existing route groups, preview or automatic apply |
+| **Cache & limits** | Public GET/HEAD caching per route, a shared disk budget, per-source-IP rates, bursts and concurrent request limits |
+| **HTTP protection** | Request-body limits, timeouts, restricted methods, hidden-file protection and security headers |
+| **Live dashboard** | SSE traffic charts, response codes, p95, cache hits, connections, domain statistics and recent errors |
+| **Safe configuration** | Drafts, `nginx -t`, graceful reload, active-version verification and rollback if apply fails |
+| **Local history** | Last 20 applied versions, restore to draft, JSON import/export and generated `nginx.conf` preview |
+| **Usable every day** | RU / EN, keyboard shortcuts, confirmation dialogs, fixed scrolling sidebar and remembered compact mode |
+
+Caching bypasses requests with authorization, cookies or common signed parameters, responses with `Set-Cookie`, and WebSocket traffic. Upstream `Cache-Control` and `Vary` are respected.
 
 ## Quick start
 
 ### Install on a Linux server
 
-Supported by the installer: **Debian 12/13**, **Ubuntu 22.04/24.04/26.04**, **amd64 / arm64**.
+For **Debian 12/13** or **Ubuntu 22.04/24.04/26.04**, on amd64 or arm64:
 
 ```bash
 git clone https://github.com/gadmin2151/ambergate.git
@@ -52,47 +53,35 @@ cd ambergate
 sudo bash first-start.sh --with-docker
 ```
 
-`first-start.sh` checks Docker Engine, the Compose plugin, curl, CA certificates and Python 3. It installs missing components, starts Docker if necessary, prepares **`/opt/ambergate`** and waits for a healthy gateway. Docker packages come from its [official Debian](https://docs.docker.com/engine/install/debian/) or [Ubuntu](https://docs.docker.com/engine/install/ubuntu/) apt repository. Existing packages are not removed; conflicts stop the installer with an explanation.
+The installer checks Docker Engine, the Compose plugin, curl, CA certificates and Python 3; installs missing dependencies; prepares **`/opt/ambergate`** and waits for a healthy gateway. `--with-docker` mounts the optional discovery socket. Docker packages come from Docker's official apt repository; conflicting packages stop the installer with an explanation.
 
-Read the initial administrator password privately in the container logs:
+Read the initial password from the container logs. It appears once as `AmberGate admin — initial password`; change it in the panel after signing in.
 
 ```bash
 sudo docker compose -f /opt/ambergate/compose.yaml logs ambergate
 ```
 
-Look for `AmberGate admin — initial password`. It appears once when the account is created. Change it in the panel after signing in.
-
-The panel binds to **127.0.0.1:8083** by default. For a remote server, open an SSH tunnel:
+The panel binds to **127.0.0.1:8083** by default. From your computer, open a tunnel to the server:
 
 ```bash
 ssh -L 8083:127.0.0.1:8083 user@server
 ```
 
-Then open **[http://127.0.0.1:8083](http://127.0.0.1:8083)**. To bind a **new installation** to a trusted LAN address, use `--admin-bind 10.0.0.10`.
+Open **[http://127.0.0.1:8083](http://127.0.0.1:8083)**.
 
 <details>
-<summary><strong>Installer options and repeat runs</strong></summary>
-
-```bash
-bash first-start.sh --check
-sudo bash first-start.sh --dir /opt/ambergate --http-port 8080 --with-docker
-sudo bash first-start.sh --admin-bind 10.0.0.10 --admin-port 8083 --no-start
-```
+<summary><strong>Installer options</strong></summary>
 
 | Option | Purpose |
 |:--|:--|
-| `--check` | Read-only dependency check; exit 1 if a component is missing or inaccessible |
+| `--check` | Read-only dependency check; exit 1 if a dependency is missing or inaccessible |
 | `--dir PATH` | Installation directory; default `/opt/ambergate` |
 | `--admin-bind IP` | Admin bind address for a new Compose file; default `127.0.0.1` |
-| `--admin-port PORT` | Admin port; default `8083` |
-| `--http-port PORT` | Application HTTP port; default `80` |
-| `--with-docker` | Mount the socket for optional discovery; enable it in the panel |
-| `--socket PATH` | Local Docker socket; default `/var/run/docker.sock` |
-| `--no-start` | Install dependencies and prepare files without starting gateway |
+| `--admin-port PORT` / `--http-port PORT` | Panel and application ports; defaults `8083` / `80` |
+| `--with-docker` / `--socket PATH` | Mount the discovery socket; default `/var/run/docker.sock` |
+| `--no-start` | Prepare dependencies and files without starting the gateway |
 
-Repeat runs keep the existing Compose file, password, routes and data. Port and socket-mount options only affect a newly created Compose file. The script pulls an image when needed for startup; use the explicit upgrade commands below to update an existing image. It never changes your external TLS proxy.
-
-The script can also be downloaded by itself and inspected before running; it does not need the cloned repository at runtime. Root/sudo is required for installation. Other operating systems can use the Compose files directly with Docker installed.
+For a **new** LAN installation, use `--admin-bind 10.0.0.10`. Repeat runs keep the existing Compose file, password, routes and data; port and mount options only affect a newly created Compose file. Root/sudo is required. The script can also run on its own without a cloned repository. It does not modify your external TLS proxy.
 
 </details>
 
@@ -105,184 +94,132 @@ docker compose -f compose.ghcr.yaml up -d
 docker compose -f compose.ghcr.yaml logs ambergate
 ```
 
-To build locally, run `docker compose up -d --build` instead. Optionally copy `.env.example` to `.env` and set `AMBERGATE_ADMIN_PASSWORD` before the first boot; later password changes are made in the panel.
+To build from source, use `docker compose up -d --build`. You can copy [`.env.example`](.env.example) to `.env` and set `AMBERGATE_ADMIN_PASSWORD` before the first boot. Later password changes happen in the panel.
 
-If port 80 is occupied by your TLS proxy, change the mapping to `127.0.0.1:8080:80` and point that proxy to port 8080.
+If your TLS proxy already occupies port 80, map the gateway to `127.0.0.1:8080:80` and forward application traffic there. The panel and agent API use the separate listener on **8083**.
 
 ## Multiple domains, one gateway
 
-| Domain | Route | Upstreams |
+| Domain | Path | Destination |
 |:--|:--|:--|
-| `example.com` | `/` | `frontend-1:3000`, `frontend-2:3000` |
-| `example.com` | `/api` | `backend-1:8000`, `backend-2:8000` |
-| `example.com` | `/s3` | An HTTP storage application supporting that path |
-| `app2.example.com` | `/` | `other-frontend:3000` |
-| `app2.example.com` | `/api` | `other-backend:8000` |
-| `s3.example.com` | `/` | `minio:9000` for a standard S3 API |
+| `example.com` | `/` | Frontend replicas |
+| `example.com` | `/api` | Backend replicas, locally or through agents |
+| `example.com` | `/workspace` | An application mounted under a path |
+| `status.example.com` | `/` | Status page |
+| `s3.example.com` | `/` | Standard MinIO / S3 API |
 
-1. Choose **Add domain**, enter its DNS name and the first upstream server.
-2. Add routes. Set balancing in **Servers**, and response caching and limits in **Cache & limits**.
-3. Choose whether to preserve the incoming path or strip the route prefix. For example, `/back/api/` becomes `/api/` when the `/back` prefix is stripped.
-4. Click **Apply** to validate and activate the configuration.
+**Add domain → add routes → select servers → Apply.** Keep or strip each route's prefix: stripping `/back` turns `/back/api/` into `/api/` at the upstream. Select multiple targets to balance traffic. Domains with no routes return 404 after applying.
 
-Each domain is independent. The panel can load an `example.com` starter configuration; replace example upstreams with reachable applications before applying. Deletion uses an in-panel confirmation dialog. A domain with no routes returns HTTP 404 after applying.
+<details>
+<summary><strong>See the domains and routes screen</strong></summary>
 
-**S3 note:** SigV4 signatures depend on the original Host and path. Use a separate domain with route `/` for a standard S3 API; stripping `/s3` can invalidate signatures. Applications that use absolute URLs may also need their external base path configured.
+![Domains, routes and upstream servers](docs/screenshots/routes.en.png)
+
+</details>
+
+## Response rewriting
+
+An app may return `Location: /login` even when its public route is `/workspace`. Enable **Keep the base path in responses** in the route editor:
+
+| Direction | Example |
+|:--|:--|
+| Browser → application | `/workspace/login` becomes `/login` |
+| Redirect → browser | `/login` becomes `/workspace/login` |
+| HTML → browser | `href="/assets/app.css"` becomes `href="/workspace/assets/app.css"` |
+| Cookie → browser | `Path=/` becomes `Path=/workspace/` |
+
+The upstream configuration stays unchanged. This works with direct targets and agent tunnels, including HTTPS clients behind your external TLS proxy. **Additional HTML substitutions** support application-specific strings through a generic editor; `{prefix}` expands to the route path.
+
+<details>
+<summary><strong>See the response rewriting editor</strong></summary>
+
+![Route editor with response rewriting and a custom HTML rule](docs/screenshots/rewriting.en.png)
+
+</details>
+
+HTML rewriting is opt-in. It does not automatically rewrite JS bundles, JSON APIs, CSS or every URL assembled by an application. Some applications need extra route rules or a dedicated domain. Standard S3 signatures depend on Host and path: use a separate domain with `/` instead of rewriting a signed S3 API. **[Behavior, examples and limits →](docs/response-rewriting.md)**
 
 ## Docker container discovery
 
-For an installer deployment, use `--with-docker` on the first run. For repository Compose deployments:
+Mount the local Docker socket, then enable discovery in **Docker → Connect Docker**:
 
 ```bash
 docker compose -f compose.ghcr.yaml -f compose.docker.yaml up -d
 ```
 
-Use `compose.yaml` instead of `compose.ghcr.yaml` for a source build. `DOCKER_SOCKET_PATH` in `.env` selects a different host socket.
+Open a route's **Servers → Choose from Docker**. Local discovery prefers a shared Docker network. Alternatively, save the **Docker host IP** and use a published port: `8001:80` becomes `host-IP:8001`. A host port bound only to localhost is unavailable to a gateway in another network.
 
-Open **Docker → Connect Docker**, then **Domains & routes → your route → Servers → Select from Docker**.
+Container names on shared Docker networks are re-resolved after recreation. Choose several containers for balancing, or enter the HTTP port manually when `EXPOSE` is absent. Manual selection tracks the chosen targets; labels track new replicas automatically. Discovery does not move containers between networks or perform application readiness checks.
 
-| Connection mode | How targets are selected |
+Docker socket access grants host privileges at the API level; a `:ro` mount does not make the API read-only. AmberGate only reads Docker metadata. **[Network and permission details (RU) →](docs/configuration.ru.md#docker-socket-и-выбор-контейнеров)**
+
+## Remote Docker machines
+
+One **AmberGate Agent** container on each machine discovers local containers and carries their traffic over an outbound tunnel. Applications and agents need **no published ports**. Central Nginx still controls routing, balancing, caching and limits.
+
+1. Save the central address in **General settings**, for example `embergate.exemple.com`.
+2. Open **Agents → Add agent** and choose the connection mode.
+3. Copy the ready-to-run **single-line `docker run` command**, or download **Docker Compose**.
+4. Run it on the remote Docker machine. The wizard shows the connection through SSE.
+5. In the route's Docker picker, choose the agent as **Container source**, select containers and apply. Or use labels for automatic discovery.
+
+| Agent mode | When to use it |
 |:--|:--|
-| **Automatic** | Prefer a shared Docker network; fall back to a published host port |
-| **Via host IP** | Use published TCP ports, even when the container belongs to another network |
+| **Host network** · default | Native Linux Docker Engine; private IPs across local bridge networks without creating a new network |
+| **Specific Docker network** | Limit reachability to existing shared networks, or use environments where host mode is unsuitable |
+| **Extended access · namespace** | Native rootful Linux; enter the selected container's network namespace to reach even localhost listeners or `network=none` |
 
-For a container published as `8001:80`, save the **Docker host IP** in the picker, select **Via host IP**, and the route uses **`host-IP:8001`**. No shared network is required. Ports bound only to host `127.0.0.1` or `::1` cannot be reached from a separate gateway container.
+Extended mode adds **host PID access**, `SYS_ADMIN`, `SYS_PTRACE` and `AMBERGATE_AGENT_NAMESPACE=true`. It is an explicit privileged option for trusted hosts; host security policies may restrict it. It does not change application networks or require full `--privileged` mode. Update central AmberGate first, then **recreate** the agent using the generated command; a restart alone cannot add capabilities.
 
-For shared networks, attach applications to `ambergate` and use Docker DNS names. Nginx re-resolves names so a container recreated with the same name can receive a new IP. Selecting multiple containers configures load balancing. The container picker creates manual targets. To track new replicas automatically, enable Docker labels as described below. Discovery never changes application networks.
+Domains use **HTTPS/WSS** through your external TLS proxy to central port **8083**. A plain IP such as `10.0.0.10` becomes `http://10.0.0.10:8083` only after an explicit warning and confirmation; tokens and traffic are then unencrypted. Keep installation tokens private.
 
-The picker shows state, image, networks and TCP ports. Stopped containers and the gateway itself cannot be selected. Ports can be entered manually when `EXPOSE` is absent. Select an **HTTP** application port; discovery does not detect the application protocol.
-
-The Docker socket grants privileged host access. AmberGate only makes read requests, but a `:ro` bind does not make the Docker API itself read-only. Keep the panel on a trusted network. [Detailed network and permission guide in Russian →](docs/configuration.ru.md#docker-socket-и-выбор-контейнеров)
+**[Agent guide →](docs/agents.md)** · **[Standard Compose](compose.agent.yaml)** · **[Namespace Compose](compose.agent.namespace.yaml)** · **[Application + agent example](examples/agent.compose.yaml)**
 
 ## Automatic routes from Docker labels
 
-Describe a route in **one label**. AmberGate discovers running containers, creates the domain and route, and adds matching replicas to the same load balancer:
+**One line** describes a route. Containers with matching host, path and route options join the same load balancer, including replicas on different agents:
 
 ```yaml
 labels: { ambergate.route: "host=example.com; path=/api; port=3000; strip=true; balance=least_conn" }
 ```
 
-Mount the Docker socket using `compose.docker.yaml`, connect it in **Docker**, then choose a mode under **Routes from Docker labels**:
-
-- **Off** (default): no automatic changes; existing routes are retained.
-- **Preview changes**: inspect discovered routes and targets, then click **Apply discovered changes**.
-- **Apply automatically**: reconcile running containers every **5 seconds**, including starts, stops, removal and replica changes. The panel receives status through SSE.
-
-Every changed configuration passes `nginx -t` and a verified graceful reload. Failed changes roll back. No reload occurs when nothing changed. Active configuration and saved drafts are reconciled separately: automatic discovery never promotes unrelated draft edits. Concurrent editor saves use revision checks; refresh an outdated editor before saving again.
-
-### Join an existing route
-
-In the route editor, open **Servers**, enter **Docker group** `app-api`, then save and apply. Keep manual upstreams or remove them to use only discovered members. Each matching container joins that route:
+To join an existing route, set its **Docker group** to `app-api` and use:
 
 ```yaml
 labels: { ambergate.route: "group=app-api; port=3000; weight=2" }
 ```
 
-Groups use the route's existing balancing, cache and protection settings. `host`/`path` labels never overwrite a manual route at the same domain and path; use a group instead. A group without a matching route is reported in the panel. A group may be used by multiple routes.
+Choose **Off**, **Preview changes** or **Apply automatically**. Reconciliation runs every 5 seconds; changed configurations pass validation and a verified reload. Unrelated draft edits remain unapplied. Empty managed routes return 503 rather than falling through to another app.
 
-### Label reference
+<a id="label-reference"></a>
+**[Full label reference →](docs/docker-labels.md)** · **[Runnable Compose examples →](examples/docker-labels.compose.yaml)**
 
-Use semicolon-separated `key=value` fields. Unknown keys, duplicate fields and invalid values are rejected; booleans are `true` or `false`.
+## Live visibility and safe changes
 
-| Key | Meaning / default |
-|:--|:--|
-| `host` | Domain to create; required unless using `group`; one domain per label |
-| `path` | `/` by default; e.g. `/api` or `/v1/api`, without a trailing slash |
-| `port` | **Required container HTTP port**, 1–65535; no `EXPOSE` required in a shared network |
-| `group` | Join existing routes by group; 1–64 letters, digits, `_`, `-`; replaces `host`/`path` |
-| `via` | `network` (default, shared Docker network) or `host` (published port via Docker host IP) |
-| `balance` | `round_robin` (default), `least_conn`, `ip_hash` |
-| `strip` | Remove the path prefix; default `false` |
-| `cache` | Cache public GET/HEAD responses; default `false`; existing cookie/auth/signed-request protections still apply |
-| `ttl` | Cache lifetime in seconds, 1–604800; default `60` |
-| `websocket` | Enable Upgrade forwarding; default `true` |
-| `timeout` | Upstream read/send timeout in seconds, 1–3600; default `60` |
-| `body` | Request-body limit in MiB, 0–102400; `0` inherits the global limit |
-| `rate` | Additional per-route requests/second per source IP, 0–100000; `0` leaves only the global limit |
-| `burst` | Burst for the route rate limit, 0–100000; default `0` |
-| `weight` | This container's upstream weight, 1–1000; default `1` |
-| `backup` | Reserve upstream, default `false`; incompatible with `ip_hash` |
-
-`group` labels accept only `group`, `port`, `via`, `weight`, `backup`. Containers sharing `host` + `path` must agree on route options; their ports, access methods and weights may differ. Global Nginx settings, trusted proxies and TLS are not configured through labels.
-
-For another Docker network, publish the application port and configure **Docker host IP** in the panel:
-
-```yaml
-ports: ["8001:80"]
-labels: { ambergate.route: "host=storage.example.com; port=80; via=host" }
-```
-
-AmberGate maps container port `80` to host port `8001`. It respects explicit bind addresses; a localhost-only publication is unavailable from another container. `via=network` never silently falls back to a published port.
-
-Multiple routes on one container use named labels:
-
-```yaml
-labels:
-  ambergate.route.api: "host=example.com; path=/api; port=3000"
-  ambergate.route.admin: "host=admin.example.com; port=3001"
-```
-
-**[Runnable Compose examples →](examples/docker-labels.compose.yaml)** — frontend, scalable API, cache, multiple domains, groups, backups and another network.
-
-Discovery uses running containers; it does not perform active HTTP readiness checks or filter Docker HEALTHCHECK results. Stopped/removed containers leave the discovered upstream set. If a route has no remaining manual or discovered targets, it stays present and responds **503**, so requests cannot fall through to another application. To permanently delete a label route, remove its label (and recreate the container), then delete the retained route in the panel. Label-owned route settings are read-only in the editor.
-
-Invalid local labels or conflicting route options pause the update and retain the last valid configuration. Incomplete or unavailable local Docker retains its targets; remote inventory failures follow the agent lease policy. Limits: 16 route labels/container, 4096 characters/label, 32 total upstreams/route, 50 routes/domain and 100 domains. Inventories reaching 500 containers are treated as incomplete. All state is local: `/data/docker.json`, `/data/labels.json`, drafts and immutable configuration revisions. Disabling labels freezes existing routes. With remote agents configured, unavailable local Docker freezes only its local targets; agent leases continue to be reconciled. Only label containers you trust: anyone able to create labeled containers on a connected daemon can influence routing when automation is enabled.
-
-## Remote Docker machines
-
-Run **AmberGate Agent** as a Docker container on each machine, with access to its `docker.sock` and application networks. Agents report labels and container state, then carry upstream traffic over outbound HTTPS/WSS tunnels. Neither apps nor agents need published ports. Matching labels combine replicas from different machines into a single load balancer.
-
-Set the central address once in **General settings** (example: `embergate.exemple.com`), then open **Agents → Add agent**. On native Linux Docker Engine, the default **host network** mode reaches containers across local bridge networks by private IP, without creating a network. You can also choose a specific existing Docker network. Copy a ready-to-run **single-line `docker run` command** or download **Docker Compose**; the wizard fills in the address and token and shows the connection arriving through SSE. Domains use HTTPS via your external TLS proxy. A plain IP uses HTTP on port 8083 only after an explicit warning and risk confirmation.
-
-You can also select remote containers directly in **Routes → Choose from Docker → Container source**. Mix containers from different agents and local servers in one load balancer, without labels or published ports. The sidebar has independent scrolling and a persistent compact icon mode.
-
-**Extended access:** the optional namespace mode reaches private ports even in `network=none` containers or applications listening only on localhost. One agent container; no app network changes. See the setup guide for required Linux permissions.
-
-**[Agent setup guide →](docs/agents.md)** · **[Agent Compose →](compose.agent.yaml)** · **[Complete example →](examples/agent.compose.yaml)**
-
-## Know what is happening
-
-The **System overview** receives a dashboard snapshot every second over **one Server-Sent Events connection**. There is no periodic browser HTTP polling.
-
-- **Traffic:** completed requests, current rate, 15-minute chart and bytes sent.
-- **Responses:** 5xx errors, average response duration, approximate p95 and HTTP code distribution.
-- **Cache and limits:** cache hit ratio and requests rejected by gateway limits.
-- **Nginx:** health, uptime, open connections and active configuration version.
-- **Domains:** request volume, errors and response times per domain.
-- **Recent errors:** up to 30 latest 4xx/5xx responses with domain, route and duration.
-
-The dashboard distinguishes the active configuration from your draft. Connection loss shows a stale snapshot and triggers reconnection. Hidden tabs close the stream and reconnect when visible; signing out closes it too. Live updates do not interrupt route editing.
-
-Metrics use bounded local memory, with 10-second buckets for up to 15 minutes. Restarting clears this history. Panel requests and health checks are excluded. No traffic means no invented statistics; p95 is approximate and response duration includes transfer to the client.
-
-## Draft, validate, apply
+The dashboard uses **one SSE connection**, with snapshots every second. It shows completed requests, rate, 5xx errors, approximate p95, cache hits, open connections, domain activity and recent 4xx/5xx responses. Metrics stay in bounded local memory for up to 15 minutes and reset on restart. Panel traffic and health checks are excluded; no traffic means no invented statistics.
 
 ```mermaid
 flowchart LR
-    A[Edit in the panel] --> B[Local draft]
+    A[Edit in the panel] --> B[Save local draft]
     B --> C{nginx -t}
     C -->|Valid| D[Graceful reload]
     C -->|Invalid| B
-    D --> E{Active version verified?}
-    E -->|Yes| F[New configuration]
-    E -->|No| G[Rollback]
+    D --> E{Verify active version}
+    E -->|Success| F[Configuration active]
+    E -->|Failure| G[Rollback]
 ```
 
-**Save draft** persists your edits without changing traffic. **Apply** saves, validates and activates them. Draft and active configuration survive restarts independently. Restore any retained version into the draft and apply it when ready.
-
-Switch **RU / EN** on the login screen or top bar. The preference is stored in your browser; switching preserves unsaved fields. User-defined domain names, route names, addresses and Nginx configuration are not translated.
-
-Keyboard shortcuts: **`/`** focuses route search, **`Ctrl/Cmd + S`** saves a draft. Route-editor tabs and confirmation dialogs support keyboard navigation.
+**Save draft** persists changes without affecting traffic; **Apply** validates and activates them. Restore any of the last 20 versions into the draft. The RU / EN switch preserves unsaved fields. Use **`/`** to focus route search and **`Ctrl/Cmd + S`** to save. The sidebar scrolls independently and remembers its collapsed state; clicking the logo opens the dashboard.
 
 ## Storage, backup and upgrades
 
-| Content | Container path | Installer directory |
+| Content | Container path | Installer path |
 |:--|:--|:--|
-| Draft, active config, credentials, Docker settings, history | `/data` | `/opt/ambergate/data` |
+| Settings, routes, credentials, agents, tunnel mappings and history | `/data` | `/opt/ambergate/data` |
 | Response cache | `/cache` | `/opt/ambergate/cache` |
 | Runtime files | `/run/ambergate` | `/opt/ambergate/run` |
 
-Repository Compose files use named volumes `ambergate-data` and `ambergate-cache`. The installer uses bind directories under its installation path. Keep `/data` and your Compose file in backups. Treat backups as private because they include authentication data and internal addresses. For a consistent filesystem backup, briefly stop gateway or use a filesystem snapshot; JSON export transfers routing settings but not the administrator account or Docker connection settings.
+Repository Compose files use named data/cache volumes; the installer uses directories under `/opt/ambergate`. Back up the **complete `/data` directory and Compose file** privately. Use a filesystem snapshot or briefly stop the gateway for a consistent backup. Routing JSON alone does not transfer accounts, agent identities or tunnel mappings.
 
 For an installer deployment:
 
@@ -292,39 +229,41 @@ sudo docker compose pull
 sudo docker compose up -d --wait
 ```
 
-For a repository deployment, include `-f compose.ghcr.yaml` and the Docker overlay if used. Never use `down -v` unless you intend to delete named volumes. Image upgrades are explicit; there is no background auto-updater.
+For repository deployments, include `-f compose.ghcr.yaml` and any overlays you use. Update the center before agents and prefer matching image versions. **Do not use `down -v`** when keeping data. There is no background image updater.
 
-## Upgrading from Nginx Scale Gateway
+<details>
+<summary><strong>Upgrading from Nginx Scale Gateway</strong></summary>
 
-The project is now **AmberGate**. For an existing deployment, back up `/data` and your Compose file, then change only the image to `ghcr.io/gadmin2151/ambergate:latest` in **your existing Compose file** and run `docker compose pull && docker compose up -d --wait` in its current directory. Keep the existing project name, service, networks and data/cache mounts: replacing them with the new example names can create empty volumes. Do not use `down -v`.
+Keep your existing Compose project, service, networks and volumes; change only the image to `ghcr.io/gadmin2151/ambergate:latest`, then pull and recreate. Replacing volume names can create an empty installation. Existing routes, history, credentials and Docker settings remain compatible. The old `GATEWAY_*` variables work when their `AMBERGATE_*` counterparts are absent; the legacy cache header and browser language preference are supported too.
 
-Existing routing data, history, administrator credentials and Docker settings are compatible. `AMBERGATE_*` environment variables replace `GATEWAY_*`; the old prefix still works when the corresponding new variable is absent. Existing `GATEWAY_RUN_DIR` overrides remain supported; the new default is `/run/ambergate`. The cache response header is now `X-AmberGate-Cache`, with `X-Gateway-Cache` retained for compatibility. Browser language preferences migrate automatically; sign in again after upgrading.
+The installer detects the old default directory; use `--dir /opt/nginx-scale-gw` to retain it. Renaming the directory is optional. If the container is renamed, update **Docker → AmberGate container**. Sign in again after upgrading.
 
-New installations use `/opt/ambergate`. The installer detects an old default installation and asks you to upgrade it in place; use `--dir /opt/nginx-scale-gw` to retain its directory. If you also rename a container, update its saved **Docker → AmberGate container** setting. Renaming the installation directory is optional.
+</details>
 
 ## Build and delivery
 
-[GitHub Actions](.github/workflows/docker.yml) validates JavaScript, translations, the installer and Compose, runs routing tests with real Nginx, and exercises Docker discovery and load balancing against real containers. Successful releases publish **`linux/amd64`** and **`linux/arm64`** images to [GitHub Container Registry](https://github.com/gadmin2151/ambergate/pkgs/container/ambergate) with OCI metadata, provenance and SBOM.
+[GitHub Actions](.github/workflows/docker.yml) validates the installer, Compose and JavaScript; tests routing, caching, authentication and response rewriting with real Nginx; then exercises real Docker discovery and agents over verified TLS. Agent tests cover multiple networks, namespace access, loopback-only apps, uploads, recreation, restart, lease expiry and token revocation.
 
-| Trigger | Result |
+Both images are published for **`linux/amd64` and `linux/arm64`**, with OCI metadata, provenance and SBOM:
+
+| Image | Purpose |
 |:--|:--|
-| Push to `main` | Tests, `latest` and `sha-<full-commit-SHA>` |
-| Tag `v1.2.3` | Tests, `1.2.3`, `1.2` and SHA tag |
-| Pull request | Tests without publication |
-| Manual workflow | Tests; publication only from `main` or a `v*` tag |
+| [`ghcr.io/gadmin2151/ambergate`](https://github.com/gadmin2151/ambergate/pkgs/container/ambergate) | Central gateway and web panel |
+| [`ghcr.io/gadmin2151/ambergate-agent`](https://github.com/gadmin2151/ambergate/pkgs/container/ambergate-agent) | Remote Docker discovery and traffic tunnel |
 
-The workflow uses `GITHUB_TOKEN` with `packages: write`; no Docker Hub credentials are needed. Actions are pinned to commit SHAs. [Development and contribution guide →](CONTRIBUTING.md)
+Pushes to `main` publish `latest` and `sha-<full-commit-SHA>`. Version tags publish matching full/minor version tags and a SHA tag. Pull requests run checks without publishing. Builds use `GITHUB_TOKEN`; no Docker Hub credentials are needed.
 
-## Scope and defaults
+## Documentation
 
-- **HTTP gateway:** external TLS termination; no certificate management, upstream HTTPS, gRPC, raw TCP proxy or full WAF.
-- **Trusted proxies:** configure only your actual proxy IP/CIDR so per-client limits use the correct address.
-- **Caching:** enable it for public responses. Authorization, cookies, Set-Cookie, common signed parameters and WebSocket bypass caching; upstream Cache-Control and Vary are respected.
-- **Structured configuration:** preview and copy generated `nginx.conf`; arbitrary directive editing is not available.
-- **Local administration:** password login, CSRF protection and expiring sessions. Expose the panel only through a trusted network or your secured external proxy.
+| Guide | Contents |
+|:--|:--|
+| [Agent setup](docs/agents.md) | One-command installation, network modes, TLS proxy, tokens and limits |
+| [Docker labels](docs/docker-labels.md) | All keys, groups, conflicts, failure behavior and examples |
+| [Response rewriting](docs/response-rewriting.md) | Redirects, cookies, HTML rules and compatibility limits |
+| [Configuration reference (RU)](docs/configuration.ru.md) | Routing, cache, protection, local development and metrics |
+| [Contributing](CONTRIBUTING.md) | Development, tests, project layout and translations |
+| [Screenshot notes](docs/screenshots/README.md) | Demo environment and image provenance |
 
-<p align="center"><br><img src="docs/logo.svg" width="38" alt="AmberGate logo"><br><sub>Small by design. Yours by default.</sub></p>
+**Scope:** HTTP applications and WebSocket upgrades. Certificates stay with your TLS proxy; upstream HTTPS, gRPC, raw TCP forwarding and a full WAF are not provided. `nginx.conf` is generated from validated fields, not edited as arbitrary directives. Configure trusted proxy IPs/CIDRs for correct client-IP limits, and keep administration on a trusted network or secured external proxy.
 
-### Response rewriting
-
-Enable **Keep the base path in responses** per route to keep redirects, cookie paths and HTML links under paths such as `/api5`. Additional literal HTML substitutions are configurable in the UI. This works with direct servers and agents without changing the upstream service. [Behavior and limits](docs/response-rewriting.md).
+<p align="center"><br><img src="docs/logo.svg" width="38" alt="AmberGate logo"><br><sub>Your server. Your traffic. Your rules.</sub></p>

@@ -114,7 +114,7 @@ labels:
   ambergate.route: "group=app-api; port=3000; weight=2"
 ```
 
-[All label options and examples](../README.md#label-reference) also apply, except `via=host`: remote agents use private Docker network endpoints. Omit `via`, or set `via=network`. Host mode reaches local bridge networks automatically. In specific-network mode, connect the agent to every application network; the agent never joins networks or publishes ports by itself.
+[All label options and examples](docker-labels.md#label-reference) also apply, except `via=host`: remote agents use private container endpoints. Omit `via`, or set `via=network`. Host mode reaches local bridge networks automatically; extended mode opens connections inside the target container's network namespace. In specific-network mode, connect the agent to every application network; the agent never joins networks or publishes ports by itself.
 
 [Complete application + agent Compose example](../examples/agent.compose.yaml).
 
@@ -143,7 +143,7 @@ For a private CA, mount its PEM bundle in the agent and set `AMBERGATE_AGENT_CA_
 ## State, revocation and failures
 
 - Inventory is reported every 5 seconds. The panel receives agent status through its existing **SSE stream**. Container details show the latest received inventory when opened.
-- Running, labelled containers with a reachable private endpoint (host mode or a shared network) become targets. Application responses are monitored by Nginx; Docker health-check status does not independently remove a running container. Invalid labels, an incomplete inventory or loss of Docker access preserve that agent's last valid report until its lease expires.
+- Running, labelled containers with a reachable endpoint (host network, shared network or namespace access) become targets. Application responses are monitored by Nginx; Docker health-check status does not independently remove a running container. Invalid labels, an incomplete inventory or loss of Docker access preserve that agent's last valid report until its lease expires.
 - In **Auto** mode, expired agents are removed on the next reconciliation (up to 5 additional seconds). Other agents and manually configured targets remain. An empty managed route returns **503**.
 - **Preview** proposes configuration changes; **Off** leaves configuration unchanged. Tunnel disconnection still fails upstream connections immediately, allowing Nginx to try a remaining healthy target.
 - Disabling, deleting or rotating a token immediately disconnects that agent's tunnel and rejects the old token. Rotation requires updating and restarting the remote agent.

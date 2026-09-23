@@ -34,17 +34,19 @@ docker run --rm --entrypoint python3 -v "$PWD/tests:/app/tests:ro" \
   local/ambergate:latest -m unittest discover -v
 ```
 
-CI additionally verifies real Docker discovery, published host ports, load balancing and DNS changes after container recreation. It checks installation inside an isolated Debian container. `tests/agent_docker_smoke.py` additionally runs private application containers and an agent through a verified TLS proxy, checking balancing, uploads, central restart, lease expiration and revocation. Build `ambergate:ci` and `ambergate-agent:ci` (`Dockerfile.agent`) before running it.
+CI additionally verifies real Docker discovery, published host ports, load balancing and DNS changes after container recreation. It checks installation inside an isolated Debian container. `tests/agent_docker_smoke.py` runs private application containers and an agent through a verified TLS proxy, checking balancing, uploads, central restart, lease expiration and revocation. It also checks host access across separate bridge networks and namespace access to a localhost-only application in `network=none`. Build `ambergate:ci` and `ambergate-agent:ci` (`Dockerfile.agent`) before running it.
 
 ## Project layout
 
 | Path | Purpose |
 |:--|:--|
 | `ambergate/config.py`, `ambergate/nginx.py` | Validated model and Nginx generation |
+| `ambergate/response_rewrite.py` | Opt-in redirects, cookie paths and configurable HTML substitutions |
 | `ambergate/storage.py` | Drafts, active versions, apply and rollback |
 | `ambergate/server.py`, `ambergate/auth.py` | Admin API, static files and authentication |
 | `ambergate/metrics.py`, `ambergate/events.py` | Metrics collection and SSE delivery |
 | `ambergate/agent.py`, `ambergate/agents.py`, `ambergate/tunnel*.py` | Remote discovery, agent identities and outbound traffic tunnels |
+| `ambergate/agent_network.py` | Optional Linux network namespace connector |
 | `ambergate/docker.py` | Docker discovery and reachable targets |
 | `ambergate/static/` | Dependency-free panel, styles and RU/EN catalog |
 | `first-start.sh` | Debian/Ubuntu first-start installer |
