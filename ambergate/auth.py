@@ -1,3 +1,4 @@
+from .environment import setting
 import hashlib
 import hmac
 import json
@@ -20,10 +21,10 @@ class Auth:
         self.sessions = {}
         self.attempts = {}
         if not self.path.exists():
-            password = os.environ.get("GATEWAY_ADMIN_PASSWORD") or secrets.token_urlsafe(20)
+            password = setting("ADMIN_PASSWORD") or secrets.token_urlsafe(20)
             self.set_password(password)
-            if not os.environ.get("GATEWAY_ADMIN_PASSWORD"):
-                print(f"\nGateway admin — initial password: {password}\n"
+            if not setting("ADMIN_PASSWORD"):
+                print(f"\nAmberGate admin — initial password: {password}\n"
                       "Save it now. It will not be printed again.\n", flush=True)
         self.credentials = json.loads(self.path.read_text())
 

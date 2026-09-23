@@ -1,6 +1,6 @@
 """End-to-end discovery and balancing with the real CI Docker daemon.
 
-Run after `docker build -t gateway:ci .`. Creates only disposable containers and
+Run after `docker build -t ambergate:ci .`. Creates only disposable containers and
 one network, removes all of them on success or failure. No Docker SDK required.
 """
 import http.cookiejar
@@ -18,7 +18,7 @@ import uuid
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from tests.helpers import config, route
 
-IMAGE = os.environ.get("GATEWAY_TEST_IMAGE", "gateway:ci")
+IMAGE = os.environ.get("AMBERGATE_TEST_IMAGE", "ambergate:ci")
 PREFIX = "gw-discovery-" + uuid.uuid4().hex[:8]
 NETWORK = PREFIX + "-net"
 OWNED = []
@@ -83,7 +83,7 @@ def main():
         backend(names[1], str(subnet.network_address + 11), "backend-b")
         gateway = docker("run", "-d", "--name", PREFIX + "-gateway", "--network", NETWORK,
                          "-p", "127.0.0.1::8083", "-p", "127.0.0.1::80",
-                         "-e", "GATEWAY_ADMIN_PASSWORD=docker-discovery-test-password",
+                         "-e", "AMBERGATE_ADMIN_PASSWORD=docker-discovery-test-password",
                          "--mount", "type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock,readonly",
                          IMAGE)
         OWNED.append(gateway)

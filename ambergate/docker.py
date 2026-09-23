@@ -3,6 +3,8 @@
 No CLI, remote endpoints, container mutations, environment values, mounts or
 arbitrary Docker API proxying are exposed to the browser.
 """
+from .environment import setting
+
 import http.client
 import ipaddress
 import json
@@ -47,7 +49,7 @@ def settings(value):
         raise ValueError("Укажите абсолютный путь к Unix socket .sock (до 103 байт)")
     name = value["gateway_container"]
     if not isinstance(name, str) or name and not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}", name):
-        raise ValueError("Контейнер gateway: имя или ID, без схемы и пути")
+        raise ValueError("Контейнер AmberGate: имя или ID, без схемы и пути")
     host = value.get("host_address", "")
     if not isinstance(host, str):
         raise ValueError("IP Docker-хоста должен быть строкой")
@@ -106,8 +108,8 @@ class Docker:
         # An invalid optional environment hint must not stop the HTTP gateway.
         # Settings are validated when the user saves/enables discovery.
         self.defaults = dict(enabled=False,
-                                     socket_path=os.environ.get("GATEWAY_DOCKER_SOCKET", "/var/run/docker.sock"),
-                                     gateway_container=os.environ.get("GATEWAY_DOCKER_CONTAINER", ""),
+                                     socket_path=setting("DOCKER_SOCKET", "/var/run/docker.sock"),
+                                     gateway_container=setting("DOCKER_CONTAINER", ""),
                                      host_address="")
 
     def read(self):
@@ -152,7 +154,7 @@ class Docker:
                 except FileNotFoundError:
                     result["message"] = "Socket не найден. Смонтируйте docker.sock и проверьте путь."
                 except PermissionError:
-                    result["message"] = "Нет доступа к socket. Проверьте права процесса Gateway."
+                    result["message"] = "Нет доступа к socket. Проверьте права процесса AmberGate."
                 except (socket.timeout, TimeoutError):
                     result["message"] = "Docker не ответил за отведённое время."
                 except DockerError as exc:
@@ -180,19 +182,19 @@ class Docker:
         if result["mode"] == "container":
             identifier = value["gateway_container"] or socket.gethostname()
             if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}", identifier):
-                raise DockerError("Укажите имя или ID контейнера gateway в настройках")
+                raise DockerError("Укажите имя или ID контейнера AmberGate в настройках")
             try:
                 own = self.get(path, prefix + "/containers/" + identifier + "/json")
                 shared = own.get("NetworkSettings", {}).get("Networks", {})
                 self_id = own["Id"]
             except DockerError:
-                network_message = "Не удалось определить сети gateway. Укажите его имя или ID в настройках."
+                network_message = "Не удалось определить сети AmberGate. Укажите его имя или ID в настройках."
         rows = [self.container(c, shared, self_id, result["mode"], value["host_address"]) for c in containers[:500]]
         result.update(connected=True, engine_version=str(version.get("Version", ""))[:80],
                       gateway_networks=sorted(shared), truncated=len(containers) >= 500,
                       message=network_message or ("Общая сеть Docker или опубликованные порты хоста" if shared else
                               "Локальный запуск: используйте опубликованные TCP-порты" if result["mode"] == "host" else
-                              "У gateway нет подключённых сетей Docker"))
+                              "У AmberGate нет подключённых сетей Docker"))
         result["containers"] = sorted(rows, key=lambda c: (not c["selectable"], c["name"]))
         result["networks"] = sorted({n for c in rows for n in c["networks"]})
 
@@ -213,14 +215,14 @@ class Docker:
                    host_endpoints=[], host_reason="")
         published, host_reason = published_targets(ports, host_address, native=mode == "host")
         if c.get("Id") == self_id:
-            row["reason"] = "Это сам gateway"
+            row["reason"] = "Это сам AmberGate"
         elif c.get("State") != "running":
             row["reason"] = "Контейнер не запущен"
         elif mode == "host":
             row["endpoints"] = published
             row["reason"] = host_reason if not published else ""
         elif not common:
-            row["reason"] = "Нет общей сети с gateway"
+            row["reason"] = "Нет общей сети с AmberGate"
         else:
             dns = any(n not in ("bridge", "host", "none") and nets[n].get("IPAddress") for n in common)
             try:

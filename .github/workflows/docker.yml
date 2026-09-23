@@ -1,4 +1,4 @@
-name: Build & publish
+name: AmberGate · Build & publish
 
 on:
   push:
@@ -27,10 +27,10 @@ jobs:
       - name: Validate JavaScript and Compose
         run: |
           bash -n first-start.sh
-          node --check gateway/static/i18n.js
-          node --check gateway/static/app.js
-          node --check gateway/static/dashboard.js
-          node --check gateway/static/docker.js
+          node --check ambergate/static/i18n.js
+          node --check ambergate/static/app.js
+          node --check ambergate/static/dashboard.js
+          node --check ambergate/static/docker.js
           node --test tests/*.test.js
           docker compose config --quiet
           docker compose -f compose.yaml -f compose.docker.yaml config --quiet
@@ -45,13 +45,13 @@ jobs:
             debian:12-slim bash /installer-smoke.sh
 
       - name: Build the image
-        run: docker build --pull -t gateway:ci .
+        run: docker build --pull -t ambergate:ci .
 
       - name: Test routing, cache, security and reload with real Nginx
         run: |
           docker run --rm --entrypoint python3 \
             -v "$PWD/tests:/app/tests:ro" \
-            gateway:ci -m unittest discover -v
+            ambergate:ci -m unittest discover -v
 
       - name: Discover and balance real Docker containers
         run: python3 tests/docker_smoke.py
@@ -60,14 +60,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          trap 'docker logs gateway-smoke; docker rm -f gateway-smoke' EXIT
-          docker run -d --name gateway-smoke \
+          trap 'docker logs ambergate-smoke; docker rm -f ambergate-smoke' EXIT
+          docker run -d --name ambergate-smoke \
             -p 127.0.0.1:18083:8083 \
-            -e GATEWAY_ADMIN_PASSWORD=ci-only-disposable-password \
-            gateway:ci
+            -e AMBERGATE_ADMIN_PASSWORD=ci-only-disposable-password \
+            ambergate:ci
           for attempt in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:18083/healthz; then
-              curl --fail --silent http://127.0.0.1:18083/ | grep -q 'Gateway'
+              curl --fail --silent http://127.0.0.1:18083/ | grep -q 'AmberGate'
               exit 0
             fi
             sleep 1
@@ -103,13 +103,16 @@ jobs:
       - name: Image name
         id: image
         shell: bash
-        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/ambergate" >> "$GITHUB_OUTPUT"
 
       - name: Tags and OCI labels
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ${{ steps.image.outputs.name }}
+          labels: |
+            org.opencontainers.image.title=AmberGate
+            org.opencontainers.image.description=AmberGate — HTTP routing, Docker discovery and live monitoring in one container.
           flavor: latest=false
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}

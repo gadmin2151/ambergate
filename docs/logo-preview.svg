@@ -1,10 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="960" height="320" viewBox="0 0 960 320" role="img" aria-labelledby="title">
-  <title id="title">Gateway logo — black and amber routing mark</title>
-  <rect width="960" height="320" rx="24" fill="#080809"/>
-  <g transform="translate(272 104) scale(1.75)"><rect width="64" height="64" rx="18" fill="#ffaf35"/>
-    <path d="M14 27h12l12-12h13v10h-8l-7 7 7 7h8v10H38L26 37H14Z" fill="#151516"/></g>
-  <g font-family="Inter,Segoe UI,Arial,sans-serif">
-    <text x="415" y="171" font-size="70" font-weight="750" letter-spacing="-3" fill="#f7f7f8">gateway<tspan fill="#ffaf35">.</tspan></text>
-    <text x="419" y="200" font-size="13" font-weight="500" letter-spacing="3.2" fill="#8e8e98">NGINX SCALE GATEWAY</text>
-  </g>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="640" viewBox="0 0 1200 640" role="img" aria-labelledby="title"><title id="title">AmberGate</title><rect width="1200" height="640" rx="32" fill="#080809"/>
+<g transform="translate(244 161) scale(1.1)"><defs>
+    <linearGradient id="amber-fire" x1="0" y1="0" x2=".15" y2="1"><stop stop-color="#ffe575"/><stop offset=".46" stop-color="#ffaf35"/><stop offset="1" stop-color="#ea771b"/></linearGradient>
+    <mask id="gate-cut"><rect width="256" height="256" fill="white"/><path d="M91 210v-70a37 37 0 0 1 74 0v70Z" fill="black"/></mask>
+  </defs>
+  <path d="M139 12c0 34 22 60 39 85 8-19 10-36 5-54 34 28 51 67 49 109-3 54-43 91-104 91-61 0-103-35-104-84 0-29 12-55 34-77-3 25 4 42 17 54-6-47 17-87 64-124Z" fill="url(#amber-fire)" mask="url(#gate-cut)"/>
+  <path d="M128 207v-44m0 0-20-20m20 20 20-20" fill="none" stroke="#ffaf35" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="108" cy="142" r="7" fill="#ffaf35"/><circle cx="148" cy="142" r="7" fill="#ffaf35"/>
+</g>
+<g font-family="Inter,Segoe UI,Arial,sans-serif"><text x="559" y="312" font-size="65" font-weight="750" letter-spacing="-2.5" fill="#f7f7f8">Amber<tspan fill="#ffaf35">Gate</tspan></text><text x="563" y="354" font-size="13" letter-spacing="3" fill="#99999f">ONE GATEWAY. EVERY APP.</text><text x="563" y="395" font-size="14" fill="#73737b">HTTP ROUTING · DOCKER · LIVE MONITORING</text></g></svg>

@@ -1,11 +1,11 @@
 <p align="center"><a href="README.md">English</a> · <strong>Русский</strong></p>
 
 <p align="center">
-  <img src="docs/banner.svg" alt="Nginx Scale Gateway — Your traffic. Your rules." width="100%">
+  <img src="docs/banner.svg" alt="AmberGate — Your traffic. Your rules." width="100%">
 </p>
 
 <p align="center">
-  <a href="https://github.com/gadmin2151/nginx-scale-gw/actions/workflows/docker.yml"><img src="https://github.com/gadmin2151/nginx-scale-gw/actions/workflows/docker.yml/badge.svg" alt="Build & publish"></a>
+  <a href="https://github.com/gadmin2151/ambergate/actions/workflows/docker.yml"><img src="https://github.com/gadmin2151/ambergate/actions/workflows/docker.yml/badge.svg" alt="Build & publish"></a>
   <img src="https://img.shields.io/badge/Nginx-1.28%2B-ffaf35?logo=nginx&logoColor=white" alt="Nginx 1.28+">
   <img src="https://img.shields.io/badge/Python-no%20dependencies-ffaf35?logo=python&logoColor=white" alt="Python without external dependencies">
   <img src="https://img.shields.io/badge/Docker-amd64%20%7C%20arm64-ffaf35?logo=docker&logoColor=white" alt="Docker amd64 and arm64">
@@ -20,12 +20,12 @@
   <a href="#быстрый-старт">Быстрый старт</a> ·
   <a href="#несколько-доменов--один-gateway">Домены и маршруты</a> ·
   <a href="docs/configuration.ru.md">Полная документация</a> ·
-  <a href="https://github.com/users/gadmin2151/packages/container/package/nginx-scale-gw">Docker image</a>
+  <a href="https://github.com/users/gadmin2151/packages/container/package/ambergate">Docker image</a>
 </p>
 
 ---
 
-**Nginx Scale Gateway** превращает настройку Nginx в простой процесс: добавьте домен, укажите приложения, проверьте конфигурацию и примените её из браузера. Nginx передаёт трафик напрямую; небольшой Python-сервис отвечает только за управление.
+**AmberGate** превращает настройку Nginx в простой процесс: добавьте домен, укажите приложения, проверьте конфигурацию и примените её из браузера. Nginx передаёт трафик напрямую; небольшой Python-сервис отвечает только за управление.
 
 Без внешней БД, frontend-сборки, CDN и облачных зависимостей во время работы. Все настройки и история хранятся локально. **SSL остаётся на вашем внешнем прокси.**
 
@@ -73,17 +73,17 @@
 Для **Debian 12/13** и **Ubuntu 22.04/24.04/26.04**, архитектуры **amd64 / arm64**:
 
 ```bash
-git clone https://github.com/gadmin2151/nginx-scale-gw.git
-cd nginx-scale-gw
+git clone https://github.com/gadmin2151/ambergate.git
+cd ambergate
 sudo bash first-start.sh --with-docker
 ```
 
 Скрипт проверяет Docker Engine, Compose plugin, curl, сертификаты и Python 3; устанавливает недостающие пакеты, запускает Docker при необходимости и ждёт health check gateway. Установка использует официальный apt-репозиторий Docker. Существующие пакеты не удаляются; при конфликте выводится причина.
 
-Всё размещается в `/opt/nginx-scale-gw`: `compose.yaml`, `data/`, `cache/`, `run/`. Панель по умолчанию доступна только на `127.0.0.1:8083`, gateway — на порту `80`. Начальный пароль выводится один раз в логах контейнера:
+Всё размещается в `/opt/ambergate`: `compose.yaml`, `data/`, `cache/`, `run/`. Панель по умолчанию доступна только на `127.0.0.1:8083`, gateway — на порту `80`. Начальный пароль выводится один раз в логах контейнера:
 
 ```bash
-sudo docker compose -f /opt/nginx-scale-gw/compose.yaml logs gateway
+sudo docker compose -f /opt/ambergate/compose.yaml logs ambergate
 ```
 
 Для доступа из доверенной сети на **новой** установке:
@@ -95,7 +95,7 @@ sudo bash first-start.sh --admin-bind 10.0.0.10 --with-docker
 | Параметр | Назначение |
 |:--|:--|
 | `--check` | Только проверить компоненты, ничего не устанавливать |
-| `--dir /opt/nginx-scale-gw` | Каталог установки |
+| `--dir /opt/ambergate` | Каталог установки |
 | `--admin-bind 127.0.0.1` | IP панели при создании Compose |
 | `--admin-port 8083` / `--http-port 80` | Порты новой установки |
 | `--with-docker` | Смонтировать socket; discovery включается в панели |
@@ -109,29 +109,29 @@ sudo bash first-start.sh --admin-bind 10.0.0.10 --with-docker
 ### Готовый образ из GitHub Container Registry
 
 ```bash
-git clone git@github.com:gadmin2151/nginx-scale-gw.git
-cd nginx-scale-gw
+git clone git@github.com:gadmin2151/ambergate.git
+cd ambergate
 docker compose -f compose.ghcr.yaml up -d
-docker compose -f compose.ghcr.yaml logs gateway
+docker compose -f compose.ghcr.yaml logs ambergate
 ```
 
-Откройте **[http://127.0.0.1:8083](http://127.0.0.1:8083)**. Начальный случайный пароль появится один раз в логах: `Gateway admin — initial password`.
+Откройте **[http://127.0.0.1:8083](http://127.0.0.1:8083)**. Начальный случайный пароль появится один раз в логах: `AmberGate admin — initial password`.
 
 | Назначение | Адрес / хранение |
 |:--|:--|
 | Трафик приложений | HTTP, порт **80** |
 | Панель управления | Порт **8083**, опубликован на loopback хоста |
-| Настройки и история | Volume `gateway-data` → `/data` |
-| Кеш | Volume `gateway-cache` → `/cache` |
-| Образ | `ghcr.io/gadmin2151/nginx-scale-gw:latest` |
+| Настройки и история | Volume `ambergate-data` → `/data` |
+| Кеш | Volume `ambergate-cache` → `/cache` |
+| Образ | `ghcr.io/gadmin2151/ambergate:latest` |
 
-При желании скопируйте `.env.example` в `.env` и задайте `GATEWAY_ADMIN_PASSWORD` перед первым запуском. После создания аккаунта пароль меняется в панели.
+При желании скопируйте `.env.example` в `.env` и задайте `AMBERGATE_ADMIN_PASSWORD` перед первым запуском. После создания аккаунта пароль меняется в панели.
 
 ### Сборка самостоятельно
 
 ```bash
 docker compose up -d --build
-docker compose logs gateway
+docker compose logs ambergate
 ```
 
 > Если порт 80 уже занят вашим SSL-прокси, замените публикацию на `127.0.0.1:8080:80` и направьте прокси на порт 8080. Для доступа к панели удалённого сервера: `ssh -L 8083:127.0.0.1:8083 user@server`.
@@ -147,7 +147,7 @@ docker compose -f compose.ghcr.yaml -f compose.docker.yaml up -d
 Для сборки из исходников используйте `compose.yaml` вместо `compose.ghcr.yaml`. Если socket находится в другом месте, укажите `DOCKER_SOCKET_PATH` в `.env` — например `/run/user/1000/docker.sock` для rootless Docker.
 
 1. Откройте **Docker → Подключить Docker**. Путь внутри контейнера по умолчанию — `/var/run/docker.sock`.
-2. Подключите приложения и gateway к общей пользовательской сети Docker, например `nginx-gateway`.
+2. Подключите приложения и gateway к общей пользовательской сети Docker, например `ambergate`.
 3. При создании домена или в **Маршрут → Серверы → Выбрать из Docker** отметьте нужные контейнеры и порты.
 4. Настройте Round robin / Least connections, веса и резервные цели. Сохраните маршрут и нажмите **«Применить»**.
 
@@ -157,7 +157,7 @@ docker compose -f compose.ghcr.yaml -f compose.docker.yaml up -d
 
 Панель показывает сеть, состояние, образ и порты, отмечает остановленные контейнеры и отсутствие общей сети. Если приложение не объявило порт, его можно ввести вручную. **Нужен HTTP-порт приложения; discovery не проверяет протокол.**
 
-Docker socket даёт привилегированный доступ к Docker-хосту. Gateway использует только GET-запросы для обнаружения; монтирование `:ro` не делает сам Docker API доступным только для чтения. [Настройка сетей, ограничения и права доступа →](docs/configuration.ru.md#docker-socket-и-выбор-контейнеров)
+Docker socket даёт привилегированный доступ к Docker-хосту. AmberGate использует только GET-запросы для обнаружения; монтирование `:ro` не делает сам Docker API доступным только для чтения. [Настройка сетей, ограничения и права доступа →](docs/configuration.ru.md#docker-socket-и-выбор-контейнеров)
 
 ## Несколько доменов — один gateway
 
@@ -179,7 +179,7 @@ Docker socket даёт привилегированный доступ к Docker
 
 Удаление маршрутов и доменов подтверждается в панели. После удаления нажмите **«Сохранить черновик»** или **«Применить»**. Последний маршрут тоже можно удалить: домен останется и после применения будет отвечать HTTP 404 до добавления нового маршрута.
 
-В пустой панели есть готовый пример для `example.com`. Замените адреса примера своими. Приложения должны быть доступны из сети контейнера: Compose создаёт сеть `nginx-gateway`; подключите к ней контейнеры приложений или используйте доступные IP.
+В пустой панели есть готовый пример для `example.com`. Замените адреса примера своими. Приложения должны быть доступны из сети контейнера: Compose создаёт сеть `ambergate`; подключите к ней контейнеры приложений или используйте доступные IP.
 
 **S3:** SigV4 зависит от исходного пути и Host. Стандартный MinIO/S3 API лучше вынести на отдельный домен с маршрутом `/`; удаление `/s3` может нарушить подпись. [Подробности →](docs/configuration.ru.md#s3-и-префикс-s3)
 
@@ -225,13 +225,21 @@ docker compose -f compose.ghcr.yaml pull
 docker compose -f compose.ghcr.yaml up -d
 ```
 
+## Переход на AmberGate
+
+Проект **Nginx Scale Gateway** переименован в **AmberGate**. Для существующей установки сохраните резервную копию `/data` и Compose, затем замените только `image` в **вашем действующем Compose** на `ghcr.io/gadmin2151/ambergate:latest`. В прежнем каталоге выполните `docker compose pull && docker compose up -d --wait`. Сохраните имя Compose-проекта, service, сети и подключения data/cache: новые имена из примеров могут создать пустые volumes. Не используйте `down -v`.
+
+Маршруты, история, пароль и Docker-настройки совместимы. Новые переменные имеют префикс `AMBERGATE_*`; прежние `GATEWAY_*` поддерживаются, если соответствующая новая переменная не задана. Новый runtime-каталог — `/run/ambergate`, прежний `GATEWAY_RUN_DIR` продолжает работать. Заголовок кеша — `X-AmberGate-Cache`, прежний `X-Gateway-Cache` остаётся совместимым алиасом. Выбор языка переносится автоматически; после обновления войдите в панель заново.
+
+Новые установки создаются в `/opt/ambergate`. Если найден прежний каталог, установщик предложит обновить его на месте; передайте `--dir /opt/nginx-scale-gw`. Переименовывать каталог необязательно. При смене имени контейнера обновите сохранённое поле **Docker → Контейнер AmberGate**.
+
 ## Разработка и проверки
 
 ```bash
 python3 -m unittest tests.test_config -v
-node --check gateway/static/app.js
-node --check gateway/static/dashboard.js
-node --check gateway/static/docker.js
+node --check ambergate/static/app.js
+node --check ambergate/static/dashboard.js
+node --check ambergate/static/docker.js
 docker compose config --quiet
 ```
 
@@ -241,7 +249,7 @@ docker compose config --quiet
 docker compose build
 docker run --rm --entrypoint python3 \
   -v "$PWD/tests:/app/tests:ro" \
-  local/nginx-gateway:latest -m unittest discover -v
+  local/ambergate:latest -m unittest discover -v
 ```
 
 Интеграционные тесты требуют Nginx 1.28+; без него они помечаются как skipped. [Локальный запуск без Docker и полное описание настроек →](docs/configuration.ru.md#разработка-и-проверки)
@@ -254,4 +262,4 @@ docker run --rm --entrypoint python3 \
 - Произвольное редактирование директив не предусмотрено: `nginx.conf` генерируется из проверенных полей панели.
 - Сохраняйте volume `/data`; `docker compose down -v` удаляет настройки вместе с volumes.
 
-<p align="center"><br><img src="docs/logo.svg" width="38" alt="Gateway logo"><br><sub>Small by design. Yours by default.</sub></p>
+<p align="center"><br><img src="docs/logo.svg" width="38" alt="AmberGate logo"><br><sub>Small by design. Yours by default.</sub></p>

@@ -1,4 +1,4 @@
-# Contributing to Nginx Scale Gateway
+# Contributing to AmberGate
 
 Thanks for helping improve the gateway. Bug reports and pull requests are welcome in **English or Russian**.
 
@@ -6,7 +6,7 @@ Thanks for helping improve the gateway. Bug reports and pull requests are welcom
 
 ```bash
 docker compose up -d --build
-docker compose logs gateway
+docker compose logs ambergate
 ```
 
 The control panel is at `http://127.0.0.1:8083`; the initial password appears once in the container logs. Use disposable application containers and example domains when testing.
@@ -15,10 +15,10 @@ The control panel is at `http://127.0.0.1:8083`; the initial password appears on
 
 ```bash
 bash -n first-start.sh
-node --check gateway/static/i18n.js
-node --check gateway/static/app.js
-node --check gateway/static/dashboard.js
-node --check gateway/static/docker.js
+node --check ambergate/static/i18n.js
+node --check ambergate/static/app.js
+node --check ambergate/static/dashboard.js
+node --check ambergate/static/docker.js
 node --test tests/*.test.js
 python3 -m unittest discover -v
 docker compose config --quiet
@@ -29,7 +29,7 @@ Integration tests need Nginx 1.28+ and are skipped without it. To run against th
 ```bash
 docker compose build
 docker run --rm --entrypoint python3 -v "$PWD/tests:/app/tests:ro" \
-  local/nginx-gateway:latest -m unittest discover -v
+  local/ambergate:latest -m unittest discover -v
 ```
 
 CI additionally verifies real Docker discovery, published host ports, load balancing and DNS changes after container recreation. It checks installation inside an isolated Debian container.
@@ -38,18 +38,18 @@ CI additionally verifies real Docker discovery, published host ports, load balan
 
 | Path | Purpose |
 |:--|:--|
-| `gateway/config.py`, `gateway/nginx.py` | Validated model and Nginx generation |
-| `gateway/storage.py` | Drafts, active versions, apply and rollback |
-| `gateway/server.py`, `gateway/auth.py` | Admin API, static files and authentication |
-| `gateway/metrics.py`, `gateway/events.py` | Metrics collection and SSE delivery |
-| `gateway/docker.py` | Docker discovery and reachable targets |
-| `gateway/static/` | Dependency-free panel, styles and RU/EN catalog |
+| `ambergate/config.py`, `ambergate/nginx.py` | Validated model and Nginx generation |
+| `ambergate/storage.py` | Drafts, active versions, apply and rollback |
+| `ambergate/server.py`, `ambergate/auth.py` | Admin API, static files and authentication |
+| `ambergate/metrics.py`, `ambergate/events.py` | Metrics collection and SSE delivery |
+| `ambergate/docker.py` | Docker discovery and reachable targets |
+| `ambergate/static/` | Dependency-free panel, styles and RU/EN catalog |
 | `first-start.sh` | Debian/Ubuntu first-start installer |
 | `tests/` | Unit, Nginx integration, browser logic and Docker smoke tests |
 
 ## UI translations
 
-Use `t('Russian source phrase')` for authored labels and `ui` tagged templates for HTML containing authored text. The tag translates only static template segments; interpolated route names, addresses and other user data stay unchanged. Add English entries to `gateway/static/i18n.js`. Translate dynamic server diagnostics with `translateError()` at display time. Format dates and numbers with `locale()`.
+Use `t('Russian source phrase')` for authored labels and `ui` tagged templates for HTML containing authored text. The tag translates only static template segments; interpolated route names, addresses and other user data stay unchanged. Add English entries to `ambergate/static/i18n.js`. Translate dynamic server diagnostics with `translateError()` at display time. Format dates and numbers with `locale()`.
 
 Check both languages, keyboard navigation, mobile layout, unsaved forms and SSE reconnection. Do not translate configuration values or introduce external fonts, scripts or analytics.
 

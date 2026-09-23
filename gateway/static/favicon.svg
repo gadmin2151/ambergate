@@ -1,5 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
-  <title id="title">Gateway — one entry, multiple routes</title>
-  <rect width="64" height="64" rx="18" fill="#ffaf35"/>
-    <path d="M14 27h12l12-12h13v10h-8l-7 7 7 7h8v10H38L26 37H14Z" fill="#151516"/>
-</svg>

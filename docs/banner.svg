@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="420" viewBox="0 0 1280 420" role="img" aria-label="Nginx Scale Gateway — your traffic, your rules">
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="420" viewBox="0 0 1280 420" role="img" aria-label="AmberGate — your traffic, your rules">
   <defs>
     <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#151516"/><stop offset="1" stop-color="#080809"/></linearGradient>
     <linearGradient id="accent"><stop stop-color="#ffcf7f"/><stop offset=".5" stop-color="#ffaf35"/><stop offset="1" stop-color="#ffaf35"/></linearGradient>
@@ -8,11 +8,17 @@
   <rect width="1280" height="420" rx="20" fill="url(#bg)"/>
   <rect width="1280" height="420" rx="20" fill="url(#grid)"/>
   <ellipse cx="960" cy="200" rx="430" ry="330" fill="url(#glow)"/>
-  <g transform="translate(55 57) scale(.9375)"><rect width="64" height="64" rx="18" fill="#ffaf35"/>
-    <path d="M14 27h12l12-12h13v10h-8l-7 7 7 7h8v10H38L26 37H14Z" fill="#151516"/></g>
+  <g transform="translate(49 42) scale(.30)"><defs>
+    <linearGradient id="amber-fire" x1="0" y1="0" x2=".15" y2="1"><stop stop-color="#ffe575"/><stop offset=".46" stop-color="#ffaf35"/><stop offset="1" stop-color="#ea771b"/></linearGradient>
+    <mask id="gate-cut"><rect width="256" height="256" fill="white"/><path d="M91 210v-70a37 37 0 0 1 74 0v70Z" fill="black"/></mask>
+  </defs>
+  <path d="M139 12c0 34 22 60 39 85 8-19 10-36 5-54 34 28 51 67 49 109-3 54-43 91-104 91-61 0-103-35-104-84 0-29 12-55 34-77-3 25 4 42 17 54-6-47 17-87 64-124Z" fill="url(#amber-fire)" mask="url(#gate-cut)"/>
+  <path d="M128 207v-44m0 0-20-20m20 20 20-20" fill="none" stroke="#ffaf35" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="108" cy="142" r="7" fill="#ffaf35"/><circle cx="148" cy="142" r="7" fill="#ffaf35"/>
+</g>
   <g font-family="Inter,Segoe UI,Arial,sans-serif">
-    <text x="131" y="83" font-size="29" font-weight="750" letter-spacing="-1" fill="#fefaf4">gateway<tspan fill="#ffaf35">.</tspan></text>
-    <text x="132" y="105" font-size="10" letter-spacing="2.5" fill="#aea291">NGINX SCALE GATEWAY</text>
+    <text x="131" y="83" font-size="29" font-weight="750" letter-spacing="-1" fill="#fefaf4">Amber<tspan fill="#ffaf35">Gate</tspan></text>
+    <text x="132" y="105" font-size="10" letter-spacing="2.5" fill="#aea291">NGINX GATEWAY</text>
     <text x="55" y="185" font-size="46" font-weight="650" letter-spacing="-1.5" fill="#fef9f1">Your traffic.</text>
     <text x="55" y="242" font-size="46" font-weight="650" letter-spacing="-1.5" fill="url(#accent)">Your rules.</text>
     <text x="57" y="283" font-size="16" fill="#beb5a7">One container. Every domain. Full control.</text>

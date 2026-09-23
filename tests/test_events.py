@@ -9,8 +9,8 @@ import time
 import unittest
 from unittest.mock import patch
 
-from gateway.auth import Auth
-from gateway.server import Server
+from ambergate.auth import Auth
+from ambergate.server import Server
 
 
 def read_event(response):
@@ -50,7 +50,7 @@ class EventsTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="gateway-events-")
         self.store = SnapshotStore(Path(self.temp.name))
-        with patch.dict(os.environ, {"GATEWAY_ADMIN_PASSWORD": "test-password-12345"}):
+        with patch.dict(os.environ, {"AMBERGATE_ADMIN_PASSWORD": "test-password-12345"}):
             self.auth = Auth(self.store.data)
         self.token, self.session = self.auth.login("test-password-12345", "test")
         self.server = Server(("127.0.0.1", 0), self.store, self.auth)
@@ -73,7 +73,7 @@ class EventsTests(unittest.TestCase):
     def connect(self, path="/api/events", authenticated=True):
         connection = http.client.HTTPConnection("127.0.0.1", self.server.server_port, timeout=3)
         self.connections.append(connection)
-        headers = {"Cookie": "gateway_session=" + self.token} if authenticated else {}
+        headers = {"Cookie": "ambergate_session=" + self.token} if authenticated else {}
         connection.request("GET", path, headers=headers)
         response = connection.getresponse()
         self.responses.append(response)

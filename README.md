@@ -1,10 +1,10 @@
 <p align="center"><strong>English</strong> · <a href="README.ru.md">Русский</a></p>
 
-<p align="center"><img src="docs/banner.svg" alt="Nginx Scale Gateway — one entry point for all your applications" width="100%"></p>
+<p align="center"><img src="docs/banner.svg" alt="AmberGate — one entry point for all your applications" width="100%"></p>
 
 <p align="center">
-  <a href="https://github.com/gadmin2151/nginx-scale-gw/actions/workflows/docker.yml"><img src="https://github.com/gadmin2151/nginx-scale-gw/actions/workflows/docker.yml/badge.svg" alt="Build and publish"></a>
-  <a href="https://github.com/gadmin2151/nginx-scale-gw/pkgs/container/nginx-scale-gw"><img src="https://img.shields.io/badge/GHCR-amd64%20%7C%20arm64-ffaf35?style=flat-square&logo=docker&logoColor=ffaf35&labelColor=151516" alt="GHCR: amd64 and arm64"></a>
+  <a href="https://github.com/gadmin2151/ambergate/actions/workflows/docker.yml"><img src="https://github.com/gadmin2151/ambergate/actions/workflows/docker.yml/badge.svg" alt="Build and publish"></a>
+  <a href="https://github.com/gadmin2151/ambergate/pkgs/container/ambergate"><img src="https://img.shields.io/badge/GHCR-amd64%20%7C%20arm64-ffaf35?style=flat-square&logo=docker&logoColor=ffaf35&labelColor=151516" alt="GHCR: amd64 and arm64"></a>
   <img src="https://img.shields.io/badge/UI-RU%20%2F%20EN-ffaf35?style=flat-square&labelColor=151516" alt="Russian and English UI">
   <img src="https://img.shields.io/badge/runtime-one%20container-ffaf35?style=flat-square&labelColor=151516" alt="One container">
 </p>
@@ -15,7 +15,7 @@
 
 ---
 
-**Nginx Scale Gateway** is a small, self-hosted HTTP gateway built with Nginx, Python's standard library and vanilla JavaScript. One Docker container serves application traffic on **port 80** and the control panel on **port 8083**. Configuration lives on disk. No external database or metrics service is required.
+**AmberGate** is a small, self-hosted HTTP gateway built with Nginx, Python's standard library and vanilla JavaScript. One Docker container serves application traffic on **port 80** and the control panel on **port 8083**. Configuration lives on disk. No external database or metrics service is required.
 
 TLS stays with your existing reverse proxy. The panel generates and validates `nginx.conf` from structured settings, then reloads Nginx without stopping applications.
 
@@ -45,20 +45,20 @@ TLS stays with your existing reverse proxy. The panel generates and validates `n
 Supported by the installer: **Debian 12/13**, **Ubuntu 22.04/24.04/26.04**, **amd64 / arm64**.
 
 ```bash
-git clone https://github.com/gadmin2151/nginx-scale-gw.git
-cd nginx-scale-gw
+git clone https://github.com/gadmin2151/ambergate.git
+cd ambergate
 sudo bash first-start.sh --with-docker
 ```
 
-`first-start.sh` checks Docker Engine, the Compose plugin, curl, CA certificates and Python 3. It installs missing components, starts Docker if necessary, prepares **`/opt/nginx-scale-gw`** and waits for a healthy gateway. Docker packages come from its [official Debian](https://docs.docker.com/engine/install/debian/) or [Ubuntu](https://docs.docker.com/engine/install/ubuntu/) apt repository. Existing packages are not removed; conflicts stop the installer with an explanation.
+`first-start.sh` checks Docker Engine, the Compose plugin, curl, CA certificates and Python 3. It installs missing components, starts Docker if necessary, prepares **`/opt/ambergate`** and waits for a healthy gateway. Docker packages come from its [official Debian](https://docs.docker.com/engine/install/debian/) or [Ubuntu](https://docs.docker.com/engine/install/ubuntu/) apt repository. Existing packages are not removed; conflicts stop the installer with an explanation.
 
 Read the initial administrator password privately in the container logs:
 
 ```bash
-sudo docker compose -f /opt/nginx-scale-gw/compose.yaml logs gateway
+sudo docker compose -f /opt/ambergate/compose.yaml logs ambergate
 ```
 
-Look for `Gateway admin — initial password`. It appears once when the account is created. Change it in the panel after signing in.
+Look for `AmberGate admin — initial password`. It appears once when the account is created. Change it in the panel after signing in.
 
 The panel binds to **127.0.0.1:8083** by default. For a remote server, open an SSH tunnel:
 
@@ -73,14 +73,14 @@ Then open **[http://127.0.0.1:8083](http://127.0.0.1:8083)**. To bind a **new in
 
 ```bash
 bash first-start.sh --check
-sudo bash first-start.sh --dir /opt/nginx-scale-gw --http-port 8080 --with-docker
+sudo bash first-start.sh --dir /opt/ambergate --http-port 8080 --with-docker
 sudo bash first-start.sh --admin-bind 10.0.0.10 --admin-port 8083 --no-start
 ```
 
 | Option | Purpose |
 |:--|:--|
 | `--check` | Read-only dependency check; exit 1 if a component is missing or inaccessible |
-| `--dir PATH` | Installation directory; default `/opt/nginx-scale-gw` |
+| `--dir PATH` | Installation directory; default `/opt/ambergate` |
 | `--admin-bind IP` | Admin bind address for a new Compose file; default `127.0.0.1` |
 | `--admin-port PORT` | Admin port; default `8083` |
 | `--http-port PORT` | Application HTTP port; default `80` |
@@ -97,13 +97,13 @@ The script can also be downloaded by itself and inspected before running; it doe
 ### Already have Docker?
 
 ```bash
-git clone https://github.com/gadmin2151/nginx-scale-gw.git
-cd nginx-scale-gw
+git clone https://github.com/gadmin2151/ambergate.git
+cd ambergate
 docker compose -f compose.ghcr.yaml up -d
-docker compose -f compose.ghcr.yaml logs gateway
+docker compose -f compose.ghcr.yaml logs ambergate
 ```
 
-To build locally, run `docker compose up -d --build` instead. Optionally copy `.env.example` to `.env` and set `GATEWAY_ADMIN_PASSWORD` before the first boot; later password changes are made in the panel.
+To build locally, run `docker compose up -d --build` instead. Optionally copy `.env.example` to `.env` and set `AMBERGATE_ADMIN_PASSWORD` before the first boot; later password changes are made in the panel.
 
 If port 80 is occupied by your TLS proxy, change the mapping to `127.0.0.1:8080:80` and point that proxy to port 8080.
 
@@ -146,11 +146,11 @@ Open **Docker → Connect Docker**, then **Domains & routes → your route → S
 
 For a container published as `8001:80`, save the **Docker host IP** in the picker, select **Via host IP**, and the route uses **`host-IP:8001`**. No shared network is required. Ports bound only to host `127.0.0.1` or `::1` cannot be reached from a separate gateway container.
 
-For shared networks, attach applications to `nginx-gateway` and use Docker DNS names. Nginx re-resolves names so a container recreated with the same name can receive a new IP. Selecting multiple containers configures load balancing. Adding new replicas to routes is manual; discovery does not change application networks or continuously rewrite your routes.
+For shared networks, attach applications to `ambergate` and use Docker DNS names. Nginx re-resolves names so a container recreated with the same name can receive a new IP. Selecting multiple containers configures load balancing. Adding new replicas to routes is manual; discovery does not change application networks or continuously rewrite your routes.
 
 The picker shows state, image, networks and TCP ports. Stopped containers and the gateway itself cannot be selected. Ports can be entered manually when `EXPOSE` is absent. Select an **HTTP** application port; discovery does not detect the application protocol.
 
-The Docker socket grants privileged host access. Gateway only makes read requests, but a `:ro` bind does not make the Docker API itself read-only. Keep the panel on a trusted network. [Detailed network and permission guide in Russian →](docs/configuration.ru.md#docker-socket-и-выбор-контейнеров)
+The Docker socket grants privileged host access. AmberGate only makes read requests, but a `:ro` bind does not make the Docker API itself read-only. Keep the panel on a trusted network. [Detailed network and permission guide in Russian →](docs/configuration.ru.md#docker-socket-и-выбор-контейнеров)
 
 ## Know what is happening
 
@@ -190,25 +190,33 @@ Keyboard shortcuts: **`/`** focuses route search, **`Ctrl/Cmd + S`** saves a dra
 
 | Content | Container path | Installer directory |
 |:--|:--|:--|
-| Draft, active config, credentials, Docker settings, history | `/data` | `/opt/nginx-scale-gw/data` |
-| Response cache | `/cache` | `/opt/nginx-scale-gw/cache` |
-| Runtime files | `/run/gateway` | `/opt/nginx-scale-gw/run` |
+| Draft, active config, credentials, Docker settings, history | `/data` | `/opt/ambergate/data` |
+| Response cache | `/cache` | `/opt/ambergate/cache` |
+| Runtime files | `/run/ambergate` | `/opt/ambergate/run` |
 
-Repository Compose files use named volumes `gateway-data` and `gateway-cache`. The installer uses bind directories under its installation path. Keep `/data` and your Compose file in backups. Treat backups as private because they include authentication data and internal addresses. For a consistent filesystem backup, briefly stop gateway or use a filesystem snapshot; JSON export transfers routing settings but not the administrator account or Docker connection settings.
+Repository Compose files use named volumes `ambergate-data` and `ambergate-cache`. The installer uses bind directories under its installation path. Keep `/data` and your Compose file in backups. Treat backups as private because they include authentication data and internal addresses. For a consistent filesystem backup, briefly stop gateway or use a filesystem snapshot; JSON export transfers routing settings but not the administrator account or Docker connection settings.
 
 For an installer deployment:
 
 ```bash
-cd /opt/nginx-scale-gw
+cd /opt/ambergate
 sudo docker compose pull
 sudo docker compose up -d --wait
 ```
 
 For a repository deployment, include `-f compose.ghcr.yaml` and the Docker overlay if used. Never use `down -v` unless you intend to delete named volumes. Image upgrades are explicit; there is no background auto-updater.
 
+## Upgrading from Nginx Scale Gateway
+
+The project is now **AmberGate**. For an existing deployment, back up `/data` and your Compose file, then change only the image to `ghcr.io/gadmin2151/ambergate:latest` in **your existing Compose file** and run `docker compose pull && docker compose up -d --wait` in its current directory. Keep the existing project name, service, networks and data/cache mounts: replacing them with the new example names can create empty volumes. Do not use `down -v`.
+
+Existing routing data, history, administrator credentials and Docker settings are compatible. `AMBERGATE_*` environment variables replace `GATEWAY_*`; the old prefix still works when the corresponding new variable is absent. Existing `GATEWAY_RUN_DIR` overrides remain supported; the new default is `/run/ambergate`. The cache response header is now `X-AmberGate-Cache`, with `X-Gateway-Cache` retained for compatibility. Browser language preferences migrate automatically; sign in again after upgrading.
+
+New installations use `/opt/ambergate`. The installer detects an old default installation and asks you to upgrade it in place; use `--dir /opt/nginx-scale-gw` to retain its directory. If you also rename a container, update its saved **Docker → AmberGate container** setting. Renaming the installation directory is optional.
+
 ## Build and delivery
 
-[GitHub Actions](.github/workflows/docker.yml) validates JavaScript, translations, the installer and Compose, runs routing tests with real Nginx, and exercises Docker discovery and load balancing against real containers. Successful releases publish **`linux/amd64`** and **`linux/arm64`** images to [GitHub Container Registry](https://github.com/gadmin2151/nginx-scale-gw/pkgs/container/nginx-scale-gw) with OCI metadata, provenance and SBOM.
+[GitHub Actions](.github/workflows/docker.yml) validates JavaScript, translations, the installer and Compose, runs routing tests with real Nginx, and exercises Docker discovery and load balancing against real containers. Successful releases publish **`linux/amd64`** and **`linux/arm64`** images to [GitHub Container Registry](https://github.com/gadmin2151/ambergate/pkgs/container/ambergate) with OCI metadata, provenance and SBOM.
 
 | Trigger | Result |
 |:--|:--|
@@ -227,4 +235,4 @@ The workflow uses `GITHUB_TOKEN` with `packages: write`; no Docker Hub credentia
 - **Structured configuration:** preview and copy generated `nginx.conf`; arbitrary directive editing is not available.
 - **Local administration:** password login, CSRF protection and expiring sessions. Expose the panel only through a trusted network or your secured external proxy.
 
-<p align="center"><br><img src="docs/logo.svg" width="38" alt="Gateway logo"><br><sub>Small by design. Yours by default.</sub></p>
+<p align="center"><br><img src="docs/logo.svg" width="38" alt="AmberGate logo"><br><sub>Small by design. Yours by default.</sub></p>

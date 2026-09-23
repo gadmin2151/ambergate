@@ -8,9 +8,9 @@ import tempfile
 import threading
 import unittest
 
-from gateway.docker import Docker, settings
-from gateway.nginx import digest
-from gateway.storage import ConflictError
+from ambergate.docker import Docker, settings
+from ambergate.nginx import digest
+from ambergate.storage import ConflictError
 
 
 def container(name="backend_1", identity="b" * 64, state="running", network="applications", ports=None):

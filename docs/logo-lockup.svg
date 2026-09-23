@@ -1,9 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="296" height="88" viewBox="0 0 296 88" role="img" aria-labelledby="title">
-  <title id="title">Gateway — Nginx Scale Gateway</title>
-  <g transform="translate(8 8) scale(1.125)"><rect width="64" height="64" rx="18" fill="#ffaf35"/>
-    <path d="M14 27h12l12-12h13v10h-8l-7 7 7 7h8v10H38L26 37H14Z" fill="#151516"/></g>
-  <g font-family="Inter,Segoe UI,Arial,sans-serif">
-    <text x="101" y="51" font-size="45" font-weight="750" letter-spacing="-2" fill="#f7f7f8">gateway<tspan fill="#ffaf35">.</tspan></text>
-    <text x="104" y="70" font-size="9" font-weight="500" letter-spacing="2.1" fill="#8e8e98">NGINX SCALE GATEWAY</text>
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="100" viewBox="0 0 400 100" role="img" aria-labelledby="title">
+<title id="title">AmberGate — one gateway, every application</title>
+<g transform="translate(0 4) scale(.36)"><defs>
+    <linearGradient id="amber-fire" x1="0" y1="0" x2=".15" y2="1"><stop stop-color="#ffe575"/><stop offset=".46" stop-color="#ffaf35"/><stop offset="1" stop-color="#ea771b"/></linearGradient>
+    <mask id="gate-cut"><rect width="256" height="256" fill="white"/><path d="M91 210v-70a37 37 0 0 1 74 0v70Z" fill="black"/></mask>
+  </defs>
+  <path d="M139 12c0 34 22 60 39 85 8-19 10-36 5-54 34 28 51 67 49 109-3 54-43 91-104 91-61 0-103-35-104-84 0-29 12-55 34-77-3 25 4 42 17 54-6-47 17-87 64-124Z" fill="url(#amber-fire)" mask="url(#gate-cut)"/>
+  <path d="M128 207v-44m0 0-20-20m20 20 20-20" fill="none" stroke="#ffaf35" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="108" cy="142" r="7" fill="#ffaf35"/><circle cx="148" cy="142" r="7" fill="#ffaf35"/>
+</g>
+<g font-family="Inter,Segoe UI,Arial,sans-serif"><text x="105" y="59" font-size="44" font-weight="750" letter-spacing="-1.6" fill="#f7f7f8">Amber<tspan fill="#ffaf35">Gate</tspan></text><text x="108" y="81" font-size="9" letter-spacing="2.7" fill="#98989f">ONE GATEWAY. EVERY APP.</text></g>
 </svg>

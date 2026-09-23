@@ -5,7 +5,7 @@
 const translations = {
   "Закрыть уведомление": "Dismiss notification",
   "Сохранить": "Save",
-  "НАСТРОЙКИ GATEWAY": "GATEWAY SETTINGS",
+  "НАСТРОЙКИ AMBERGATE": "AMBERGATE SETTINGS",
   "Закрыть": "Close",
   "Потребуется повторный вход": "You will need to sign in again",
   "Изменения попадут в черновик": "Changes will be added to the draft",
@@ -15,13 +15,13 @@ const translations = {
   "После удаления сохраните черновик или примените изменения.": "After deleting, save the draft or apply your changes.",
   "Один вход. Все приложения.": "One entry point. Every application.",
   "Все приложения.": "Every application.",
-  "Один gateway.": "One gateway.",
+  "Один AmberGate.": "One AmberGate.",
   "Маршруты, балансировка и защита приложений — в одной панели управления Nginx.": "Routes, load balancing and application protection in one Nginx control panel.",
   "Панель управления": "Control panel",
   "Добро пожаловать": "Welcome back",
-  "Войдите, чтобы настроить ваш gateway.": "Sign in to configure your gateway.",
-  "Войти в Gateway": "Sign in to Gateway",
-  "При первом запуске пароль задаётся через GATEWAY_ADMIN_PASSWORD или выводится в логах контейнера.": "On first start, the password is set with GATEWAY_ADMIN_PASSWORD or printed in the container logs.",
+  "Войдите, чтобы настроить ваш AmberGate.": "Sign in to configure your AmberGate.",
+  "Войти в AmberGate": "Sign in to AmberGate",
+  "При первом запуске пароль задаётся через AMBERGATE_ADMIN_PASSWORD или выводится в логах контейнера.": "On first start, the password is set with AMBERGATE_ADMIN_PASSWORD or printed in the container logs.",
   "Пароль администратора": "Administrator password",
   "Нет live-связи": "Live connection lost",
   "Подключаемся…": "Connecting…",
@@ -36,14 +36,14 @@ const translations = {
   "Сохранить черновик": "Save draft",
   "Применяем…": "Applying…",
   "Применить": "Apply",
-  "Трафик, ответы и состояние вашего gateway — в реальном времени.": "Traffic, responses and gateway health in real time.",
+  "Трафик, ответы и состояние вашего AmberGate — в реальном времени.": "Traffic, responses and AmberGate health in real time.",
   "Подключите Docker и выбирайте контейнеры для маршрутов и балансировки.": "Connect Docker and select containers for routing and load balancing.",
   "Управляйте трафиком всех ваших приложений в одном месте.": "Manage traffic for all your applications in one place.",
   "Настройте ограничения и правила доступа для ваших приложений.": "Configure limits and access rules for your applications.",
   "Ускоряйте публичные ответы и снижайте нагрузку на серверы.": "Speed up public responses and reduce server load.",
   "Вся конфигурация перед вами. Проверьте её перед применением.": "Review the complete configuration before applying it.",
   "Вернитесь к предыдущей конфигурации в несколько кликов.": "Restore an earlier configuration in a few clicks.",
-  "Мой gateway": "My gateway",
+  "Мой AmberGate": "My AmberGate",
   "ПРОСТРАНСТВО": "WORKSPACE",
   "Главное меню": "Main menu",
   "Ваш сервер. Ваши данные.": "Your server. Your data.",
@@ -244,18 +244,18 @@ const translations = {
   "Создан": "Created",
   "Контейнеры вашего сервера — прямо в редакторе маршрутов.": "Your server containers, directly in the route editor.",
   "Настройки подключения сохраняются локально. Рабочие маршруты меняются после «Применить».": "Connection settings are stored locally. Active routes change after you click Apply.",
-  "Gateway читает Docker API. Сам socket даёт привилегированный доступ к Docker-хосту.": "Gateway reads the Docker API. The socket itself grants privileged access to the Docker host.",
+  "AmberGate читает Docker API. Сам socket даёт привилегированный доступ к Docker-хосту.": "AmberGate reads the Docker API. The socket itself grants privileged access to the Docker host.",
   "Как подключить docker.sock": "Connect docker.sock",
-  "Запустите gateway с дополнительным Compose-файлом:": "Start gateway with the additional Compose file:",
+  "Запустите AmberGate с дополнительным Compose-файлом:": "Start AmberGate with the additional Compose file:",
   "Для локальной сборки замените": "For a local build, replace",
   "на": "with",
   ". Затем нажмите «Подключить Docker» выше.": ". Then click Connect Docker above.",
   "Используйте общую сеть, например": "Use a shared network, such as",
   ", или укажите IP Docker-хоста и выберите опубликованные TCP-порты. Список контейнеров сам по себе не меняет настройки сетей.": ", or set the Docker host IP and select published TCP ports. Listing containers does not change their networks.",
-  "Docker socket даёт привилегированный доступ к хосту. Gateway использует только чтение Docker API; монтирование": "The Docker socket grants privileged host access. Gateway only reads the Docker API; mounting it",
+  "Docker socket даёт привилегированный доступ к хосту. AmberGate использует только чтение Docker API; монтирование": "The Docker socket grants privileged host access. AmberGate only reads the Docker API; mounting it",
   "само по себе не ограничивает операции API.": "does not restrict API operations by itself.",
-  "Путь к socket внутри Gateway": "Socket path inside Gateway",
-  "Имя или ID контейнера gateway": "Gateway container name or ID",
+  "Путь к socket внутри AmberGate": "Socket path inside AmberGate",
+  "Имя или ID контейнера AmberGate": "AmberGate container name or ID",
   "Автоматически": "Automatic",
   "Оставьте пустым для стандартного Docker hostname.": "Leave blank for the standard Docker hostname.",
   "IP Docker-хоста": "Docker host IP",
@@ -297,7 +297,7 @@ const translations = {
   "Имя в Docker DNS": "Docker DNS name",
   "Порт хоста": "Host port",
   "IP в общей сети": "IP in shared network",
-  "Не удалось связаться с Gateway": "Could not reach Gateway",
+  "Не удалось связаться с AmberGate": "Could not reach AmberGate",
   "Обнаружение Docker выключено. Маршруты сохранены.": "Docker discovery disabled. Routes are preserved.",
   "Docker подключён. Контейнеры доступны в редакторе.": "Docker connected. Containers are available in the editor.",
   "Настройки сохранены. Проверьте подключение к socket.": "Settings saved. Check the socket connection.",
@@ -356,17 +356,17 @@ const translations = {
   "Обновление данных недоступно": "Live updates unavailable",
   "Показан последний снимок на": "Last snapshot at",
   "Нажмите «Обновить», чтобы повторить.": "Click Refresh to try again.",
-  "Подключаемся к вашему gateway": "Connecting to your gateway",
+  "Подключаемся к вашему AmberGate": "Connecting to your AmberGate",
   "Загружаем состояние Nginx и статистику трафика…": "Loading Nginx status and traffic statistics…",
   "Проверьте состояние Nginx": "Check Nginx status",
-  "Gateway работает · есть ошибки 5xx": "Gateway is running · 5xx errors detected",
-  "Gateway в работе": "Gateway is running",
+  "AmberGate работает · есть ошибки 5xx": "AmberGate is running · 5xx errors detected",
+  "AmberGate в работе": "AmberGate is running",
   "Процесс или действующая версия не подтверждены.": "The process or active version could not be verified.",
   "ответов с ошибкой сервера за доступный период. Подробности — ниже.": "server error responses during the available period. Details below.",
   "Nginx работает. За доступный период ответов 5xx не было.": "Nginx is running. No 5xx responses during the available period.",
   "Nginx работает. Ожидаем первые запросы к приложениям.": "Nginx is running. Waiting for the first application requests.",
   "· автоматически": "· automatic",
-  "Трафик через gateway": "Traffic through gateway",
+  "Трафик через AmberGate": "Traffic through AmberGate",
   "Завершённые запросы · по 10 с · последний интервал неполный": "Completed requests · 10 sec buckets · final bucket is incomplete",
   "отдано клиентам": "sent to clients",
   "Все запросы": "All requests",
@@ -407,7 +407,7 @@ const translations = {
   "запросов и": "requests and",
   "ответов 5xx за доступный период": "5xx responses during the available period",
   "Здесь появится ваш трафик": "Your traffic will appear here",
-  "Запросы к доменам gateway заполнят график автоматически.": "Requests to gateway domains populate this chart automatically.",
+  "Запросы к доменам AmberGate заполнят график автоматически.": "Requests to AmberGate domains populate this chart automatically.",
   "Состояние Nginx": "Nginx status",
   "Текущий момент": "Right now",
   "открытых": "open",
@@ -431,7 +431,7 @@ const translations = {
   "Добавьте домен в «Маршрутах» и примените конфигурацию.": "Add a domain under Routes and apply the configuration.",
   "HTTP-ответы": "HTTP responses",
   "Распределение кодов": "Status code distribution",
-  "Лимиты gateway · HTTP 429": "Gateway limits · HTTP 429",
+  "Лимиты AmberGate · HTTP 429": "AmberGate limits · HTTP 429",
   "Информация": "Informational",
   "Успешные": "Successful",
   "Редиректы": "Redirects",
@@ -443,7 +443,7 @@ const translations = {
   "Домен / маршрут": "Domain / route",
   "Длительность": "Duration",
   "без upstream": "no upstream",
-  "Лимит gateway": "Gateway limit",
+  "Лимит AmberGate": "AmberGate limit",
   "Слишком много запросов": "Too many requests",
   "Ошибка upstream": "Upstream error",
   "Сервис недоступен": "Service unavailable",
@@ -461,7 +461,7 @@ const translations = {
   "Защита и лимиты": "Protection & limits",
   "Кеширование": "Caching",
   "История версий": "Version history",
-  "Сети gateway:": "Gateway networks:",
+  "Сети AmberGate:": "AmberGate networks:",
   "Сохранённый IP:": "Saved IP:",
   "запр/с": "req/s",
   "Не удалось проверить Nginx:": "Could not validate Nginx:",
@@ -478,7 +478,7 @@ const translations = {
   "Неверный набор настроек Docker": "Invalid Docker settings",
   "enabled должен быть true/false": "enabled must be true/false",
   "Укажите абсолютный путь к Unix socket .sock (до 103 байт)": "Enter an absolute Unix .sock path (up to 103 bytes)",
-  "Контейнер gateway: имя или ID, без схемы и пути": "Gateway container: name or ID, without a scheme or path",
+  "Контейнер AmberGate: имя или ID, без схемы и пути": "AmberGate container: name or ID, without a scheme or path",
   "IP Docker-хоста должен быть строкой": "Docker host IP must be a string",
   "Укажите доступный IPv4 или IPv6 Docker-хоста, без схемы и порта": "Enter a reachable Docker host IPv4 or IPv6 address, without a scheme or port",
   "Нет опубликованных TCP-портов": "No published TCP ports",
@@ -491,21 +491,21 @@ const translations = {
   "Docker вернул некорректный ответ": "Docker returned an invalid response",
   "Подключение к Docker выключено": "Docker connection is disabled",
   "Socket не найден. Смонтируйте docker.sock и проверьте путь.": "Socket not found. Mount docker.sock and check the path.",
-  "Нет доступа к socket. Проверьте права процесса Gateway.": "Socket access denied. Check Gateway process permissions.",
+  "Нет доступа к socket. Проверьте права процесса AmberGate.": "Socket access denied. Check AmberGate process permissions.",
   "Docker не ответил за отведённое время.": "Docker did not respond in time.",
   "Не удалось подключиться к Docker. Проверьте daemon и socket.": "Could not connect to Docker. Check the daemon and socket.",
   "Неожиданный формат ответа Docker API.": "Unexpected Docker API response format.",
   "Указанный путь не является Unix socket": "The specified path is not a Unix socket",
   "Неподдерживаемая версия Docker Engine API": "Unsupported Docker Engine API version",
   "Docker не вернул список контейнеров": "Docker did not return a container list",
-  "Укажите имя или ID контейнера gateway в настройках": "Set the gateway container name or ID in settings",
-  "Не удалось определить сети gateway. Укажите его имя или ID в настройках.": "Could not detect gateway networks. Set its name or ID in settings.",
+  "Укажите имя или ID контейнера AmberGate в настройках": "Set the AmberGate container name or ID in settings",
+  "Не удалось определить сети AmberGate. Укажите его имя или ID в настройках.": "Could not detect AmberGate networks. Set its name or ID in settings.",
   "Общая сеть Docker или опубликованные порты хоста": "Shared Docker network or published host ports",
   "Локальный запуск: используйте опубликованные TCP-порты": "Local mode: use published TCP ports",
-  "У gateway нет подключённых сетей Docker": "Gateway has no connected Docker networks",
-  "Это сам gateway": "This is the gateway itself",
+  "У AmberGate нет подключённых сетей Docker": "AmberGate has no connected Docker networks",
+  "Это сам AmberGate": "This is the AmberGate itself",
   "Контейнер не запущен": "Container is not running",
-  "Нет общей сети с gateway": "No shared network with gateway",
+  "Нет общей сети с AmberGate": "No shared network with AmberGate",
   "Нет адреса в общей сети": "No address in the shared network",
   "неверный набор полей": "invalid set of fields",
   "ожидается целое число": "expected an integer in range",
@@ -537,19 +537,19 @@ const translations = {
   "Максимальный размер запроса: 1 MiB": "Maximum request size: 1 MiB",
   "Неверный CSRF-токен. Обновите страницу.": "Invalid CSRF token. Reload the page.",
   "Неверный пароль": "Incorrect password",
-  "Не удалось получить состояние Gateway": "Could not get Gateway status"
+  "Не удалось получить состояние AmberGate": "Could not get AmberGate status"
 };
 const russianLabels = {
   "LIVE OVERVIEW": "ОБЗОР СИСТЕМЫ",
   "TRAFFIC MANAGEMENT": "УПРАВЛЕНИЕ ТРАФИКОМ",
-  "GATEWAY CONTROL": "УПРАВЛЕНИЕ GATEWAY",
+  "AMBERGATE CONTROL": "УПРАВЛЕНИЕ AMBERGATE",
   "SAFE RELOAD": "ПЛАВНЫЙ RELOAD",
   "DOCKER DISCOVERY": "КОНТЕЙНЕРЫ DOCKER",
   "Self-hosted workspace": "Локальное пространство",
   "Self-hosted · Local configuration · HTTP gateway": "На вашем сервере · Локальные настройки · HTTP gateway"
 };
 let language = 'ru';
-try { const saved = localStorage.getItem('gateway.language'); language = ['ru', 'en'].includes(saved) ? saved : /^ru\b/i.test(navigator.language || '') ? 'ru' : 'en'; } catch { /* Storage may be blocked; the switch still works. */ }
+try { const saved = localStorage.getItem('ambergate.language') || localStorage.getItem('gateway.language'); language = ['ru', 'en'].includes(saved) ? saved : /^ru\b/i.test(navigator.language || '') ? 'ru' : 'en'; } catch { /* Storage may be blocked; the switch still works. */ }
 const locale = () => language === 'ru' ? 'ru-RU' : 'en-US';
 const translationParts = /[^<>"'\n]*[А-Яа-яЁё][^<>"'\n]*/g;
 function t(text) {
@@ -565,7 +565,7 @@ function ui(parts, ...values) {
   return parts.reduce((out, part, index) => out + t(part) + (index < values.length ? values[index] : ''), '');
 }
 // Server diagnostics can contain a field path or a numeric range around a message.
-const diagnosticKeys = ["Не удалось определить сети gateway. Укажите его имя или ID в настройках.", "Укажите доступный IPv4 или IPv6 Docker-хоста, без схемы и порта", "ожидается имя сервера или Docker-контейнера, без схемы и пути", "Не удалось подключиться к Docker. Проверьте daemon и socket.", "Socket не найден. Смонтируйте docker.sock и проверьте путь.", "Ответ Docker превышает 4 MiB. Уменьшите число контейнеров.", "Укажите абсолютный путь к Unix socket .sock (до 103 байт)", "Черновик изменился. Обновите страницу перед сохранением.", "Нет доступа к socket. Проверьте права процесса Gateway.", "Локальный запуск: используйте опубликованные TCP-порты", "Nginx не запустился: проверьте логи и занятые порты", "Нет публикации для выбранной версии IP Docker-хоста", "Укажите имя или ID контейнера gateway в настройках", "Укажите IP Docker-хоста для опубликованных портов", "Порт опубликован только на localhost Docker-хоста", "Общая сеть Docker или опубликованные порты хоста", "Слишком много попыток. Повторите через 5 минут.", "Контейнер gateway: имя или ID, без схемы и пути", "Настройки Docker изменились. Обновите страницу.", "путь вида /, /api, /v1/api; без завершающего /", "Пароль должен содержать от 12 до 256 символов", ". Откат не подтверждён; проверьте контейнер.", "ожидается DNS-имя или IPv4, без схемы и пути", "Nginx не работает; перезапустите контейнер", "Неподдерживаемая версия Docker Engine API", "Ошибка сервера; проверьте логи контейнера", "У gateway нет подключённых сетей Docker", "Неверный CSRF-токен. Обновите страницу.", "Nginx не подтвердил новую конфигурацию", "Docker не ответил за отведённое время.", "Указанный путь не является Unix socket", "Неожиданный формат ответа Docker API.", "Не удалось получить состояние Gateway", "IP Docker-хоста должен быть строкой", "Docker не вернул список контейнеров", "Transfer-Encoding не поддерживается", "нужен хотя бы один основной сервер", "Максимальный размер запроса: 1 MiB", "неизвестный алгоритм балансировки", "Docker вернул некорректный ответ", "Неверный набор настроек Docker", "enabled должен быть true/false", "Подключение к Docker выключено", "IPv6 zone ID не поддерживается", "Слишком много live-подключений", "Нет опубликованных TCP-портов", "backup несовместим с IP hash", "Cross-origin запрос запрещён", "Не удалось проверить Nginx:", "ожидается список, элементов", "Войдите в панель управления", "Ожидается application/json", "ID должен быть уникальным", "Нет общей сети с gateway", "Нет адреса в общей сети", "поддерживается версия 1", "название: 1–80 символов", "Текущий пароль неверен", "Docker API вернул HTTP", "ожидается целое число", "ожидается IP или CIDR", "Контейнер не запущен", "неверный набор полей", "ожидается true/false", "некорректное DNS-имя", "домен уже существует", "путь уже существует", "Версия не найдена", "Сессия завершена", "Защита и лимиты", "Сохранённый IP:", "Неверная версия", "Это сам gateway", "Неверный пароль", "История версий", "Обзор системы", "Сети gateway:", "ожидается IP", "Кеширование", "неверный ID", "запр/с"];
+const diagnosticKeys = ["Не удалось определить сети AmberGate. Укажите его имя или ID в настройках.", "Укажите доступный IPv4 или IPv6 Docker-хоста, без схемы и порта", "ожидается имя сервера или Docker-контейнера, без схемы и пути", "Не удалось подключиться к Docker. Проверьте daemon и socket.", "Socket не найден. Смонтируйте docker.sock и проверьте путь.", "Ответ Docker превышает 4 MiB. Уменьшите число контейнеров.", "Укажите абсолютный путь к Unix socket .sock (до 103 байт)", "Черновик изменился. Обновите страницу перед сохранением.", "Нет доступа к socket. Проверьте права процесса AmberGate.", "Локальный запуск: используйте опубликованные TCP-порты", "Nginx не запустился: проверьте логи и занятые порты", "Нет публикации для выбранной версии IP Docker-хоста", "Укажите имя или ID контейнера AmberGate в настройках", "Укажите IP Docker-хоста для опубликованных портов", "Порт опубликован только на localhost Docker-хоста", "Общая сеть Docker или опубликованные порты хоста", "Слишком много попыток. Повторите через 5 минут.", "Контейнер AmberGate: имя или ID, без схемы и пути", "Настройки Docker изменились. Обновите страницу.", "путь вида /, /api, /v1/api; без завершающего /", "Пароль должен содержать от 12 до 256 символов", ". Откат не подтверждён; проверьте контейнер.", "ожидается DNS-имя или IPv4, без схемы и пути", "Nginx не работает; перезапустите контейнер", "Неподдерживаемая версия Docker Engine API", "Ошибка сервера; проверьте логи контейнера", "У AmberGate нет подключённых сетей Docker", "Неверный CSRF-токен. Обновите страницу.", "Nginx не подтвердил новую конфигурацию", "Docker не ответил за отведённое время.", "Указанный путь не является Unix socket", "Неожиданный формат ответа Docker API.", "Не удалось получить состояние AmberGate", "IP Docker-хоста должен быть строкой", "Docker не вернул список контейнеров", "Transfer-Encoding не поддерживается", "нужен хотя бы один основной сервер", "Максимальный размер запроса: 1 MiB", "неизвестный алгоритм балансировки", "Docker вернул некорректный ответ", "Неверный набор настроек Docker", "enabled должен быть true/false", "Подключение к Docker выключено", "IPv6 zone ID не поддерживается", "Слишком много live-подключений", "Нет опубликованных TCP-портов", "backup несовместим с IP hash", "Cross-origin запрос запрещён", "Не удалось проверить Nginx:", "ожидается список, элементов", "Войдите в панель управления", "Ожидается application/json", "ID должен быть уникальным", "Нет общей сети с AmberGate", "Нет адреса в общей сети", "поддерживается версия 1", "название: 1–80 символов", "Текущий пароль неверен", "Docker API вернул HTTP", "ожидается целое число", "ожидается IP или CIDR", "Контейнер не запущен", "неверный набор полей", "ожидается true/false", "некорректное DNS-имя", "домен уже существует", "путь уже существует", "Версия не найдена", "Сессия завершена", "Защита и лимиты", "Сохранённый IP:", "Неверная версия", "Это сам AmberGate", "Неверный пароль", "История версий", "Обзор системы", "Сети AmberGate:", "ожидается IP", "Кеширование", "неверный ID", "запр/с"];
 function translateError(message) {
   const value = String(message);
   if (language === 'ru') return value;
@@ -577,12 +577,12 @@ const diagnosticPattern = new RegExp(diagnosticKeys.map(key => key.replace(/[.*+
 function setLanguage(value) {
   if (!['ru', 'en'].includes(value)) return;
   language = value;
-  try { localStorage.setItem('gateway.language', value); } catch { /* Optional persistence. */ }
+  try { localStorage.setItem('ambergate.language', value); } catch { /* Optional persistence. */ }
   document.documentElement.lang = value;
-  document.title = value === 'ru' ? 'Gateway — управление Nginx' : 'Gateway — Nginx control panel';
+  document.title = value === 'ru' ? 'AmberGate — управление Nginx' : 'AmberGate — Nginx control panel';
 }
 function languageSwitcher() {
   return `<div class="language-switch" role="group" aria-label="${language === 'ru' ? 'Язык интерфейса' : 'Interface language'}">${['ru', 'en'].map(value => `<button type="button" data-action="language" data-language="${value}" aria-pressed="${value === language}">${value.toUpperCase()}</button>`).join('')}</div>`;
 }
 document.documentElement.lang = language;
-document.title = language === 'ru' ? 'Gateway — управление Nginx' : 'Gateway — Nginx control panel';
+document.title = language === 'ru' ? 'AmberGate — управление Nginx' : 'AmberGate — Nginx control panel';

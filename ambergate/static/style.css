@@ -695,3 +695,8 @@ button.confirm-delete:hover { background: #ffbf5c; border-color: #ffcc7c; color:
 .language-switch button:hover{color:#fff}.language-switch button[aria-pressed="true"]:hover{color:#151516}
 .login-form-wrap{position:relative}.login-form-wrap>.language-switch{position:absolute;right:28px;top:26px}
 @media(max-width:600px){.top-right{gap:8px}.language-switch button{padding:4px 7px}.top-right .topbar-divider{display:none}}
+
+/* AmberGate wordmark: preserve the established amber routing symbol. */
+.brand{font-size:23px;letter-spacing:-.9px;gap:10px}
+.brand-accent{color:#ffaf35}.brand small{font-size:7px;letter-spacing:1.8px}
+@media(max-width:760px){.sidebar .brand{font-size:20px;gap:8px}}

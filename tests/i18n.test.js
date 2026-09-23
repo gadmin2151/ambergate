@@ -3,9 +3,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const test = require('node:test');
 const vm = require('node:vm');
-const i18n = fs.readFileSync('gateway/static/i18n.js','utf8');
+const i18n = fs.readFileSync('ambergate/static/i18n.js','utf8');
 function fixture(saved='en', blocked=false) {
-  const storage = new Map(saved ? [['gateway.language',saved]] : []);
+  const storage = new Map(saved ? [['ambergate.language',saved]] : []);
   const context = vm.createContext({Intl, Date, navigator:{language:'en-US'},
     localStorage:{getItem:key=>{if(blocked)throw new Error('blocked');return storage.get(key);}, setItem:(key,value)=>{if(blocked)throw new Error('blocked');storage.set(key,value);}},
     document:{documentElement:{}, addEventListener(){}, querySelector(){return null;}},window:{addEventListener(){}},
@@ -15,7 +15,7 @@ function fixture(saved='en', blocked=false) {
 }
 test('locale is restored, validated and persisted without requiring storage',()=>{
   const f=fixture('ru');assert.equal(f.run('locale()'),'ru-RU');
-  f.run("setLanguage('en')");assert.equal(f.storage.get('gateway.language'),'en');assert.equal(f.context.document.documentElement.lang,'en');
+  f.run("setLanguage('en')");assert.equal(f.storage.get('ambergate.language'),'en');assert.equal(f.context.document.documentElement.lang,'en');
   f.run("setLanguage('<script>')");assert.equal(f.run('language'),'en');
   assert.equal(fixture('invalid').run('language'),'en');
   const blocked=fixture(null,true);assert.doesNotThrow(()=>blocked.run("setLanguage('en')"));assert.equal(blocked.run("t('Применить')"),'Apply');
@@ -31,7 +31,7 @@ test('authored template text is translated while user data and escaping stay int
 function panelFixture() {
   const f=fixture();
   for(const name of ['dashboard','docker','app']){
-    let code=fs.readFileSync(`gateway/static/${name}.js`,'utf8');
+    let code=fs.readFileSync(`ambergate/static/${name}.js`,'utf8');
     if(name==='app')code=code.slice(0,code.lastIndexOf('(async()=>'));
     f.run(code);
   }
@@ -56,4 +56,13 @@ test('English plural and number formatting differ from Russian',()=>{
   assert.equal(f.run('dashNumber(1234.5)'),'1,234.5');
   f.run("setLanguage('ru')");assert.equal(f.run("plural(21,t('маршрут'),t('маршрута'),t('маршрутов'))"),'маршрут');
   assert.match(f.run('dashNumber(1234.5)'),/234,5$/);
+});
+
+test('old language preference survives the AmberGate rename',()=>{
+  const f=fixture(null); f.storage.set('gateway.language','ru');
+  const context=vm.createContext({document:{documentElement:{}},navigator:{language:'en-US'},localStorage:{getItem:key=>f.storage.get(key),setItem:(key,value)=>f.storage.set(key,value)}});
+  vm.runInContext(i18n,context);
+  assert.equal(vm.runInContext('language',context),'ru');
+  vm.runInContext("setLanguage('en')",context);
+  assert.equal(f.storage.get('ambergate.language'),'en');
 });

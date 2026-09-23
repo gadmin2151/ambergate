@@ -1,5 +1,6 @@
 """Small private control plane; only nginx handles gateway traffic."""
 from http.cookies import SimpleCookie, CookieError
+from .environment import setting
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import hmac
 import json
@@ -54,7 +55,7 @@ class Server(ThreadingHTTPServer):
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "Gateway"
+    server_version = "AmberGate"
     sys_version = ""
 
     def setup(self):
@@ -86,13 +87,13 @@ class Handler(BaseHTTPRequestHandler):
     def token(self):
         try:
             cookie = SimpleCookie(self.headers.get("Cookie", ""))
-            return cookie["gateway_session"].value if "gateway_session" in cookie else ""
+            return cookie["ambergate_session"].value if "ambergate_session" in cookie else ""
         except CookieError:
             return ""
 
     def cookie(self, token, age=43200):
-        secure = "; Secure" if os.environ.get("GATEWAY_SECURE_COOKIE", "false").lower() == "true" else ""
-        return f"gateway_session={token}; HttpOnly; SameSite=Strict; Path=/; Max-Age={age}{secure}"
+        secure = "; Secure" if setting("SECURE_COOKIE", "false").lower() == "true" else ""
+        return f"ambergate_session={token}; HttpOnly; SameSite=Strict; Path=/; Max-Age={age}{secure}"
 
     def stream_dashboard(self):
         # Reserve half the request slots for login, edits and health checks.
@@ -161,7 +162,7 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/docker":
                 return self.respond(200, self.server.docker.snapshot(force=urlsplit(self.path).query == "refresh=1"))
             if path == "/api/export":
-                return self.respond(200, self.server.store.draft_config(), headers={"Content-Disposition": 'attachment; filename="gateway-config.json"'})
+                return self.respond(200, self.server.store.draft_config(), headers={"Content-Disposition": 'attachment; filename="ambergate-config.json"'})
             if path == "/api/active.conf":
                 return self.respond(200, (self.server.store.active / "nginx.conf").read_text(), "text/plain; charset=utf-8")
             self.respond(404, {"error": "Не найдено"})

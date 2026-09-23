@@ -1,18 +1,18 @@
 services:
-  gateway:
-    image: ghcr.io/gadmin2151/nginx-scale-gw:latest
+  ambergate:
+    image: ghcr.io/gadmin2151/ambergate:latest
     restart: unless-stopped
     ports:
       - "80:80"
       - "127.0.0.1:8083:8083"
     environment:
-      GATEWAY_ADMIN_PASSWORD: ${GATEWAY_ADMIN_PASSWORD:-}
-      GATEWAY_SECURE_COOKIE: ${GATEWAY_SECURE_COOKIE:-false}
+      AMBERGATE_ADMIN_PASSWORD: ${AMBERGATE_ADMIN_PASSWORD:-${GATEWAY_ADMIN_PASSWORD:-}}
+      AMBERGATE_SECURE_COOKIE: ${AMBERGATE_SECURE_COOKIE:-${GATEWAY_SECURE_COOKIE:-false}}
     volumes:
-      - gateway-data:/data
-      - gateway-cache:/cache
+      - ambergate-data:/data
+      - ambergate-cache:/cache
     networks:
-      - gateway
+      - ambergate
     stop_grace_period: 35s
     logging:
       driver: json-file
@@ -21,9 +21,9 @@ services:
         max-file: "3"
 
 volumes:
-  gateway-data:
-  gateway-cache:
+  ambergate-data:
+  ambergate-cache:
 
 networks:
-  gateway:
-    name: nginx-gateway
+  ambergate:
+    name: ambergate

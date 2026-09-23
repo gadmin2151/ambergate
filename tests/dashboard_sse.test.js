@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const test = require('node:test');
 const vm = require('node:vm');
-const code = fs.readFileSync('gateway/static/i18n.js', 'utf8') + '\n' + fs.readFileSync('gateway/static/dashboard.js', 'utf8');
+const code = fs.readFileSync('ambergate/static/i18n.js', 'utf8') + '\n' + fs.readFileSync('ambergate/static/dashboard.js', 'utf8');
 function fixture() {
   const sources = [], timers = new Map(), listeners = {};
   let timerId = 0;

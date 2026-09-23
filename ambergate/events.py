@@ -29,7 +29,7 @@ class DashboardEvents:
                 self.frame = None  # Never replay a snapshot from an idle period.
             self.clients += 1
             if self.thread is None:
-                self.thread = threading.Thread(target=self.run, name="gateway-events", daemon=True)
+                self.thread = threading.Thread(target=self.run, name="ambergate-events", daemon=True)
                 self.thread.start()
             self.condition.notify_all()
             return True
@@ -55,7 +55,7 @@ class DashboardEvents:
                 frame = event("dashboard", self.snapshot(), self.sequence + 1)
             except Exception as exc:
                 print(f"dashboard stream: {type(exc).__name__}: {exc}", flush=True)
-                frame = event("stream_error", {"error": "Не удалось получить состояние Gateway"})
+                frame = event("stream_error", {"error": "Не удалось получить состояние AmberGate"})
             with self.condition:
                 if self.stopped:
                     return

@@ -1,4 +1,4 @@
-from gateway.config import default_config
+from ambergate.config import default_config
 
 
 def route(path="/", port=9000, id="root"):

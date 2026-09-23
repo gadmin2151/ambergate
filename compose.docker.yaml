@@ -1,10 +1,10 @@
 # Optional overlay for either compose.yaml or compose.ghcr.yaml.
 # Docker discovery is enabled from the Docker page after mounting the socket.
 services:
-  gateway:
+  ambergate:
     environment:
-      GATEWAY_DOCKER_SOCKET: /var/run/docker.sock
-      GATEWAY_DOCKER_CONTAINER: ${GATEWAY_DOCKER_CONTAINER:-}
+      AMBERGATE_DOCKER_SOCKET: /var/run/docker.sock
+      AMBERGATE_DOCKER_CONTAINER: ${AMBERGATE_DOCKER_CONTAINER:-${GATEWAY_DOCKER_CONTAINER:-}}
     volumes:
       - type: bind
         source: ${DOCKER_SOCKET_PATH:-/var/run/docker.sock}

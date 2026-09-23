@@ -1,7 +1,7 @@
 import json
 import unittest
 
-from gateway.metrics import MAX_DOMAINS, Metrics
+from ambergate.metrics import MAX_DOMAINS, Metrics
 
 
 class MetricsTests(unittest.TestCase):

@@ -1,7 +1,7 @@
 import unittest
 
-from gateway.config import ValidationError, default_config, validate
-from gateway.nginx import render
+from ambergate.config import ValidationError, default_config, validate
+from ambergate.nginx import render
 from .helpers import config, route
 
 

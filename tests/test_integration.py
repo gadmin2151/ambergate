@@ -13,9 +13,9 @@ import time
 import unittest
 from unittest.mock import patch
 
-from gateway.auth import Auth
-from gateway.server import Server
-from gateway.storage import ApplyError, ConflictError, Store, atomic_write
+from ambergate.auth import Auth
+from ambergate.server import Server
+from ambergate.storage import ApplyError, ConflictError, Store, atomic_write
 from .helpers import config, route
 
 NGINX = os.environ.get("TEST_NGINX") or shutil.which("nginx")
@@ -91,7 +91,7 @@ class GatewayIntegrationTests(unittest.TestCase):
         cls.store = Store(cls.root / "data", cls.root / "cache", cls.root / "run", NGINX,
                           port=cls.port, control_port=cls.control, mime_types=MIME)
         cls.store.start()
-        with patch.dict(os.environ, {"GATEWAY_ADMIN_PASSWORD": "test-password-12345"}):
+        with patch.dict(os.environ, {"AMBERGATE_ADMIN_PASSWORD": "test-password-12345"}):
             cls.auth = Auth(cls.store.data)
         cls.admin = Server(("127.0.0.1", 0), cls.store, cls.auth)
         cls.admin_thread = threading.Thread(target=cls.admin.serve_forever, daemon=True)
@@ -165,18 +165,18 @@ class GatewayIntegrationTests(unittest.TestCase):
         self.apply_config()
         first = request(self.port, "/cached")
         second = request(self.port, "/cached")
-        self.assertEqual(first[1]["X-Gateway-Cache"], "MISS")
-        self.assertEqual(second[1]["X-Gateway-Cache"], "HIT")
+        self.assertEqual(first[1]["X-AmberGate-Cache"], "MISS")
+        self.assertEqual(second[1]["X-AmberGate-Cache"], "HIT")
         self.assertEqual(first[2], second[2])
         for headers in ({"Cookie": "user=one"}, {"Authorization": "Bearer secret"},
                         {"Cache-Control": "no-cache"}):
-            self.assertEqual(request(self.port, "/cached", headers=headers)[1]["X-Gateway-Cache"], "BYPASS")
+            self.assertEqual(request(self.port, "/cached", headers=headers)[1]["X-AmberGate-Cache"], "BYPASS")
         for path in ("/signed?X-Amz-Signature=abc", "/signed?token=abc"):
-            self.assertEqual(request(self.port, path)[1]["X-Gateway-Cache"], "BYPASS")
+            self.assertEqual(request(self.port, path)[1]["X-AmberGate-Cache"], "BYPASS")
         for path in ("/set-cookie", "/private"):
-            self.assertEqual(request(self.port, path)[1]["X-Gateway-Cache"], "MISS")
-            self.assertEqual(request(self.port, path)[1]["X-Gateway-Cache"], "MISS")
-        self.assertNotEqual(request(self.port, "/post", method="POST", body="abc")[1].get("X-Gateway-Cache"), "HIT")
+            self.assertEqual(request(self.port, path)[1]["X-AmberGate-Cache"], "MISS")
+            self.assertEqual(request(self.port, path)[1]["X-AmberGate-Cache"], "MISS")
+        self.assertNotEqual(request(self.port, "/post", method="POST", body="abc")[1].get("X-AmberGate-Cache"), "HIT")
         en = request(self.port, "/vary", headers={"Accept-Language": "en"})
         ru = request(self.port, "/vary", headers={"Accept-Language": "ru"})
         self.assertNotEqual(en[2], ru[2])
@@ -433,7 +433,7 @@ class GatewayIntegrationTests(unittest.TestCase):
         client = http.client.HTTPConnection("127.0.0.1", self.admin.server_port, timeout=5)
         response = None
         try:
-            client.request("GET", "/api/events", headers={"Cookie": "gateway_session=" + token})
+            client.request("GET", "/api/events", headers={"Cookie": "ambergate_session=" + token})
             response = client.getresponse()
             self.assertEqual(response.status, 200)
             _, before, _ = read_event(response)
