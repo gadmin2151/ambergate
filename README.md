@@ -147,7 +147,7 @@ Open **Docker → Connect Docker**, then **Domains & routes → your route → S
 
 For a container published as `8001:80`, save the **Docker host IP** in the picker, select **Via host IP**, and the route uses **`host-IP:8001`**. No shared network is required. Ports bound only to host `127.0.0.1` or `::1` cannot be reached from a separate gateway container.
 
-For shared networks, attach applications to `ambergate` and use Docker DNS names. Nginx re-resolves names so a container recreated with the same name can receive a new IP. Selecting multiple containers configures load balancing. Adding new replicas to routes is manual; discovery does not change application networks or continuously rewrite your routes.
+For shared networks, attach applications to `ambergate` and use Docker DNS names. Nginx re-resolves names so a container recreated with the same name can receive a new IP. Selecting multiple containers configures load balancing. The container picker creates manual targets. To track new replicas automatically, enable Docker labels as described below. Discovery never changes application networks.
 
 The picker shows state, image, networks and TCP ports. Stopped containers and the gateway itself cannot be selected. Ports can be entered manually when `EXPOSE` is absent. Select an **HTTP** application port; discovery does not detect the application protocol.
 
